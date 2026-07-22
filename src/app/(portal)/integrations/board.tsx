@@ -1,0 +1,210 @@
+"use client";
+
+import { motion } from "framer-motion";
+import {
+  BarChart3,
+  Check,
+  Megaphone,
+  Plug,
+  RefreshCw,
+  Search,
+  type LucideIcon,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { formatCurrency } from "@/lib/utils";
+import type { IntegrationProvider } from "@/lib/integrations/providers";
+
+const ICONS: Record<string, LucideIcon> = {
+  meta_ads: Megaphone,
+  google_ads: Megaphone,
+  ga4: BarChart3,
+  search_console: Search,
+};
+
+interface Row {
+  provider: string;
+  status: string;
+  account_label: string | null;
+  last_synced_at: string | null;
+  meta: { metrics?: Record<string, number> } | null;
+}
+
+function fmt(unit: string, v: number) {
+  if (unit === "currency") return formatCurrency(v);
+  if (unit === "ratio") return `${v.toFixed(1)}x`;
+  if (unit === "percent") return `${v}%`;
+  return new Intl.NumberFormat("en").format(v);
+}
+
+export function IntegrationsBoard({
+  providers,
+  rows,
+  clientId,
+  clients,
+  isStaff,
+  liveProviders,
+}: {
+  providers: IntegrationProvider[];
+  rows: Row[];
+  clientId: string | null;
+  clients: { id: string; company: string }[];
+  isStaff: boolean;
+  liveProviders: string[];
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const rowFor = (id: string) => rows.find((r) => r.provider === id);
+
+  async function act(providerId: string, action: "connect" | "disconnect") {
+    setBusy(providerId);
+    await fetch(`/api/integrations/${providerId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, clientId }),
+    });
+    setBusy(null);
+    router.refresh();
+  }
+
+  async function sync(providerId?: string) {
+    setBusy(providerId ?? "all");
+    await fetch("/api/integrations/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId, provider: providerId }),
+    });
+    setBusy(null);
+    router.refresh();
+  }
+
+  const anyConnected = rows.some((r) => r.status === "connected");
+
+  return (
+    <div className="space-y-5">
+      {isStaff && clients.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted">Managing for:</span>
+          {clients.map((c) => (
+            <a
+              key={c.id}
+              href={`/integrations?client=${c.id}`}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                c.id === clientId
+                  ? "border-brand/40 bg-brand/10 text-brand"
+                  : "border-border text-muted hover:text-foreground"
+              }`}
+            >
+              {c.company}
+            </a>
+          ))}
+        </div>
+      )}
+
+      {anyConnected && (
+        <div className="flex justify-end">
+          <Button size="sm" variant="secondary" loading={busy === "all"} onClick={() => sync()}>
+            <RefreshCw className="h-4 w-4" /> Sync all
+          </Button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {providers.map((p, i) => {
+          const Icon = ICONS[p.id] ?? Plug;
+          const row = rowFor(p.id);
+          const connected = row?.status === "connected";
+          const metrics = row?.meta?.metrics;
+          return (
+            <motion.div
+              key={p.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+            >
+              <Card className="flex h-full flex-col p-5">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`flex h-11 w-11 items-center justify-center rounded-xl ${
+                        connected ? "bg-brand/15 text-brand" : "bg-surface-2 text-muted"
+                      }`}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <h3 className="text-base font-semibold">{p.name}</h3>
+                      <Badge variant="outline" className="mt-0.5">{p.category}</Badge>
+                    </div>
+                  </div>
+                  {connected ? (
+                    <Badge variant="success" className="gap-1">
+                      <Check className="h-3 w-3" /> Connected
+                    </Badge>
+                  ) : (
+                    <Badge variant="neutral">Not connected</Badge>
+                  )}
+                </div>
+
+                <p className="mt-3 text-sm text-muted">{p.description}</p>
+
+                {connected && metrics && (
+                  <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl border border-border bg-bg/40 p-3">
+                    {p.metrics.map((m) => (
+                      <div key={m.key}>
+                        <p className="text-[10px] text-muted">{m.label}</p>
+                        <p className="text-sm font-semibold text-foreground">
+                          {metrics[m.key] != null ? fmt(m.unit, metrics[m.key]) : "—"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-4 flex items-center justify-between">
+                  <span className="text-[11px] text-muted/70">
+                    {connected
+                      ? row?.last_synced_at
+                        ? `Synced ${new Date(row.last_synced_at).toLocaleString("en-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
+                        : row?.account_label ?? "Connected"
+                      : "Pull live KPIs into the portal"}
+                  </span>
+                  <div className="flex gap-2">
+                    {connected ? (
+                      <>
+                        <Button size="sm" variant="secondary" loading={busy === p.id} onClick={() => sync(p.id)}>
+                          <RefreshCw className="h-4 w-4" /> Sync
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => act(p.id, "disconnect")}>
+                          Disconnect
+                        </Button>
+                      </>
+                    ) : liveProviders.includes(p.id) ? (
+                      <a
+                        href={`/api/integrations/${p.id}/oauth/start${clientId ? `?clientId=${clientId}` : ""}`}
+                      >
+                        <Button size="sm" disabled={!clientId}>Connect</Button>
+                      </a>
+                    ) : (
+                      <Button size="sm" loading={busy === p.id} onClick={() => act(p.id, "connect")} disabled={!clientId}>
+                        Connect
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {!clientId && (
+        <p className="text-center text-sm text-muted">No client selected. Onboard a client first.</p>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Default TyloTech Gold & Black — overridden at runtime by ThemeProvider */
+  --bg: 8 8 9;
+  --surface: 18 18 20;
+  --surface-2: 26 26 29;
+  --border: 38 38 42;
+  --foreground: 237 237 240;
+  --muted: 148 148 156;
+  --brand: 201 168 76;
+  --brand-foreground: 12 12 14;
+  --accent: 24 22 18;
+  --success: 52 199 123;
+  --warning: 240 185 66;
+  --danger: 244 87 87;
+  --info: 96 165 250;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-sans);
+}
+
+* {
+  border-color: rgb(var(--border));
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: rgb(var(--bg));
+  color: rgb(var(--foreground));
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Smooth theme transitions when white-label switches */
+.theme-transition,
+.theme-transition * {
+  transition:
+    background-color 0.4s ease,
+    border-color 0.4s ease,
+    color 0.4s ease,
+    box-shadow 0.4s ease;
+}
+
+::selection {
+  background: rgb(var(--brand) / 0.3);
+  color: rgb(var(--foreground));
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--border));
+  border-radius: 999px;
+  border: 2px solid rgb(var(--bg));
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--muted) / 0.5);
+}
+
+@layer components {
+  .glass {
+    background: rgb(var(--surface) / 0.7);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+  }
+
+  .card {
+    @apply rounded-2xl border border-border bg-surface shadow-card;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:border-brand/40 hover:shadow-glow;
+  }
+
+  .input-base {
+    @apply w-full rounded-xl border border-border bg-bg/60 px-4 py-3 text-sm text-foreground
+      placeholder:text-muted/60 outline-none transition-all
+      focus:border-brand/60 focus:ring-2 focus:ring-brand/20;
+  }
+
+  .ring-focus {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg;
+  }
+}
+
+/* Recharts theming hooks */
+.recharts-cartesian-grid line {
+  stroke: rgb(var(--border) / 0.5);
+}
+.recharts-text {
+  fill: rgb(var(--muted));
+}

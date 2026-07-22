@@ -1,0 +1,176 @@
+"use client";
+
+import { motion } from "framer-motion";
+import { ArrowUpRight, CalendarDays, Download, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { PageHeader } from "@/components/ui/page-header";
+import { Progress } from "@/components/ui/progress";
+import { Donut } from "@/components/charts/donut";
+import { PerfArea } from "@/components/charts/perf-area";
+import { CHANNEL_SPLIT } from "@/lib/mock/data";
+import { PROJECT_STATUS, UPDATE_META } from "@/lib/status";
+import { formatRelativeTime } from "@/lib/utils";
+import { useUser } from "@/components/providers/user-provider";
+import type { Kpi, Project, SeriesPoint, Update } from "@/types";
+
+export function DashboardView({
+  kpis,
+  projects,
+  updates,
+  series,
+}: {
+  kpis: Kpi[];
+  projects: Project[];
+  updates: Update[];
+  series: SeriesPoint[];
+}) {
+  const user = useUser();
+  const firstName = user.name.split(" ")[0];
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title={`Welcome back, ${firstName}`}
+        subtitle="Here's how your campaigns are performing this month."
+      >
+        <Button variant="secondary" size="sm">
+          <CalendarDays className="h-4 w-4" />
+          June 2026
+        </Button>
+        <Button size="sm" onClick={() => window.open("/api/reports/performance", "_blank")}>
+          <Download className="h-4 w-4" />
+          Export report
+        </Button>
+      </PageHeader>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {kpis.map((kpi, i) => (
+          <KpiCard key={kpi.id} kpi={kpi} index={i} spark={series} />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <div>
+              <CardTitle>Ad spend & leads</CardTitle>
+              <p className="mt-0.5 text-xs text-muted">Last 30 days</p>
+            </div>
+            <div className="flex items-center gap-3 text-xs">
+              <span className="flex items-center gap-1.5 text-muted">
+                <span className="h-2 w-2 rounded-full bg-brand" /> Spend
+              </span>
+              <span className="flex items-center gap-1.5 text-muted">
+                <span className="h-2 w-2 rounded-full bg-info" /> Leads
+              </span>
+            </div>
+          </CardHeader>
+          <PerfArea data={series} keys={["spend", "leads"]} />
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Channel mix</CardTitle>
+            <Badge variant="outline">Spend share</Badge>
+          </CardHeader>
+          <Donut data={CHANNEL_SPLIT} />
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Recent updates</CardTitle>
+            <Link href="/chat" className="text-xs font-medium text-brand hover:underline">
+              View all
+            </Link>
+          </CardHeader>
+          <ul className="space-y-1">
+            {updates.map((u, i) => {
+              const meta = UPDATE_META[u.type];
+              return (
+                <motion.li
+                  key={u.id}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="flex gap-3 rounded-xl p-3 transition-colors hover:bg-surface-2"
+                >
+                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-medium text-foreground">{u.title}</p>
+                      <Badge variant={meta.variant} className="shrink-0">
+                        {meta.label}
+                      </Badge>
+                    </div>
+                    <p className="mt-0.5 line-clamp-2 text-xs text-muted">{u.description}</p>
+                  </div>
+                  <span className="shrink-0 text-[11px] text-muted/60">
+                    {formatRelativeTime(u.created_at)}
+                  </span>
+                </motion.li>
+              );
+            })}
+          </ul>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Active projects</CardTitle>
+            <Badge variant="brand">{projects.length}</Badge>
+          </CardHeader>
+          <div className="space-y-4">
+            {projects.map((p) => {
+              const s = PROJECT_STATUS[p.status];
+              return (
+                <div key={p.id}>
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <p className="truncate text-sm font-medium text-foreground">{p.name}</p>
+                    <Badge variant={s.variant}>{s.label}</Badge>
+                  </div>
+                  <Progress value={p.progress} tone={s.tone} />
+                  <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted">
+                    <span>{p.assigned_to}</span>
+                    <span>{p.progress}%</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative overflow-hidden rounded-2xl border border-brand/25 bg-brand/[0.06] p-6"
+      >
+        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-brand/15 blur-3xl" />
+        <div className="relative flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+          <div className="flex items-start gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand/15">
+              <Sparkles className="h-5 w-5 text-brand" />
+            </span>
+            <div>
+              <h3 className="text-base font-semibold">Try the AI Content Generator</h3>
+              <p className="mt-0.5 text-sm text-muted">
+                Generate on-brand posts and captions in seconds — included in your plan.
+              </p>
+            </div>
+          </div>
+          <Link href="/ai-tools/content-generator">
+            <Button>
+              Open tool
+              <ArrowUpRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
