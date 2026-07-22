@@ -34,6 +34,44 @@ export function ChatThread({
   const endRef = useRef<HTMLDivElement>(null);
   const seen = useRef<Set<string>>(new Set(initialMessages.map((m) => m.id)));
 
+  // Per-message chosen language + on-demand translation cache.
+  type Lang = "en" | "de";
+  const viewerLang: Lang = currentRole === "client" ? "de" : "en";
+  const [langByMsg, setLangByMsg] = useState<Record<string, Lang>>({});
+  const [cache, setCache] = useState<Record<string, Partial<Record<Lang, string>>>>({});
+  const [pending, setPending] = useState<Record<string, boolean>>({});
+
+  const originalLangOf = (m: Message): Lang => (m.sender_role === "client" ? "de" : "en");
+
+  // Both language versions we already know for a message (stored + cached).
+  const versionsOf = (m: Message): Partial<Record<Lang, string>> => {
+    const v: Partial<Record<Lang, string>> = { [originalLangOf(m)]: m.content };
+    if (m.content_translated && (m.translated_to === "en" || m.translated_to === "de")) {
+      v[m.translated_to as Lang] = m.content_translated;
+    }
+    return { ...v, ...(cache[m.id] ?? {}) };
+  };
+
+  async function ensureLang(m: Message, target: Lang) {
+    if (versionsOf(m)[target]) return;
+    setPending((p) => ({ ...p, [m.id]: true }));
+    const res = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: m.content, target }),
+    }).catch(() => null);
+    if (res?.ok) {
+      const { translation } = await res.json();
+      setCache((c) => ({ ...c, [m.id]: { ...(c[m.id] ?? {}), [target]: translation } }));
+    }
+    setPending((p) => ({ ...p, [m.id]: false }));
+  }
+
+  function pickLang(m: Message, target: Lang) {
+    setLangByMsg((l) => ({ ...l, [m.id]: target }));
+    void ensureLang(m, target);
+  }
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -115,14 +153,11 @@ export function ChatThread({
       <div className="flex-1 space-y-4 overflow-y-auto p-5">
         {messages.map((m) => {
           const mine = m.sender_id === currentUserId;
-          const viewerIsClient = currentRole === "client";
-          const messageFromClient = m.sender_role === "client";
-          // Show the translated variant to the opposite side of the conversation.
-          const showTranslated =
-            viewerIsClient !== messageFromClient &&
-            !!m.content_translated &&
-            m.content_translated !== m.content;
-          const displayText = showTranslated ? (m.content_translated as string) : m.content;
+          const selected: Lang = langByMsg[m.id] ?? viewerLang;
+          const versions = versionsOf(m);
+          const displayText = versions[selected] ?? m.content;
+          const isTranslated = selected !== originalLangOf(m) && versions[selected] != null;
+          const loading = pending[m.id] && versions[selected] == null;
           return (
             <motion.div
               key={m.id}
@@ -134,23 +169,39 @@ export function ChatThread({
               <div className={cn("max-w-[72%]", mine && "items-end text-right")}>
                 {!mine && <p className="mb-1 text-[11px] font-medium text-muted">{m.sender_name}</p>}
                 <div
-                  title={showTranslated ? `Original: ${m.content}` : undefined}
+                  title={isTranslated ? `Original: ${m.content}` : undefined}
                   className={cn(
                     "inline-block rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
                     mine ? "rounded-br-md bg-brand text-brand-foreground" : "rounded-bl-md bg-surface-2 text-foreground",
                   )}
                 >
-                  {displayText}
+                  {loading ? <span className="opacity-60">…</span> : displayText}
                 </div>
-                <p className={cn("mt-1 flex items-center gap-1.5 text-[10px] text-muted/60", mine && "justify-end")}>
-                  {showTranslated && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-brand/10 px-1.5 py-0.5 text-brand">
+                <div className={cn("mt-1 flex items-center gap-2 text-[10px] text-muted/60", mine && "flex-row-reverse")}>
+                  {/* EN / DE toggle — available on every message for every account type */}
+                  <span className="inline-flex overflow-hidden rounded-full border border-border">
+                    {(["en", "de"] as const).map((l) => (
+                      <button
+                        key={l}
+                        onClick={() => pickLang(m, l)}
+                        title={l === "en" ? "English" : "Deutsch"}
+                        className={cn(
+                          "px-1.5 py-0.5 text-[9px] font-semibold uppercase transition-colors",
+                          selected === l ? "bg-brand text-brand-foreground" : "text-muted hover:text-foreground",
+                        )}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </span>
+                  {isTranslated && (
+                    <span className="inline-flex items-center gap-1 text-brand">
                       <Languages className="h-2.5 w-2.5" />
-                      {m.translated_to === "de" ? "Übersetzt" : "Translated"}
+                      {selected === "de" ? "Übersetzt" : "Translated"}
                     </span>
                   )}
-                  {formatRelativeTime(m.created_at)}
-                </p>
+                  <span>{formatRelativeTime(m.created_at)}</span>
+                </div>
               </div>
             </motion.div>
           );
