@@ -9,12 +9,13 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Progress } from "@/components/ui/progress";
-import { Donut } from "@/components/charts/donut";
 import { PerfArea } from "@/components/charts/perf-area";
-import { CHANNEL_SPLIT } from "@/lib/mock/data";
 import { PROJECT_STATUS, UPDATE_META } from "@/lib/status";
 import { formatRelativeTime } from "@/lib/utils";
 import { useUser } from "@/components/providers/user-provider";
+import { createClient } from "@/lib/supabase/client";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import type { Kpi, Project, SeriesPoint, Update } from "@/types";
 
 export function DashboardView({
@@ -29,7 +30,28 @@ export function DashboardView({
   series: SeriesPoint[];
 }) {
   const user = useUser();
+  const router = useRouter();
   const firstName = user.name.split(" ")[0];
+
+  // Live dashboard — refresh when the agency updates this client's data.
+  useEffect(() => {
+    if (!user.client_id) return;
+    const sb = createClient();
+    if (!sb) return;
+    const cid = user.client_id;
+    const ch = sb.channel(`dash:${cid}`);
+    for (const table of ["kpis", "metric_points", "updates", "projects"]) {
+      ch.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table, filter: `client_id=eq.${cid}` },
+        () => router.refresh(),
+      );
+    }
+    ch.subscribe();
+    return () => {
+      sb.removeChannel(ch);
+    };
+  }, [user.client_id, router]);
 
   return (
     <div className="space-y-6">
@@ -47,39 +69,45 @@ export function DashboardView({
         </Button>
       </PageHeader>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {kpis.map((kpi, i) => (
-          <KpiCard key={kpi.id} kpi={kpi} index={i} spark={series} />
-        ))}
-      </div>
+      {kpis.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {kpis.map((kpi, i) => (
+            <KpiCard key={kpi.id} kpi={kpi} index={i} spark={series} />
+          ))}
+        </div>
+      ) : (
+        <Card className="flex flex-col items-center justify-center py-12 text-center">
+          <p className="text-sm font-medium text-foreground">No performance data yet</p>
+          <p className="mt-1 max-w-sm text-sm text-muted">
+            Your TyloTech team is setting up your reporting. Your KPIs and charts will appear here
+            as soon as your campaigns are connected.
+          </p>
+        </Card>
+      )}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <div>
-              <CardTitle>Ad spend & leads</CardTitle>
-              <p className="mt-0.5 text-xs text-muted">Last 30 days</p>
-            </div>
-            <div className="flex items-center gap-3 text-xs">
-              <span className="flex items-center gap-1.5 text-muted">
-                <span className="h-2 w-2 rounded-full bg-brand" /> Spend
-              </span>
-              <span className="flex items-center gap-1.5 text-muted">
-                <span className="h-2 w-2 rounded-full bg-info" /> Leads
-              </span>
-            </div>
-          </CardHeader>
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Ad spend & leads</CardTitle>
+            <p className="mt-0.5 text-xs text-muted">Last 30 days</p>
+          </div>
+          <div className="flex items-center gap-3 text-xs">
+            <span className="flex items-center gap-1.5 text-muted">
+              <span className="h-2 w-2 rounded-full bg-brand" /> Spend
+            </span>
+            <span className="flex items-center gap-1.5 text-muted">
+              <span className="h-2 w-2 rounded-full bg-info" /> Leads
+            </span>
+          </div>
+        </CardHeader>
+        {series.length > 0 ? (
           <PerfArea data={series} keys={["spend", "leads"]} />
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Channel mix</CardTitle>
-            <Badge variant="outline">Spend share</Badge>
-          </CardHeader>
-          <Donut data={CHANNEL_SPLIT} />
-        </Card>
-      </div>
+        ) : (
+          <div className="flex h-[220px] items-center justify-center text-sm text-muted">
+            No time-series data yet — connect an ad source to populate this chart.
+          </div>
+        )}
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">

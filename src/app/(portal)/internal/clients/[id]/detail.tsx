@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, FileText, LayoutGrid, MessagesSquare, Newspaper } from "lucide-react";
+import { ArrowLeft, BarChart3, FileText, LayoutGrid, MessagesSquare, Newspaper } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -9,12 +9,16 @@ import { Progress } from "@/components/ui/progress";
 import { ChatThread } from "@/components/chat/chat-thread";
 import { UpdatesManager } from "@/components/updates/updates-manager";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
+import { MetricsEditor } from "@/components/metrics/metrics-editor";
+import { IntegrationsBoard } from "@/app/(portal)/integrations/board";
+import { PROVIDERS } from "@/lib/integrations/providers";
 import { PROJECT_STATUS } from "@/lib/status";
 import { cn, formatCurrency } from "@/lib/utils";
-import type { Client, DocItem, Message, Project, Role, Update } from "@/types";
+import type { Client, DocItem, Kpi, Message, Project, Role, Update } from "@/types";
 
 const TABS = [
   { key: "overview", label: "Overview", icon: LayoutGrid },
+  { key: "metrics", label: "Metrics & APIs", icon: BarChart3 },
   { key: "chat", label: "Chat", icon: MessagesSquare },
   { key: "updates", label: "Updates", icon: Newspaper },
   { key: "documents", label: "Documents", icon: FileText },
@@ -28,6 +32,9 @@ export function ClientDetail({
   updates,
   documents,
   projects,
+  kpis,
+  integrations,
+  liveProviders,
   staff,
 }: {
   client: Client;
@@ -35,6 +42,9 @@ export function ClientDetail({
   updates: Update[];
   documents: DocItem[];
   projects: Project[];
+  kpis: Kpi[];
+  integrations: any[];
+  liveProviders: string[];
   staff: { id: string; name: string; role: Role };
 }) {
   const [tab, setTab] = useState<TabKey>("overview");
@@ -135,6 +145,27 @@ export function ClientDetail({
               })}
             </div>
           </Card>
+        </div>
+      )}
+
+      {tab === "metrics" && (
+        <div className="space-y-6">
+          <MetricsEditor clientId={client.id} initialKpis={kpis} />
+          <div>
+            <h3 className="mb-1 text-sm font-semibold">Connected data sources (APIs)</h3>
+            <p className="mb-3 text-xs text-muted">
+              Connect Meta Ads / Search Console for this client, set the account, then Sync to pull
+              live data straight onto their dashboard.
+            </p>
+            <IntegrationsBoard
+              providers={PROVIDERS}
+              rows={integrations}
+              clientId={client.id}
+              clients={[]}
+              isStaff
+              liveProviders={liveProviders}
+            />
+          </div>
         </div>
       )}
 

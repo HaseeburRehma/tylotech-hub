@@ -30,7 +30,7 @@ interface Row {
   status: string;
   account_label: string | null;
   last_synced_at: string | null;
-  meta: { metrics?: Record<string, number> } | null;
+  meta: { metrics?: Record<string, number>; accountId?: string; siteUrl?: string } | null;
 }
 
 function fmt(unit: string, v: number) {
@@ -79,6 +79,15 @@ export function IntegrationsBoard({
       body: JSON.stringify({ clientId, provider: providerId }),
     });
     setBusy(null);
+    router.refresh();
+  }
+
+  async function configure(providerId: string, field: "accountId" | "siteUrl", value: string) {
+    await fetch(`/api/integrations/${providerId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "configure", clientId, [field]: value }),
+    });
     router.refresh();
   }
 
@@ -151,6 +160,32 @@ export function IntegrationsBoard({
                 </div>
 
                 <p className="mt-3 text-sm text-muted">{p.description}</p>
+
+                {connected && (
+                  <div className="mt-3">
+                    {p.id === "meta_ads" ? (
+                      <label className="block text-[11px] text-muted">
+                        Ad account ID
+                        <input
+                          defaultValue={row?.meta?.accountId ?? ""}
+                          onBlur={(e) => e.target.value !== (row?.meta?.accountId ?? "") && configure(p.id, "accountId", e.target.value)}
+                          placeholder="act_1234567890"
+                          className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50"
+                        />
+                      </label>
+                    ) : (
+                      <label className="block text-[11px] text-muted">
+                        Property / site URL
+                        <input
+                          defaultValue={row?.meta?.siteUrl ?? ""}
+                          onBlur={(e) => e.target.value !== (row?.meta?.siteUrl ?? "") && configure(p.id, "siteUrl", e.target.value)}
+                          placeholder="https://example.com/"
+                          className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50"
+                        />
+                      </label>
+                    )}
+                  </div>
+                )}
 
                 {connected && metrics && (
                   <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl border border-border bg-bg/40 p-3">

@@ -10,7 +10,6 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Progress } from "@/components/ui/progress";
 import { MrrBars } from "@/components/charts/mrr-bars";
-import { MRR_SERIES } from "@/lib/mock/data";
 import { formatCurrency } from "@/lib/utils";
 import type { Client } from "@/types";
 import type { TeamLoad } from "@/lib/data";
@@ -24,20 +23,27 @@ export function InternalView({
   clients,
   team,
   pipeline,
+  mrrSeries,
+  projectCount,
 }: {
   clients: Client[];
   team: TeamLoad[];
   pipeline: PipelineColumn[];
+  mrrSeries: { month: string; mrr: number }[];
+  projectCount: number;
 }) {
   const totalMrr = clients.reduce((a, c) => a + (c.mrr ?? 0), 0);
   const utilization = team.length
     ? Math.round(team.reduce((a, t) => a + t.load, 0) / team.length)
     : 0;
+  const activeProjects = pipeline
+    .filter((c) => c.stage !== "Done")
+    .reduce((a, c) => a + c.projects.length, 0);
 
   const stats = [
-    { label: "Monthly Recurring Revenue", value: formatCurrency(totalMrr), delta: "+14.2%", icon: Wallet },
+    { label: "Monthly Recurring Revenue", value: formatCurrency(totalMrr), delta: "live", icon: Wallet },
     { label: "Active Clients", value: String(clients.length), delta: "live", icon: Building2 },
-    { label: "Net Revenue Retention", value: "118%", delta: "+6pts", icon: TrendingUp },
+    { label: "Active Projects", value: String(activeProjects), delta: `${projectCount} total`, icon: TrendingUp },
     { label: "Team Utilization", value: `${utilization}%`, delta: utilization > 85 ? "High" : "Healthy", icon: Users },
   ];
 
@@ -88,10 +94,10 @@ export function InternalView({
               <p className="mt-0.5 text-xs text-muted">MRR · last 12 months</p>
             </div>
             <Badge variant="success" className="gap-1">
-              <TrendingUp className="h-3 w-3" /> +€{(totalMrr - MRR_SERIES[0].mrr).toLocaleString()}
+              <TrendingUp className="h-3 w-3" /> +€{Math.max(0, totalMrr - (mrrSeries[0]?.mrr ?? 0)).toLocaleString()}
             </Badge>
           </CardHeader>
-          <MrrBars data={MRR_SERIES} />
+          <MrrBars data={mrrSeries} />
         </Card>
 
         <Card>

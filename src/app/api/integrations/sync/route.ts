@@ -2,14 +2,11 @@ import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { config } from "@/lib/config";
-import { getRateLimiter, ipKey, rateLimitHeaders } from "@/lib/rate-limit";
-import { generateMetrics } from "@/lib/integrations/sync";
-import type { ProviderId } from "@/lib/integrations/providers";
+import { getRateLimiter, rateLimitHeaders } from "@/lib/rate-limit";
+import { fetchMetaAds, fetchSearchConsole, type FetchedData } from "@/lib/integrations/fetchers";
+import { notifyClientUsers } from "@/lib/notify";
 
 export const runtime = "nodejs";
-
-const seedFrom = (s: string) =>
-  Array.from(s).reduce((a, c) => a + c.charCodeAt(0), 0);
 
 export async function POST(req: Request) {
   const user = await getAuthUser();
@@ -17,10 +14,7 @@ export async function POST(req: Request) {
 
   const rl = await getRateLimiter().limit(`sync:${user.id}`, config.rateLimit.api);
   if (!rl.success) {
-    return NextResponse.json(
-      { error: "Too many sync requests." },
-      { status: 429, headers: rateLimitHeaders(rl) },
-    );
+    return NextResponse.json({ error: "Too many sync requests." }, { status: 429, headers: rateLimitHeaders(rl) });
   }
 
   const body = (await req.json().catch(() => ({}))) as { clientId?: string; provider?: string };
@@ -35,45 +29,59 @@ export async function POST(req: Request) {
 
   let query = supabase
     .from("integrations")
-    .select("id,provider")
+    .select("id,provider,access_token,meta")
     .eq("client_id", clientId)
     .eq("status", "connected");
   if (body.provider) query = query.eq("provider", body.provider);
 
   const { data: rows, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  if (!rows?.length) {
-    return NextResponse.json({ ok: true, synced: 0, results: [] });
-  }
+  if (!rows?.length) return NextResponse.json({ ok: true, synced: 0, results: [] });
 
   const nowIso = new Date().toISOString();
-  const results = [];
+  const results: { provider: string; synced: boolean; reason?: string; kpis?: number }[] = [];
+  let populated = false;
+
   for (const row of rows) {
-    const metrics = generateMetrics(row.provider as ProviderId, seedFrom(clientId + row.provider));
-    await supabase
-      .from("integrations")
-      .update({ last_synced_at: nowIso, meta: { metrics, syncedAt: nowIso } })
-      .eq("id", row.id);
-    results.push({ provider: row.provider, metrics });
+    const cfg = (row.meta ?? {}) as { accountId?: string; siteUrl?: string };
+    let data: FetchedData | null = null;
+
+    if (row.provider === "meta_ads") {
+      data = await fetchMetaAds(row.access_token, cfg.accountId ?? "");
+    } else if (row.provider === "search_console" || row.provider === "ga4" || row.provider === "google_ads") {
+      data = await fetchSearchConsole(row.access_token, cfg.siteUrl ?? "");
+    }
+
+    if (!data) {
+      // No live credentials/config yet → write nothing (no placeholder data).
+      results.push({ provider: row.provider, synced: false, reason: "Connect the API + set account/site to pull live data" });
+      continue;
+    }
+
+    // Replace only this source's KPIs (preserves manually-entered + other sources).
+    const source = data.kpis[0]?.source;
+    if (source) {
+      await supabase.from("kpis").delete().eq("client_id", clientId).eq("source", source);
+      if (data.kpis.length) await supabase.from("kpis").insert(data.kpis.map((k) => ({ ...k, client_id: clientId })));
+    }
+    if (row.provider === "meta_ads" && data.series.length) {
+      await supabase
+        .from("metric_points")
+        .upsert(data.series.map((p) => ({ client_id: clientId, ...p })), { onConflict: "client_id,date" });
+    }
+    await supabase.from("integrations").update({ last_synced_at: nowIso, meta: cfg }).eq("id", row.id);
+    results.push({ provider: row.provider, synced: true, kpis: data.kpis.length });
+    populated = true;
   }
 
-  // Refresh the client's daily performance series (last 30 days).
-  const seed = seedFrom(clientId);
-  const noise = (i: number) => Math.abs((Math.sin((seed + i) * 12.9898) * 43758.5453) % 1);
-  const today = new Date();
-  const points = Array.from({ length: 30 }).map((_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() - (29 - i));
-    const base = 480 + Math.sin(i / 3) * 120 + i * 14;
-    return {
-      client_id: clientId,
-      date: d.toISOString().slice(0, 10),
-      spend: Math.round(base + noise(i) * 80),
-      leads: Math.round(8 + Math.sin(i / 2) * 4 + i * 0.3 + noise(i + 7) * 3),
-      roas: Number((3.4 + Math.sin(i / 4) * 0.8 + i * 0.02).toFixed(2)),
-    };
-  });
-  await supabase.from("metric_points").upsert(points, { onConflict: "client_id,date" });
+  if (populated) {
+    await notifyClientUsers(clientId, {
+      title: "Fresh performance data is in",
+      body: "Your latest campaign metrics have been synced.",
+      href: "/dashboard",
+      type: "update",
+    });
+  }
 
-  return NextResponse.json({ ok: true, synced: results.length, results });
+  return NextResponse.json({ ok: true, synced: results.filter((r) => r.synced).length, results });
 }

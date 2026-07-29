@@ -15,7 +15,12 @@ export async function POST(
   const provider = getProvider(params.provider);
   if (!provider) return NextResponse.json({ error: "Unknown provider." }, { status: 404 });
 
-  const body = (await req.json().catch(() => ({}))) as { action?: string; clientId?: string };
+  const body = (await req.json().catch(() => ({}))) as {
+    action?: string;
+    clientId?: string;
+    accountId?: string;
+    siteUrl?: string;
+  };
   const action = body.action;
 
   // Clients act on their own tenant; staff can target any client.
@@ -36,6 +41,20 @@ export async function POST(
       .eq("provider", provider.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ ok: true, status: "disconnected" });
+  }
+
+  if (action === "configure") {
+    // Store the account/site the sync should pull from (in integrations.meta).
+    const meta: Record<string, string> = {};
+    if (body.accountId) meta.accountId = body.accountId.trim();
+    if (body.siteUrl) meta.siteUrl = body.siteUrl.trim();
+    const { error } = await supabase
+      .from("integrations")
+      .update({ meta })
+      .eq("client_id", clientId)
+      .eq("provider", provider.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: true, meta });
   }
 
   // connect — real OAuth would happen here when credentials are configured.
