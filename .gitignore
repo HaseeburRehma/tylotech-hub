@@ -16,6 +16,9 @@ yarn-error.log*
 next-env.d.ts
 /.claude
 
-# Confidential internal document — not for the public repo
+# Confidential internal documents — not for the public repo
 TyloTech_Hub_Brief (1).pdf
 *.pdf
+
+# Client intake sheet contains real client names — keep out of the public repo
+docs/*.xlsx
