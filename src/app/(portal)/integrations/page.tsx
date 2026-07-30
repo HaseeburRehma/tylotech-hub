@@ -24,7 +24,8 @@ export default async function IntegrationsPage({
   let rows: any[] = [];
   if (supabase && clientId) {
     const { data } = await supabase.from("integrations").select("*").eq("client_id", clientId);
-    rows = data ?? [];
+    // Never send raw access tokens to the browser — expose only whether one is set.
+    rows = (data ?? []).map(({ access_token, ...r }: any) => ({ ...r, has_token: !!access_token }));
   }
 
   return (

@@ -30,6 +30,7 @@ interface Row {
   status: string;
   account_label: string | null;
   last_synced_at: string | null;
+  has_token?: boolean;
   meta: { metrics?: Record<string, number>; accountId?: string; siteUrl?: string } | null;
 }
 
@@ -82,7 +83,7 @@ export function IntegrationsBoard({
     router.refresh();
   }
 
-  async function configure(providerId: string, field: "accountId" | "siteUrl", value: string) {
+  async function configure(providerId: string, field: "accountId" | "siteUrl" | "accessToken", value: string) {
     await fetch(`/api/integrations/${providerId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -184,6 +185,16 @@ export function IntegrationsBoard({
                         />
                       </label>
                     )}
+                    <label className="mt-2 block text-[11px] text-muted">
+                      API access token {row?.has_token ? <span className="text-success">· set ✓</span> : null}
+                      <input
+                        type="password"
+                        defaultValue=""
+                        onBlur={(e) => e.target.value && configure(p.id, "accessToken", e.target.value)}
+                        placeholder={row?.has_token ? "•••••••• (paste to replace)" : "Paste access token for live data"}
+                        className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50"
+                      />
+                    </label>
                   </div>
                 )}
 

@@ -20,6 +20,7 @@ export async function POST(
     clientId?: string;
     accountId?: string;
     siteUrl?: string;
+    accessToken?: string;
   };
   const action = body.action;
 
@@ -44,17 +45,25 @@ export async function POST(
   }
 
   if (action === "configure") {
-    // Store the account/site the sync should pull from (in integrations.meta).
-    const meta: Record<string, string> = {};
-    if (body.accountId) meta.accountId = body.accountId.trim();
-    if (body.siteUrl) meta.siteUrl = body.siteUrl.trim();
+    // Store account/site (in meta) and, optionally, a pasted API access token so live
+    // data can flow without a full OAuth app. Only staff may set the token.
+    const update: Record<string, unknown> = {};
+    if (body.accountId !== undefined || body.siteUrl !== undefined) {
+      const meta: Record<string, string> = {};
+      if (body.accountId) meta.accountId = body.accountId.trim();
+      if (body.siteUrl) meta.siteUrl = body.siteUrl.trim();
+      update.meta = meta;
+    }
+    if (body.accessToken !== undefined && user.role !== "client") {
+      update.access_token = body.accessToken.trim() || null;
+    }
     const { error } = await supabase
       .from("integrations")
-      .update({ meta })
+      .update(update)
       .eq("client_id", clientId)
       .eq("provider", provider.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    return NextResponse.json({ ok: true, meta });
+    return NextResponse.json({ ok: true });
   }
 
   // connect — real OAuth would happen here when credentials are configured.

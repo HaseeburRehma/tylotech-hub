@@ -156,6 +156,26 @@ export async function listNotifications(userId: string): Promise<NotificationRow
   return (data ?? []) as NotificationRow[];
 }
 
+export interface AiToolRow {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  category: string | null;
+  prompt_template: string | null;
+  is_active: boolean;
+}
+
+export async function listAiTools(): Promise<AiToolRow[]> {
+  const sb = createClient();
+  if (!sb) return [];
+  const { data } = await sb
+    .from("ai_tools")
+    .select("id,name,slug,description,category,prompt_template,is_active")
+    .order("name");
+  return (data ?? []) as AiToolRow[];
+}
+
 export async function listTeamMembers(): Promise<TeamMember[]> {
   const sb = createClient();
   if (!sb) return [];

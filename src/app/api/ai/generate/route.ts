@@ -34,6 +34,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unknown tool" }, { status: 404 });
   }
 
+  // The system prompt is editable by staff via the ai_tools table; fall back to code.
+  let systemPrompt = def.system;
+  if (supabase) {
+    const { data } = await supabase
+      .from("ai_tools")
+      .select("prompt_template,is_active")
+      .eq("slug", tool)
+      .maybeSingle();
+    if (data?.is_active === false) {
+      return NextResponse.json({ error: "This tool is currently disabled." }, { status: 403 });
+    }
+    if (data?.prompt_template) systemPrompt = data.prompt_template;
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   // Graceful fallback so the tool is demoable without a key.
@@ -46,7 +60,7 @@ export async function POST(req: Request) {
     const msg = await client.messages.create({
       model: MODEL,
       max_tokens: config.ai.maxTokens,
-      system: def.system,
+      system: systemPrompt,
       messages: [{ role: "user", content: def.buildUser(inputs, brand) }],
     });
     const output = msg.content

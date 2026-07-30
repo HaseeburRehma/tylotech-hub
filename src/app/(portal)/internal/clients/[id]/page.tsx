@@ -34,7 +34,10 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       documents={documents}
       projects={projects}
       kpis={kpis}
-      integrations={integrationsRes.data ?? []}
+      integrations={(integrationsRes.data ?? []).map(({ access_token, ...r }: any) => ({
+        ...r,
+        has_token: !!access_token,
+      }))}
       liveProviders={PROVIDERS.filter(isProviderLive).map((p) => p.id)}
       staff={{ id: user?.id ?? "demo", name: user?.name ?? "TyloTech", role: user?.role ?? "team" }}
     />
