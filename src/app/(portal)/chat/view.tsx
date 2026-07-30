@@ -1,6 +1,7 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Check, Plus } from "lucide-react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,12 +26,30 @@ export function ChatView({
   currentRole: Role;
   clientId: string | null;
 }) {
+  const [requested, setRequested] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+
+  async function requestTask() {
+    setRequesting(true);
+    await fetch("/api/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: "📋 New request: I'd like to request a new report or task. Please advise on next steps.",
+        clientId,
+      }),
+    }).catch(() => null);
+    setRequesting(false);
+    setRequested(true);
+    setTimeout(() => setRequested(false), 4000);
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader title="Chat & Updates" subtitle="Talk to your TyloTech team and track what we've shipped.">
-        <Button size="sm" variant="outline">
-          <Plus className="h-4 w-4" />
-          Request report or task
+        <Button size="sm" variant="outline" onClick={requestTask} loading={requesting}>
+          {requested ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+          {requested ? "Request sent" : "Request report or task"}
         </Button>
       </PageHeader>
 

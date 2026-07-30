@@ -59,10 +59,10 @@ export function DashboardView({
         title={`Welcome back, ${firstName}`}
         subtitle="Here's how your campaigns are performing this month."
       >
-        <Button variant="secondary" size="sm">
+        <span className="inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 text-sm text-muted">
           <CalendarDays className="h-4 w-4" />
-          June 2026
-        </Button>
+          {kpis[0]?.period || new Date().toLocaleDateString("en", { month: "long", year: "numeric" })}
+        </span>
         <Button size="sm" onClick={() => window.open("/api/reports/performance", "_blank")}>
           <Download className="h-4 w-4" />
           Export report

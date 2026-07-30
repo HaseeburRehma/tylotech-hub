@@ -250,9 +250,9 @@ export function ProjectsManager({
         )}
       </Card>
 
-      <p className="flex items-center gap-2 text-xs text-muted">
+      <div className="flex items-center gap-2 text-xs text-muted">
         <Avatar name="Team" size={20} /> Assignees are pulled from your TyloTech team members.
-      </p>
+      </div>
     </div>
   );
 }

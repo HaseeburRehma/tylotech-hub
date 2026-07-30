@@ -1,12 +1,18 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
+export interface ReportKpi {
+  label: string;
+  value: string;
+  delta: string;
+  source: string;
+}
+
 export interface ReportProps {
   company: string;
   brandColor: string; // hex
   period: string;
   generatedAt: string;
-  kpis: { label: string; value: string; delta: string }[];
-  channels: { name: string; spend: string; leads: string; cpl: string; roas: string }[];
+  kpis: ReportKpi[];
 }
 
 const styles = StyleSheet.create({
@@ -25,14 +31,15 @@ const styles = StyleSheet.create({
   tRow: { flexDirection: "row", borderBottomWidth: 1, borderColor: "#eee", paddingVertical: 7 },
   th: { fontSize: 9, fontFamily: "Helvetica-Bold", color: "#6b6b6b" },
   td: { fontSize: 10 },
-  c1: { width: "32%" },
-  c: { width: "17%" },
+  c1: { width: "46%" },
+  c: { width: "27%" },
+  empty: { fontSize: 11, color: "#6b6b6b", marginTop: 12 },
   footer: { position: "absolute", bottom: 28, left: 44, right: 44, flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderColor: "#eee", paddingTop: 8 },
   muted: { fontSize: 8, color: "#9a9a9a" },
 });
 
 export function ReportDocument(props: ReportProps) {
-  const { company, brandColor, period, generatedAt, kpis, channels } = props;
+  const { company, brandColor, period, generatedAt, kpis } = props;
   return (
     <Document title={`${company} — Performance Report`} author="TyloTech">
       <Page size="A4" style={styles.page}>
@@ -40,36 +47,43 @@ export function ReportDocument(props: ReportProps) {
         <Text style={styles.h1}>{company}</Text>
         <Text style={styles.sub}>Performance Report · {period}</Text>
 
-        <Text style={styles.sectionTitle}>Key metrics</Text>
-        <View style={styles.kpiRow}>
-          {kpis.map((k) => (
-            <View key={k.label} style={styles.kpiCard}>
-              <View style={styles.kpiInner}>
-                <Text style={styles.kpiLabel}>{k.label}</Text>
-                <Text style={styles.kpiValue}>{k.value}</Text>
-                <Text style={[styles.kpiDelta, { color: brandColor }]}>{k.delta} vs last period</Text>
-              </View>
+        {kpis.length === 0 ? (
+          <Text style={styles.empty}>
+            No performance data is available for this period yet. Metrics will appear here once your
+            campaigns are connected and synced.
+          </Text>
+        ) : (
+          <>
+            <Text style={styles.sectionTitle}>Key metrics</Text>
+            <View style={styles.kpiRow}>
+              {kpis.map((k) => (
+                <View key={k.label} style={styles.kpiCard}>
+                  <View style={styles.kpiInner}>
+                    <Text style={styles.kpiLabel}>{k.label}</Text>
+                    <Text style={styles.kpiValue}>{k.value}</Text>
+                    <Text style={[styles.kpiDelta, { color: brandColor }]}>{k.delta} vs last period</Text>
+                  </View>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
 
-        <Text style={styles.sectionTitle}>Channel performance</Text>
-        <View style={styles.tHead}>
-          <Text style={[styles.th, styles.c1]}>Channel</Text>
-          <Text style={[styles.th, styles.c]}>Spend</Text>
-          <Text style={[styles.th, styles.c]}>Leads</Text>
-          <Text style={[styles.th, styles.c]}>CPL</Text>
-          <Text style={[styles.th, styles.c]}>ROAS</Text>
-        </View>
-        {channels.map((c) => (
-          <View key={c.name} style={styles.tRow}>
-            <Text style={[styles.td, styles.c1]}>{c.name}</Text>
-            <Text style={[styles.td, styles.c]}>{c.spend}</Text>
-            <Text style={[styles.td, styles.c]}>{c.leads}</Text>
-            <Text style={[styles.td, styles.c]}>{c.cpl}</Text>
-            <Text style={[styles.td, styles.c]}>{c.roas}</Text>
-          </View>
-        ))}
+            <Text style={styles.sectionTitle}>Metrics detail</Text>
+            <View style={styles.tHead}>
+              <Text style={[styles.th, styles.c1]}>Metric</Text>
+              <Text style={[styles.th, styles.c]}>Source</Text>
+              <Text style={[styles.th, styles.c]}>Value</Text>
+              <Text style={[styles.th, styles.c]}>Δ</Text>
+            </View>
+            {kpis.map((k) => (
+              <View key={`row-${k.label}`} style={styles.tRow}>
+                <Text style={[styles.td, styles.c1]}>{k.label}</Text>
+                <Text style={[styles.td, styles.c]}>{k.source}</Text>
+                <Text style={[styles.td, styles.c]}>{k.value}</Text>
+                <Text style={[styles.td, styles.c]}>{k.delta}</Text>
+              </View>
+            ))}
+          </>
+        )}
 
         <View style={styles.footer} fixed>
           <Text style={styles.muted}>Generated {generatedAt} · Powered by TyloTech</Text>
