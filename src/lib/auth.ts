@@ -18,13 +18,13 @@ export interface AuthUser {
 /** Demo identity used only when Supabase isn't configured. */
 export const DEMO_USER: AuthUser = {
   id: "demo",
-  email: "marcus@nordicestate.com",
-  name: "Marcus Holt",
+  email: "demo@tylotech.de",
+  name: "Demo Client",
   role: "client",
-  client_id: "nordic",
-  company: "Nordic Estate",
-  primaryColor: "#38BDF8",
-  secondaryColor: "#0C141C",
+  client_id: "demo",
+  company: "Demo Client",
+  primaryColor: "#C9A84C",
+  secondaryColor: "#181612",
   logoUrl: null,
 };
 

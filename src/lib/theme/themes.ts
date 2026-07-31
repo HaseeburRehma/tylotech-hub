@@ -38,30 +38,30 @@ export const TYLOTECH_THEME: BrandTheme = {
   tagline: "Growth, engineered.",
 };
 
-/** Example onboarded client to demonstrate white-label in action. */
-export const NORDIC_THEME: BrandTheme = {
-  id: "nordic",
-  name: "Nordic Estate",
-  company: "Nordic Estate",
-  logo: { type: "mark", value: "nordic" },
-  primary: [56, 189, 248], // sky / teal
-  secondary: [12, 20, 28],
+/** Real onboarded clients — used to preview white-label in the theme switcher. */
+export const FAHRSCHULE_THEME: BrandTheme = {
+  id: "fahrschule",
+  name: "Fahrschule Abgefahrn",
+  company: "Fahrschule Abgefahrn",
+  logo: { type: "mark", value: "tylotech" },
+  primary: [1, 254, 33], // neon green
+  secondary: [14, 20, 10],
   onPrimaryDark: true,
-  tagline: "Real estate, reimagined.",
+  tagline: "Die bestbewertete Fahrschule.",
 };
 
-export const VELFORM_THEME: BrandTheme = {
-  id: "velform",
-  name: "Velform Fitness",
-  company: "Velform Fitness",
-  logo: { type: "mark", value: "velform" },
-  primary: [244, 63, 94], // rose
-  secondary: [26, 14, 18],
+export const LIGHTOFHOPE_THEME: BrandTheme = {
+  id: "lightofhope",
+  name: "Light of Hope",
+  company: "Light of Hope",
+  logo: { type: "mark", value: "tylotech" },
+  primary: [123, 44, 255], // purple
+  secondary: [20, 16, 31],
   onPrimaryDark: true,
-  tagline: "Train. Track. Transform.",
+  tagline: "Dein Leuchtturm in der Dunkelheit.",
 };
 
-export const THEMES: BrandTheme[] = [TYLOTECH_THEME, NORDIC_THEME, VELFORM_THEME];
+export const THEMES: BrandTheme[] = [TYLOTECH_THEME, FAHRSCHULE_THEME, LIGHTOFHOPE_THEME];
 
 export const DEFAULT_THEME = TYLOTECH_THEME;
 
