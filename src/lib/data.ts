@@ -4,7 +4,8 @@
  * fallbacks. Callers render clean empty states when a list is empty.
  */
 import { createClient } from "@/lib/supabase/server";
-import type { Client, DocItem, Kpi, Message, Project, Role, SeriesPoint, Update } from "@/types";
+import { createAdminClient } from "@/lib/supabase/admin";
+import type { ChatPeer, Client, DocItem, Kpi, Message, Project, Role, SeriesPoint, Update } from "@/types";
 
 export interface TeamMember {
   id: string;
@@ -127,11 +128,25 @@ export async function listMessages(clientId: string | null): Promise<Message[]> 
     sender_id: m.sender_id,
     sender_name: m.sender_name ?? "TyloTech",
     sender_role: (m.sender_role ?? "team") as Role,
+    recipient_id: m.recipient_id ?? null,
     content: m.content,
     content_translated: m.content_translated ?? null,
     translated_to: m.translated_to ?? null,
     created_at: m.created_at,
   }));
+}
+
+/** Client-side users of a tenant — the staff-facing DM peer list. */
+export async function listClientUsers(clientId: string | null): Promise<ChatPeer[]> {
+  const sb = createClient();
+  if (!sb || !clientId) return [];
+  const { data } = await sb
+    .from("users")
+    .select("id,name,role")
+    .eq("client_id", clientId)
+    .eq("role", "client")
+    .order("name");
+  return (data ?? []).map((u: any) => ({ id: u.id, name: u.name, role: u.role as Role, title: "Client" }));
 }
 
 export interface NotificationRow {
@@ -181,6 +196,27 @@ export async function listTeamMembers(): Promise<TeamMember[]> {
   if (!sb) return [];
   const { data } = await sb.from("users").select("id,name,role").in("role", ["admin", "team"]);
   return (data ?? []).map((u: any) => ({ id: u.id, name: u.name, role: ROLE_LABEL[u.role] ?? u.role }));
+}
+
+/**
+ * TyloTech staff as DM peers — the client-facing "message a specific person" list.
+ * Uses the admin client so clients can see WHO to message (id + name only): RLS
+ * otherwise hides staff user rows from clients, and we don't want to widen it.
+ */
+export async function listTeamPeers(): Promise<ChatPeer[]> {
+  const admin = createAdminClient();
+  if (!admin) return [];
+  const { data } = await admin
+    .from("users")
+    .select("id,name,role")
+    .in("role", ["admin", "team"])
+    .order("name");
+  return (data ?? []).map((u: any) => ({
+    id: u.id,
+    name: u.name,
+    role: u.role as Role,
+    title: ROLE_LABEL[u.role] ?? u.role,
+  }));
 }
 
 export async function listTeamLoad(): Promise<TeamLoad[]> {

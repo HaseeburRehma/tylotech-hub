@@ -43,10 +43,20 @@ export interface Message {
   sender_id: string;
   sender_name: string;
   sender_role: Role;
+  /** null = tenant group thread; otherwise the direct-message recipient. */
+  recipient_id?: string | null;
   content: string;
   content_translated?: string | null;
   translated_to?: string | null;
   created_at: string;
+}
+
+/** A person you can start a direct thread with (team member or client user). */
+export interface ChatPeer {
+  id: string;
+  name: string;
+  role: Role;
+  title?: string;
 }
 
 export type UpdateType = "milestone" | "report" | "campaign" | "note" | "alert";

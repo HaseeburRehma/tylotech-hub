@@ -3,6 +3,7 @@ import { getAuthUser } from "@/lib/auth";
 import {
   getClient,
   getKpis,
+  listClientUsers,
   listDocuments,
   listMessages,
   listProjects,
@@ -17,12 +18,13 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   if (!client) notFound();
 
   const sb = createClient();
-  const [messages, updates, documents, projects, kpis, integrationsRes] = await Promise.all([
+  const [messages, updates, documents, projects, kpis, peers, integrationsRes] = await Promise.all([
     listMessages(client.id),
     listUpdates(client.id),
     listDocuments(client.id),
     listProjects(client.id),
     getKpis(client.id),
+    listClientUsers(client.id),
     sb ? sb.from("integrations").select("*").eq("client_id", client.id) : Promise.resolve({ data: [] as any[] }),
   ]);
 
@@ -40,6 +42,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       }))}
       liveProviders={PROVIDERS.filter(isProviderLive).map((p) => p.id)}
       staff={{ id: user?.id ?? "demo", name: user?.name ?? "TyloTech", role: user?.role ?? "team" }}
+      peers={peers}
     />
   );
 }

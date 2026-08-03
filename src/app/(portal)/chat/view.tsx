@@ -8,12 +8,13 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { ChatThread } from "@/components/chat/chat-thread";
 import { UPDATE_META } from "@/lib/status";
-import { Message, Role, Update } from "@/types";
+import { ChatPeer, Message, Role, Update } from "@/types";
 import { formatRelativeTime } from "@/lib/utils";
 
 export function ChatView({
   initialMessages,
   updates,
+  peers = [],
   currentUserId,
   currentName,
   currentRole,
@@ -21,6 +22,7 @@ export function ChatView({
 }: {
   initialMessages: Message[];
   updates: Update[];
+  peers?: ChatPeer[];
   currentUserId: string;
   currentName: string;
   currentRole: Role;
@@ -61,8 +63,9 @@ export function ChatView({
             currentName={currentName}
             currentRole={currentRole}
             clientId={clientId}
+            peers={peers}
             title="TyloTech Team"
-            subtitle="Sofia, Dawood & Haseeb · Online"
+            subtitle="Group · everyone"
           />
         </div>
 

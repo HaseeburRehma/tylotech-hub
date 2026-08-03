@@ -7,6 +7,19 @@ interface NotifyInput {
   type?: string;
 }
 
+/** Create an in-app notification for a single user (used for direct messages). */
+export async function notifyUser(userId: string, n: NotifyInput) {
+  const admin = createAdminClient();
+  if (!admin) return;
+  await admin.from("notifications").insert({
+    user_id: userId,
+    title: n.title,
+    body: n.body ?? null,
+    href: n.href ?? null,
+    type: n.type ?? "info",
+  });
+}
+
 /** Create an in-app notification for every client-side user of a tenant. */
 export async function notifyClientUsers(clientId: string, n: NotifyInput) {
   const admin = createAdminClient();

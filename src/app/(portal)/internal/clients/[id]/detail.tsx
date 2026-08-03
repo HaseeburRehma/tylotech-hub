@@ -14,7 +14,7 @@ import { IntegrationsBoard } from "@/app/(portal)/integrations/board";
 import { PROVIDERS } from "@/lib/integrations/providers";
 import { PROJECT_STATUS } from "@/lib/status";
 import { cn, formatCurrency } from "@/lib/utils";
-import type { Client, DocItem, Kpi, Message, Project, Role, Update } from "@/types";
+import type { ChatPeer, Client, DocItem, Kpi, Message, Project, Role, Update } from "@/types";
 
 const TABS = [
   { key: "overview", label: "Overview", icon: LayoutGrid },
@@ -36,6 +36,7 @@ export function ClientDetail({
   integrations,
   liveProviders,
   staff,
+  peers = [],
 }: {
   client: Client;
   messages: Message[];
@@ -46,6 +47,7 @@ export function ClientDetail({
   integrations: any[];
   liveProviders: string[];
   staff: { id: string; name: string; role: Role };
+  peers?: ChatPeer[];
 }) {
   const [tab, setTab] = useState<TabKey>("overview");
 
@@ -176,8 +178,9 @@ export function ClientDetail({
           currentName={staff.name}
           currentRole={staff.role}
           clientId={client.id}
-          title={`${client.company} · conversation`}
-          subtitle="Live · realtime"
+          peers={peers}
+          title={`${client.company} · team`}
+          subtitle="Group · everyone"
         />
       )}
 
