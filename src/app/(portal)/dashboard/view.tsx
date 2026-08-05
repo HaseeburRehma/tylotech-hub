@@ -16,6 +16,7 @@ import { useUser } from "@/components/providers/user-provider";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { AutoRefresh } from "@/components/integrations/auto-refresh";
 import type { Kpi, Project, SeriesPoint, Update } from "@/types";
 
 export function DashboardView({
@@ -55,6 +56,7 @@ export function DashboardView({
 
   return (
     <div className="space-y-6">
+      {user.role === "client" && <AutoRefresh />}
       <PageHeader
         title={`Welcome back, ${firstName}`}
         subtitle="Here's how your campaigns are performing this month."

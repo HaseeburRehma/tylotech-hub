@@ -3,8 +3,12 @@ import { getAuthUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { config } from "@/lib/config";
 import { getRateLimiter, rateLimitHeaders } from "@/lib/rate-limit";
-import { fetchMetaAds, fetchSearchConsole, type FetchedData } from "@/lib/integrations/fetchers";
+import { fetchGa4, fetchGoogleAds, fetchMetaAds, fetchSearchConsole, type FetchedData } from "@/lib/integrations/fetchers";
+import { refreshGoogleAccessToken } from "@/lib/integrations/oauth";
 import { notifyClientUsers } from "@/lib/notify";
+
+const GOOGLE_PROVIDERS = new Set(["google_ads", "ga4", "search_console"]);
+const AUTO_MIN_AGE_MS = 25 * 60 * 1000; // auto-refresh skips rows synced < 25 min ago
 
 export const runtime = "nodejs";
 
@@ -17,7 +21,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Too many sync requests." }, { status: 429, headers: rateLimitHeaders(rl) });
   }
 
-  const body = (await req.json().catch(() => ({}))) as { clientId?: string; provider?: string };
+  const body = (await req.json().catch(() => ({}))) as { clientId?: string; provider?: string; auto?: boolean };
   const clientId = user.role === "client" ? user.client_id : body.clientId;
   if (!clientId) return NextResponse.json({ error: "Missing client." }, { status: 400 });
   if (user.role === "client" && clientId !== user.client_id) {
@@ -29,7 +33,7 @@ export async function POST(req: Request) {
 
   let query = supabase
     .from("integrations")
-    .select("id,provider,access_token,meta")
+    .select("id,provider,access_token,refresh_token,meta,last_synced_at")
     .eq("client_id", clientId)
     .eq("status", "connected");
   if (body.provider) query = query.eq("provider", body.provider);
@@ -39,22 +43,39 @@ export async function POST(req: Request) {
   if (!rows?.length) return NextResponse.json({ ok: true, synced: 0, results: [] });
 
   const nowIso = new Date().toISOString();
+  const now = Date.now();
   const results: { provider: string; synced: boolean; reason?: string; kpis?: number }[] = [];
+  const pointsByDate: Record<string, { spend: number; leads: number; roas: number }> = {};
   let populated = false;
 
   for (const row of rows) {
-    const cfg = (row.meta ?? {}) as { accountId?: string; siteUrl?: string };
-    let data: FetchedData | null = null;
-
-    if (row.provider === "meta_ads") {
-      data = await fetchMetaAds(row.access_token, cfg.accountId ?? "");
-    } else if (row.provider === "search_console" || row.provider === "ga4" || row.provider === "google_ads") {
-      data = await fetchSearchConsole(row.access_token, cfg.siteUrl ?? "");
+    // Auto (30-min timer) skips sources refreshed very recently to avoid API hammering.
+    if (body.auto && row.last_synced_at && now - new Date(row.last_synced_at).getTime() < AUTO_MIN_AGE_MS) {
+      results.push({ provider: row.provider, synced: false, reason: "recently synced" });
+      continue;
     }
 
+    const cfg = (row.meta ?? {}) as { accountId?: string; siteUrl?: string; propertyId?: string };
+
+    // Google access tokens expire hourly → refresh from the stored refresh_token first.
+    let accessToken: string | null = row.access_token;
+    if (GOOGLE_PROVIDERS.has(row.provider) && row.refresh_token) {
+      const fresh = await refreshGoogleAccessToken(row.refresh_token);
+      if (fresh) {
+        accessToken = fresh;
+        await supabase.from("integrations").update({ access_token: fresh }).eq("id", row.id);
+      }
+    }
+
+    let data: FetchedData | null = null;
+    if (row.provider === "meta_ads") data = await fetchMetaAds(accessToken ?? "", cfg.accountId ?? "");
+    else if (row.provider === "google_ads") data = await fetchGoogleAds(accessToken ?? "", cfg.accountId ?? "");
+    else if (row.provider === "ga4") data = await fetchGa4(accessToken ?? "", cfg.propertyId ?? "");
+    else if (row.provider === "search_console") data = await fetchSearchConsole(accessToken ?? "", cfg.siteUrl ?? "");
+
     if (!data) {
-      // No live credentials/config yet → write nothing (no placeholder data).
-      results.push({ provider: row.provider, synced: false, reason: "Connect the API + set account/site to pull live data" });
+      // No valid token / config yet → write nothing (no placeholder data).
+      results.push({ provider: row.provider, synced: false, reason: "Connect the API (OAuth) + set account/site/property to pull live data" });
       continue;
     }
 
@@ -64,14 +85,22 @@ export async function POST(req: Request) {
       await supabase.from("kpis").delete().eq("client_id", clientId).eq("source", source);
       if (data.kpis.length) await supabase.from("kpis").insert(data.kpis.map((k) => ({ ...k, client_id: clientId })));
     }
-    if (row.provider === "meta_ads" && data.series.length) {
-      await supabase
-        .from("metric_points")
-        .upsert(data.series.map((p) => ({ client_id: clientId, ...p })), { onConflict: "client_id,date" });
+    // Merge every source's daily series into one point per date (schema = spend/leads/roas).
+    for (const p of data.series) {
+      const cur = (pointsByDate[p.date] = pointsByDate[p.date] || { spend: 0, leads: 0, roas: 0 });
+      cur.spend += p.spend;
+      cur.leads += p.leads;
+      if (p.roas) cur.roas = p.roas;
     }
     await supabase.from("integrations").update({ last_synced_at: nowIso, meta: cfg }).eq("id", row.id);
     results.push({ provider: row.provider, synced: true, kpis: data.kpis.length });
     populated = true;
+  }
+
+  // Persist the merged time-series so the dashboard chart shows real data.
+  const points = Object.entries(pointsByDate).map(([date, v]) => ({ client_id: clientId, date, ...v }));
+  if (points.length) {
+    await supabase.from("metric_points").upsert(points, { onConflict: "client_id,date" });
   }
 
   if (populated) {

@@ -63,6 +63,111 @@ export async function fetchMetaAds(
   };
 }
 
+/** Google Analytics 4 — Data API runReport for a property (needs numeric propertyId). */
+export async function fetchGa4(
+  accessToken: string,
+  propertyId: string,
+  days = 30,
+): Promise<FetchedData | null> {
+  if (!accessToken || !propertyId) return null;
+  const id = propertyId.replace(/[^0-9]/g, ""); // Data API needs the numeric property id, not "G-..."
+  if (!id) return null;
+  const { start, end } = dateRange(days);
+  const res = await fetch(
+    `https://analyticsdata.googleapis.com/v1beta/properties/${id}:runReport`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        dateRanges: [{ startDate: start, endDate: end }],
+        dimensions: [{ name: "date" }],
+        metrics: [{ name: "activeUsers" }, { name: "sessions" }, { name: "conversions" }],
+        orderBys: [{ dimension: { dimensionName: "date" } }],
+      }),
+      cache: "no-store",
+    },
+  ).catch(() => null);
+  if (!res?.ok) return null;
+  const json: any = await res.json();
+  const rows: any[] = json.rows ?? [];
+
+  const users = rows.reduce((a, r) => a + Number(r.metricValues?.[0]?.value ?? 0), 0);
+  const sessions = rows.reduce((a, r) => a + Number(r.metricValues?.[1]?.value ?? 0), 0);
+  const conversions = rows.reduce((a, r) => a + Number(r.metricValues?.[2]?.value ?? 0), 0);
+  const convRate = sessions ? Number(((conversions / sessions) * 100).toFixed(2)) : 0;
+
+  return {
+    series: [], // GA4 headline KPIs only — the chart is driven by Ads/GSC series.
+    kpis: [
+      { metric_name: "users", label: "Users", value: Math.round(users), unit: "number", delta: 0, period: "Last 30d", source: "GA4" },
+      { metric_name: "sessions", label: "Sessions", value: Math.round(sessions), unit: "number", delta: 0, period: "Last 30d", source: "GA4" },
+      { metric_name: "conv_rate", label: "Conversion Rate", value: convRate, unit: "percent", delta: 0, period: "Last 30d", source: "GA4" },
+    ],
+  };
+}
+
+/** Google Ads — daily campaign metrics for a customer (needs approved developer token). */
+export async function fetchGoogleAds(
+  accessToken: string,
+  customerId: string,
+  days = 30,
+): Promise<FetchedData | null> {
+  const devToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+  const cid = (customerId ?? "").replace(/[^0-9]/g, "");
+  if (!accessToken || !cid || !devToken) return null;
+  const { start, end } = dateRange(days);
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    "developer-token": devToken,
+    "Content-Type": "application/json",
+  };
+  const loginCid = (process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID ?? "").replace(/[^0-9]/g, "");
+  if (loginCid) headers["login-customer-id"] = loginCid;
+
+  const query = `SELECT segments.date, metrics.cost_micros, metrics.conversions, metrics.conversions_value, metrics.clicks FROM customer WHERE segments.date BETWEEN '${start}' AND '${end}'`;
+  const res = await fetch(`https://googleads.googleapis.com/v17/customers/${cid}/googleAds:searchStream`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ query }),
+    cache: "no-store",
+  }).catch(() => null);
+  if (!res?.ok) return null;
+  const json: any = await res.json();
+  // searchStream returns an array of batches, each with a results[] array.
+  const batches: any[] = Array.isArray(json) ? json : [json];
+  const results: any[] = batches.flatMap((b) => b.results ?? []);
+
+  const byDate: Record<string, { spend: number; leads: number; value: number }> = {};
+  for (const r of results) {
+    const d = r.segments?.date;
+    if (!d) continue;
+    const spend = Number(r.metrics?.costMicros ?? 0) / 1_000_000;
+    const leads = Number(r.metrics?.conversions ?? 0);
+    const value = Number(r.metrics?.conversionsValue ?? 0);
+    byDate[d] = byDate[d] || { spend: 0, leads: 0, value: 0 };
+    byDate[d].spend += spend;
+    byDate[d].leads += leads;
+    byDate[d].value += value;
+  }
+  const series = Object.entries(byDate)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, v]) => ({ date, spend: Math.round(v.spend), leads: Math.round(v.leads), roas: v.spend ? Number((v.value / v.spend).toFixed(2)) : 0 }));
+
+  const totalSpend = series.reduce((a, p) => a + p.spend, 0);
+  const totalLeads = series.reduce((a, p) => a + p.leads, 0);
+  const totalValue = Object.values(byDate).reduce((a, v) => a + v.value, 0);
+  const roas = totalSpend ? Number((totalValue / totalSpend).toFixed(1)) : 0;
+
+  return {
+    series,
+    kpis: [
+      { metric_name: "ad_spend", label: "Monthly Ad Spend", value: Math.round(totalSpend), unit: "currency", delta: 0, period: "Last 30d", source: "Google Ads" },
+      { metric_name: "leads", label: "Conversions", value: Math.round(totalLeads), unit: "number", delta: 0, period: "Last 30d", source: "Google Ads" },
+      { metric_name: "roas", label: "ROAS", value: roas, unit: "ratio", delta: 0, period: "Last 30d", source: "Google Ads" },
+    ],
+  };
+}
+
 /** Google Search Console — daily search analytics for a verified property. */
 export async function fetchSearchConsole(
   accessToken: string,

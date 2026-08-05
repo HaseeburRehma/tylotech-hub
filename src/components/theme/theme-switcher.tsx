@@ -65,10 +65,19 @@ export function ThemeSwitcher() {
                     )}
                   >
                     <span className="flex gap-1">
-                      <span
-                        className="h-7 w-7 rounded-lg ring-1 ring-border"
-                        style={{ background: `rgb(${t.primary.join(" ")})` }}
-                      />
+                      {t.logo.type === "url" ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={t.logo.value}
+                          alt={t.company}
+                          className="h-7 w-7 rounded-lg bg-surface-2 object-contain p-0.5 ring-1 ring-border"
+                        />
+                      ) : (
+                        <span
+                          className="h-7 w-7 rounded-lg ring-1 ring-border"
+                          style={{ background: `rgb(${t.primary.join(" ")})` }}
+                        />
+                      )}
                     </span>
                     <span className="flex-1">
                       <span className="block text-sm font-medium text-foreground">

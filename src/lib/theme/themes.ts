@@ -27,11 +27,13 @@ export interface BrandTheme {
   tagline?: string;
 }
 
+const LOGO_BASE = "https://gdofcdiekmazmjznlria.supabase.co/storage/v1/object/public/logos";
+
 export const TYLOTECH_THEME: BrandTheme = {
   id: "tylotech",
   name: "TyloTech",
   company: "TyloTech",
-  logo: { type: "mark", value: "tylotech" },
+  logo: { type: "url", value: `${LOGO_BASE}/tylotech.png` },
   primary: [201, 168, 76], // #C9A84C gold
   secondary: [24, 22, 18],
   onPrimaryDark: true,
@@ -43,7 +45,7 @@ export const FAHRSCHULE_THEME: BrandTheme = {
   id: "fahrschule",
   name: "Fahrschule Abgefahrn",
   company: "Fahrschule Abgefahrn",
-  logo: { type: "mark", value: "tylotech" },
+  logo: { type: "url", value: `${LOGO_BASE}/abgefahrn.svg` },
   primary: [1, 254, 33], // neon green
   secondary: [14, 20, 10],
   onPrimaryDark: true,
@@ -54,7 +56,7 @@ export const LIGHTOFHOPE_THEME: BrandTheme = {
   id: "lightofhope",
   name: "Light of Hope",
   company: "Light of Hope",
-  logo: { type: "mark", value: "tylotech" },
+  logo: { type: "url", value: `${LOGO_BASE}/light-of-hope.avif` },
   primary: [123, 44, 255], // purple
   secondary: [20, 16, 31],
   onPrimaryDark: true,

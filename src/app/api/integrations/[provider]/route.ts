@@ -20,6 +20,7 @@ export async function POST(
     clientId?: string;
     accountId?: string;
     siteUrl?: string;
+    propertyId?: string;
     accessToken?: string;
   };
   const action = body.action;
@@ -48,10 +49,11 @@ export async function POST(
     // Store account/site (in meta) and, optionally, a pasted API access token so live
     // data can flow without a full OAuth app. Only staff may set the token.
     const update: Record<string, unknown> = {};
-    if (body.accountId !== undefined || body.siteUrl !== undefined) {
+    if (body.accountId !== undefined || body.siteUrl !== undefined || body.propertyId !== undefined) {
       const meta: Record<string, string> = {};
       if (body.accountId) meta.accountId = body.accountId.trim();
       if (body.siteUrl) meta.siteUrl = body.siteUrl.trim();
+      if (body.propertyId) meta.propertyId = body.propertyId.trim();
       update.meta = meta;
     }
     if (body.accessToken !== undefined && user.role !== "client") {
