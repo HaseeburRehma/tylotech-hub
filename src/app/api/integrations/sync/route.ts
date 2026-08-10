@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { config } from "@/lib/config";
 import { getRateLimiter, rateLimitHeaders } from "@/lib/rate-limit";
 import { fetchGa4, fetchGoogleAds, fetchMetaAds, fetchSearchConsole, type FetchedData } from "@/lib/integrations/fetchers";
@@ -28,10 +28,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
-  const supabase = createClient();
-  if (!supabase) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
+  // Tokens (access_token/refresh_token) and KPI/metric writes go through the
+  // service-role client: those columns are revoked from the browser role, and the
+  // client's tenant ownership is already enforced above. This keeps secrets off
+  // the user-scoped connection entirely.
+  const admin = createAdminClient();
+  if (!admin) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
 
-  let query = supabase
+  let query = admin
     .from("integrations")
     .select("id,provider,access_token,refresh_token,meta,last_synced_at")
     .eq("client_id", clientId)
@@ -63,7 +67,7 @@ export async function POST(req: Request) {
       const fresh = await refreshGoogleAccessToken(row.refresh_token);
       if (fresh) {
         accessToken = fresh;
-        await supabase.from("integrations").update({ access_token: fresh }).eq("id", row.id);
+        await admin.from("integrations").update({ access_token: fresh }).eq("id", row.id);
       }
     }
 
@@ -82,8 +86,8 @@ export async function POST(req: Request) {
     // Replace only this source's KPIs (preserves manually-entered + other sources).
     const source = data.kpis[0]?.source;
     if (source) {
-      await supabase.from("kpis").delete().eq("client_id", clientId).eq("source", source);
-      if (data.kpis.length) await supabase.from("kpis").insert(data.kpis.map((k) => ({ ...k, client_id: clientId })));
+      await admin.from("kpis").delete().eq("client_id", clientId).eq("source", source);
+      if (data.kpis.length) await admin.from("kpis").insert(data.kpis.map((k) => ({ ...k, client_id: clientId })));
     }
     // Merge every source's daily series into one point per date (schema = spend/leads/roas).
     for (const p of data.series) {
@@ -92,7 +96,7 @@ export async function POST(req: Request) {
       cur.leads += p.leads;
       if (p.roas) cur.roas = p.roas;
     }
-    await supabase.from("integrations").update({ last_synced_at: nowIso, meta: cfg }).eq("id", row.id);
+    await admin.from("integrations").update({ last_synced_at: nowIso, meta: cfg }).eq("id", row.id);
     results.push({ provider: row.provider, synced: true, kpis: data.kpis.length });
     populated = true;
   }
@@ -100,7 +104,7 @@ export async function POST(req: Request) {
   // Persist the merged time-series so the dashboard chart shows real data.
   const points = Object.entries(pointsByDate).map(([date, v]) => ({ client_id: clientId, date, ...v }));
   if (points.length) {
-    await supabase.from("metric_points").upsert(points, { onConflict: "client_id,date" });
+    await admin.from("metric_points").upsert(points, { onConflict: "client_id,date" });
   }
 
   if (populated) {

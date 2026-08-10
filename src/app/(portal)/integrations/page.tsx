@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/ui/page-header";
 import { getAuthUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { PROVIDERS, isProviderLive } from "@/lib/integrations/providers";
 import { IntegrationsBoard } from "./board";
 
@@ -22,10 +23,16 @@ export default async function IntegrationsPage({
   const clientId = user?.role === "client" ? user.client_id : searchParams.client ?? clients[0]?.id ?? null;
 
   let rows: any[] = [];
-  if (supabase && clientId) {
-    const { data } = await supabase.from("integrations").select("*").eq("client_id", clientId);
-    // Never send raw access tokens to the browser — expose only whether one is set.
-    rows = (data ?? []).map(({ access_token, ...r }: any) => ({ ...r, has_token: !!access_token }));
+  const admin = createAdminClient();
+  if (admin && clientId) {
+    // Read via the service role (integrations SELECT is revoked from the browser
+    // role). clientId is the caller's own tenant (client) or the staff-selected
+    // one, so this is tenant-safe. Strip tokens — expose only a has_token boolean.
+    const { data } = await admin.from("integrations").select("*").eq("client_id", clientId);
+    rows = (data ?? []).map(({ access_token, refresh_token, ...r }: any) => ({
+      ...r,
+      has_token: !!access_token,
+    }));
   }
 
   return (

@@ -31,7 +31,7 @@ interface Row {
   account_label: string | null;
   last_synced_at: string | null;
   has_token?: boolean;
-  meta: { metrics?: Record<string, number>; accountId?: string; siteUrl?: string } | null;
+  meta: { metrics?: Record<string, number>; accountId?: string; siteUrl?: string; propertyId?: string } | null;
 }
 
 function fmt(unit: string, v: number) {
@@ -83,7 +83,7 @@ export function IntegrationsBoard({
     router.refresh();
   }
 
-  async function configure(providerId: string, field: "accountId" | "siteUrl" | "accessToken", value: string) {
+  async function configure(providerId: string, field: "accountId" | "siteUrl" | "propertyId" | "accessToken", value: string) {
     await fetch(`/api/integrations/${providerId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -164,7 +164,7 @@ export function IntegrationsBoard({
 
                 {connected && (
                   <div className="mt-3">
-                    {p.id === "meta_ads" ? (
+                    {p.id === "meta_ads" && (
                       <label className="block text-[11px] text-muted">
                         Ad account ID
                         <input
@@ -174,7 +174,30 @@ export function IntegrationsBoard({
                           className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50"
                         />
                       </label>
-                    ) : (
+                    )}
+                    {p.id === "google_ads" && (
+                      <label className="block text-[11px] text-muted">
+                        Customer ID
+                        <input
+                          defaultValue={row?.meta?.accountId ?? ""}
+                          onBlur={(e) => e.target.value !== (row?.meta?.accountId ?? "") && configure(p.id, "accountId", e.target.value)}
+                          placeholder="123-456-7890"
+                          className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50"
+                        />
+                      </label>
+                    )}
+                    {p.id === "ga4" && (
+                      <label className="block text-[11px] text-muted">
+                        GA4 Property ID <span className="text-muted/60">(numeric — Admin → Property Settings)</span>
+                        <input
+                          defaultValue={row?.meta?.propertyId ?? ""}
+                          onBlur={(e) => e.target.value !== (row?.meta?.propertyId ?? "") && configure(p.id, "propertyId", e.target.value)}
+                          placeholder="123456789"
+                          className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50"
+                        />
+                      </label>
+                    )}
+                    {p.id === "search_console" && (
                       <label className="block text-[11px] text-muted">
                         Property / site URL
                         <input
@@ -185,16 +208,18 @@ export function IntegrationsBoard({
                         />
                       </label>
                     )}
-                    <label className="mt-2 block text-[11px] text-muted">
-                      API access token {row?.has_token ? <span className="text-success">· set ✓</span> : null}
-                      <input
-                        type="password"
-                        defaultValue=""
-                        onBlur={(e) => e.target.value && configure(p.id, "accessToken", e.target.value)}
-                        placeholder={row?.has_token ? "•••••••• (paste to replace)" : "Paste access token for live data"}
-                        className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50"
-                      />
-                    </label>
+                    {isStaff && (
+                      <label className="mt-2 block text-[11px] text-muted">
+                        API access token {row?.has_token ? <span className="text-success">· set ✓</span> : null}
+                        <input
+                          type="password"
+                          defaultValue=""
+                          onBlur={(e) => e.target.value && configure(p.id, "accessToken", e.target.value)}
+                          placeholder={row?.has_token ? "•••••••• (paste to replace)" : "Paste access token for live data"}
+                          className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50"
+                        />
+                      </label>
+                    )}
                   </div>
                 )}
 

@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { TOOL_DEFS } from "@/lib/ai/prompts";
 import { config } from "@/lib/config";
-import { getRateLimiter, ipKey, rateLimitHeaders } from "@/lib/rate-limit";
+import { getRateLimiter, rateLimitHeaders } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -10,10 +10,14 @@ export const runtime = "nodejs";
 const MODEL = config.ai.model;
 
 export async function POST(req: Request) {
-  // Rate limit per authenticated user (falls back to IP) — protects spend & abuse.
+  // Require an authenticated user — the AI endpoint calls the paid Anthropic API,
+  // so it must never be callable anonymously.
   const supabase = createClient();
   const userId = supabase ? (await supabase.auth.getUser()).data.user?.id : null;
-  const rl = await getRateLimiter().limit(`ai:${userId ?? ipKey(req)}`, config.rateLimit.ai);
+  if (!userId) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+
+  // Rate limit per user — protects spend & abuse.
+  const rl = await getRateLimiter().limit(`ai:${userId}`, config.rateLimit.ai);
   if (!rl.success) {
     return NextResponse.json(
       { error: "Rate limit exceeded. Please slow down and try again shortly." },

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getProvider, isProviderLive } from "@/lib/integrations/providers";
 
 export const runtime = "nodejs";
@@ -46,20 +47,31 @@ export async function POST(
   }
 
   if (action === "configure") {
-    // Store account/site (in meta) and, optionally, a pasted API access token so live
-    // data can flow without a full OAuth app. Only staff may set the token.
+    // Store account/site/property (merged into meta) and, optionally, a pasted API
+    // access token. Only staff may set the token. Uses the service role because
+    // integrations SELECT is revoked from the browser role (needed to merge meta).
+    const admin = createAdminClient();
+    if (!admin) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
+
+    const { data: existing } = await admin
+      .from("integrations")
+      .select("meta")
+      .eq("client_id", clientId)
+      .eq("provider", provider.id)
+      .maybeSingle();
+
     const update: Record<string, unknown> = {};
     if (body.accountId !== undefined || body.siteUrl !== undefined || body.propertyId !== undefined) {
-      const meta: Record<string, string> = {};
-      if (body.accountId) meta.accountId = body.accountId.trim();
-      if (body.siteUrl) meta.siteUrl = body.siteUrl.trim();
-      if (body.propertyId) meta.propertyId = body.propertyId.trim();
+      const meta: Record<string, string> = { ...(existing?.meta ?? {}) };
+      if (body.accountId !== undefined) meta.accountId = body.accountId.trim();
+      if (body.siteUrl !== undefined) meta.siteUrl = body.siteUrl.trim();
+      if (body.propertyId !== undefined) meta.propertyId = body.propertyId.trim();
       update.meta = meta;
     }
     if (body.accessToken !== undefined && user.role !== "client") {
       update.access_token = body.accessToken.trim() || null;
     }
-    const { error } = await supabase
+    const { error } = await admin
       .from("integrations")
       .update(update)
       .eq("client_id", clientId)
@@ -69,8 +81,10 @@ export async function POST(
   }
 
   // connect — real OAuth would happen here when credentials are configured.
+  // No .select() back: integrations SELECT is revoked from the browser role, and
+  // the board refreshes from the (service-role) server page after this returns.
   const live = isProviderLive(provider);
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("integrations")
     .upsert(
       {
@@ -80,10 +94,8 @@ export async function POST(
         account_label: live ? `${provider.name} (live)` : `${provider.name} · Sandbox`,
       },
       { onConflict: "client_id,provider" },
-    )
-    .select()
-    .single();
+    );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ ok: true, integration: data, live });
+  return NextResponse.json({ ok: true, live });
 }
