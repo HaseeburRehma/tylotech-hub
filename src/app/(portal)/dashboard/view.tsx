@@ -17,6 +17,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AutoRefresh } from "@/components/integrations/auto-refresh";
+import { useT } from "@/lib/i18n/provider";
 import type { Kpi, Project, SeriesPoint, Update } from "@/types";
 
 export function DashboardView({
@@ -32,6 +33,7 @@ export function DashboardView({
 }) {
   const user = useUser();
   const router = useRouter();
+  const t = useT();
   const firstName = user.name.split(" ")[0];
 
   // Live dashboard — refresh when the agency updates this client's data.
@@ -58,8 +60,8 @@ export function DashboardView({
     <div className="space-y-6">
       {user.role === "client" && <AutoRefresh />}
       <PageHeader
-        title={`Welcome back, ${firstName}`}
-        subtitle="Here's how your campaigns are performing this month."
+        title={t("dash.welcome", { name: firstName })}
+        subtitle={t("dash.subtitle")}
       >
         <span className="inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 text-sm text-muted">
           <CalendarDays className="h-4 w-4" />
@@ -67,7 +69,7 @@ export function DashboardView({
         </span>
         <Button size="sm" onClick={() => window.open("/api/reports/performance", "_blank")}>
           <Download className="h-4 w-4" />
-          Export report
+          {t("dash.export")}
         </Button>
       </PageHeader>
 
@@ -79,26 +81,23 @@ export function DashboardView({
         </div>
       ) : (
         <Card className="flex flex-col items-center justify-center py-12 text-center">
-          <p className="text-sm font-medium text-foreground">No performance data yet</p>
-          <p className="mt-1 max-w-sm text-sm text-muted">
-            Your TyloTech team is setting up your reporting. Your KPIs and charts will appear here
-            as soon as your campaigns are connected.
-          </p>
+          <p className="text-sm font-medium text-foreground">{t("dash.noDataTitle")}</p>
+          <p className="mt-1 max-w-sm text-sm text-muted">{t("dash.noDataBody")}</p>
         </Card>
       )}
 
       <Card>
         <CardHeader>
           <div>
-            <CardTitle>Ad spend & leads</CardTitle>
-            <p className="mt-0.5 text-xs text-muted">Last 30 days</p>
+            <CardTitle>{t("dash.adSpendLeads")}</CardTitle>
+            <p className="mt-0.5 text-xs text-muted">{t("dash.last30days")}</p>
           </div>
           <div className="flex items-center gap-3 text-xs">
             <span className="flex items-center gap-1.5 text-muted">
-              <span className="h-2 w-2 rounded-full bg-brand" /> Spend
+              <span className="h-2 w-2 rounded-full bg-brand" /> {t("dash.spend")}
             </span>
             <span className="flex items-center gap-1.5 text-muted">
-              <span className="h-2 w-2 rounded-full bg-info" /> Leads
+              <span className="h-2 w-2 rounded-full bg-info" /> {t("dash.leads")}
             </span>
           </div>
         </CardHeader>
@@ -106,7 +105,7 @@ export function DashboardView({
           <PerfArea data={series} keys={["spend", "leads"]} />
         ) : (
           <div className="flex h-[220px] items-center justify-center text-sm text-muted">
-            No time-series data yet — connect an ad source to populate this chart.
+            {t("dash.noSeries")}
           </div>
         )}
       </Card>
@@ -114,9 +113,9 @@ export function DashboardView({
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Recent updates</CardTitle>
+            <CardTitle>{t("dash.recentUpdates")}</CardTitle>
             <Link href="/chat" className="text-xs font-medium text-brand hover:underline">
-              View all
+              {t("dash.viewAll")}
             </Link>
           </CardHeader>
           <ul className="space-y-1">

@@ -5,6 +5,7 @@ import { FileText, FolderKanban, Loader2, Newspaper, Building2, Search, type Luc
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n/provider";
 
 interface Hit {
   type: "Document" | "Project" | "Update" | "Client";
@@ -21,6 +22,7 @@ const ICON: Record<Hit["type"], LucideIcon> = {
 
 export function SearchBox() {
   const router = useRouter();
+  const t = useT();
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<Hit[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,7 +67,7 @@ export function SearchBox() {
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
-        placeholder="Search reports, documents, projects…"
+        placeholder={t("topbar.search")}
         className="h-10 w-full max-w-md rounded-xl border border-border bg-surface/60 pl-10 pr-4 text-sm text-foreground placeholder:text-muted/60 outline-none transition-colors focus:border-brand/50 focus:ring-2 focus:ring-brand/15"
       />
       {loading && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted md:right-[calc(100%-28rem)]" />}

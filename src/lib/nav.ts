@@ -18,17 +18,18 @@ export interface NavItem {
   badge?: string;
 }
 
+// `label` is an i18n key (see src/lib/i18n/dictionary.ts); the sidebar translates it.
 export const CLIENT_NAV: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/performance", label: "Performance", icon: LineChart },
-  { href: "/integrations", label: "Integrations", icon: Plug },
-  { href: "/ai-tools", label: "AI Tools", icon: Bot },
-  { href: "/chat", label: "Chat & Updates", icon: MessagesSquare, badge: "2" },
-  { href: "/documents", label: "Documents", icon: FileText },
+  { href: "/dashboard", label: "nav.dashboard", icon: LayoutDashboard },
+  { href: "/performance", label: "nav.performance", icon: LineChart },
+  { href: "/integrations", label: "nav.integrations", icon: Plug },
+  { href: "/ai-tools", label: "nav.aiTools", icon: Bot },
+  { href: "/chat", label: "nav.chat", icon: MessagesSquare, badge: "2" },
+  { href: "/documents", label: "nav.documents", icon: FileText },
 ];
 
 export const INTERNAL_NAV: NavItem[] = [
-  { href: "/internal", label: "Internal Hub", icon: Building2 },
-  { href: "/internal/projects", label: "Projects", icon: FolderKanban },
-  { href: "/internal/ai-tools", label: "AI Prompts", icon: SlidersHorizontal },
+  { href: "/internal", label: "nav.internalHub", icon: Building2 },
+  { href: "/internal/projects", label: "nav.projects", icon: FolderKanban },
+  { href: "/internal/ai-tools", label: "nav.aiPrompts", icon: SlidersHorizontal },
 ];

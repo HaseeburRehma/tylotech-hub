@@ -10,6 +10,7 @@ import { ChatThread } from "@/components/chat/chat-thread";
 import { UPDATE_META } from "@/lib/status";
 import { ChatPeer, Message, Role, Update } from "@/types";
 import { formatRelativeTime } from "@/lib/utils";
+import { useT } from "@/lib/i18n/provider";
 
 export function ChatView({
   initialMessages,
@@ -28,6 +29,7 @@ export function ChatView({
   currentRole: Role;
   clientId: string | null;
 }) {
+  const t = useT();
   const [requested, setRequested] = useState(false);
   const [requesting, setRequesting] = useState(false);
 
@@ -48,10 +50,10 @@ export function ChatView({
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Chat & Updates" subtitle="Talk to your TyloTech team and track what we've shipped.">
+      <PageHeader title={t("chat.title")} subtitle={t("chat.subtitle")}>
         <Button size="sm" variant="outline" onClick={requestTask} loading={requesting}>
           {requested ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {requested ? "Request sent" : "Request report or task"}
+          {requested ? t("chat.requestSent") : t("chat.requestTask")}
         </Button>
       </PageHeader>
 
@@ -64,14 +66,14 @@ export function ChatView({
             currentRole={currentRole}
             clientId={clientId}
             peers={peers}
-            title="TyloTech Team"
-            subtitle="Group · everyone"
+            title={t("chat.team")}
+            subtitle={t("chat.groupEveryone")}
           />
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>This month at TyloTech</CardTitle>
+            <CardTitle>{t("chat.thisMonthAt")}</CardTitle>
             <Badge variant="brand">{updates.length}</Badge>
           </CardHeader>
           <div className="relative space-y-5 pl-5">

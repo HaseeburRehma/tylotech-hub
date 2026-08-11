@@ -9,10 +9,12 @@ import { Input, Label } from "@/components/ui/input";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { useT } from "@/lib/i18n/provider";
 
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
+  const t = useT();
   const redirectTo = params.get("redirect") || "/dashboard";
 
   const [email, setEmail] = useState("");
@@ -44,8 +46,8 @@ function LoginForm() {
   return (
     <>
       <div className="mb-8">
-        <h1 className="font-display text-3xl font-semibold tracking-tight">Welcome back</h1>
-        <p className="mt-2 text-sm text-muted">Sign in to your client portal.</p>
+        <h1 className="font-display text-3xl font-semibold tracking-tight">{t("auth.welcomeBack")}</h1>
+        <p className="mt-2 text-sm text-muted">{t("auth.signInSubtitle")}</p>
       </div>
 
       <form onSubmit={onSubmit} className="space-y-4">
@@ -56,7 +58,7 @@ function LoginForm() {
           </div>
         )}
         <div>
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{t("auth.email")}</Label>
           <div className="relative">
             <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
             <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className="h-12 pl-10" />
@@ -64,9 +66,9 @@ function LoginForm() {
         </div>
         <div>
           <div className="flex items-center justify-between">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">{t("auth.password")}</Label>
             <Link href="/reset" className="mb-1.5 text-xs font-medium text-brand hover:underline">
-              Forgot?
+              {t("auth.forgot")}
             </Link>
           </div>
           <div className="relative">
@@ -76,15 +78,15 @@ function LoginForm() {
         </div>
 
         <Button type="submit" loading={loading} className="mt-2 w-full" size="lg">
-          Sign in
+          {t("auth.signIn")}
           {!loading && <ArrowRight className="h-4 w-4" />}
         </Button>
       </form>
 
       <p className="mt-6 text-center text-sm text-muted">
-        TyloTech team member?{" "}
+        {t("auth.teamMemberQ")}{" "}
         <Link href="/signup" className="font-semibold text-brand hover:underline">
-          Create an account
+          {t("auth.createAccount")}
         </Link>
       </p>
     </>

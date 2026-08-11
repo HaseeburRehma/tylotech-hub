@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { ChatPeer, Message, Role } from "@/types";
 import { cn, formatRelativeTime } from "@/lib/utils";
+import { useT } from "@/lib/i18n/provider";
 
 const GROUP = "group";
 
@@ -34,6 +35,7 @@ export function ChatThread({
   subtitle?: string;
   className?: string;
 }) {
+  const t = useT();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [selected, setSelected] = useState<string>(GROUP); // GROUP | peerId
   const [unread, setUnread] = useState<Record<string, number>>({});
@@ -190,11 +192,11 @@ export function ChatThread({
   const activePeer = peers.find((p) => p.id === selected);
   const headerTitle = selected === GROUP ? title : activePeer?.name ?? title;
   const headerSubtitle =
-    selected === GROUP ? subtitle ?? "Group · everyone" : activePeer?.title ?? "Direct message";
+    selected === GROUP ? subtitle ?? t("chat.groupEveryone") : activePeer?.title ?? t("chat.directMessage");
 
   const threads: { key: string; name: string; sub: string; icon?: boolean }[] = [
-    { key: GROUP, name: title, sub: "Group thread", icon: true },
-    ...peers.map((p) => ({ key: p.id, name: p.name, sub: p.title ?? "Direct message" })),
+    { key: GROUP, name: title, sub: t("chat.groupThread"), icon: true },
+    ...peers.map((p) => ({ key: p.id, name: p.name, sub: p.title ?? t("chat.directMessage") })),
   ];
 
   return (
@@ -203,7 +205,7 @@ export function ChatThread({
       {peers.length > 0 && (
         <div className="flex w-56 shrink-0 flex-col border-r border-border">
           <div className="border-b border-border px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted">Conversations</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("chat.conversations")}</p>
           </div>
           <div className="flex-1 overflow-y-auto p-2">
             {threads.map((t) => {
@@ -268,9 +270,9 @@ export function ChatThread({
         <div className="flex-1 space-y-4 overflow-y-auto p-5">
           {visible.length === 0 && (
             <div className="flex h-full flex-col items-center justify-center text-center text-sm text-muted">
-              <p>No messages yet.</p>
+              <p>{t("chat.noMessages")}</p>
               <p className="text-xs text-muted/70">
-                {selected === GROUP ? "Say hello to the team." : `Start a private chat with ${headerTitle}.`}
+                {selected === GROUP ? t("chat.sayHello") : t("chat.startPrivate", { name: headerTitle })}
               </p>
             </div>
           )}
@@ -338,7 +340,7 @@ export function ChatThread({
           <input
             value={val}
             onChange={(e) => setVal(e.target.value)}
-            placeholder={selected === GROUP ? "Message the team…" : `Message ${headerTitle}…`}
+            placeholder={selected === GROUP ? t("chat.messageTeam") : t("chat.messagePerson", { name: headerTitle })}
             className="h-11 flex-1 rounded-xl border border-border bg-bg/60 px-4 text-sm outline-none focus:border-brand/50 focus:ring-2 focus:ring-brand/15"
           />
           <Button type="submit" size="icon" className="h-11 w-11 shrink-0">

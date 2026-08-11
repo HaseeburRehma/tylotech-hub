@@ -1,8 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Sora } from "next/font/google";
+import { cookies } from "next/headers";
 import { ThemeProvider } from "@/lib/theme/theme-provider";
 import { buildClientTheme, type BrandTheme } from "@/lib/theme/themes";
 import { getAuthUser } from "@/lib/auth";
+import { I18nProvider } from "@/lib/i18n/provider";
+import { DEFAULT_LOCALE, LOCALE_COOKIE, LOCALES, type Locale } from "@/lib/i18n/dictionary";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
@@ -23,6 +26,10 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const user = await getAuthUser();
 
+  // German is the default language; the choice persists in a cookie.
+  const cookieLocale = cookies().get(LOCALE_COOKIE)?.value as Locale | undefined;
+  const locale: Locale = cookieLocale && LOCALES.includes(cookieLocale) ? cookieLocale : DEFAULT_LOCALE;
+
   // A signed-in client re-skins the whole UI to their brand; staff keep TyloTech gold.
   let initialTheme: BrandTheme | undefined;
   if (user?.role === "client" && user.client_id && user.primaryColor) {
@@ -36,9 +43,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <html lang="en" className={`${inter.variable} ${sora.variable}`} suppressHydrationWarning>
+    <html lang={locale} className={`${inter.variable} ${sora.variable}`} suppressHydrationWarning>
       <body className="min-h-screen bg-bg text-foreground antialiased">
-        <ThemeProvider initialTheme={initialTheme}>{children}</ThemeProvider>
+        <I18nProvider initialLocale={locale}>
+          <ThemeProvider initialTheme={initialTheme}>{children}</ThemeProvider>
+        </I18nProvider>
       </body>
     </html>
   );

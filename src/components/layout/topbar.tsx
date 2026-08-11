@@ -7,8 +7,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { SearchBox } from "@/components/layout/search-box";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { Avatar } from "@/components/ui/avatar";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { useT } from "@/lib/i18n/provider";
 import type { AuthUser } from "@/lib/auth";
 
 const ROLE_LABEL: Record<string, string> = {
@@ -20,6 +22,7 @@ const ROLE_LABEL: Record<string, string> = {
 export function Topbar({ onMenu, user }: { onMenu: () => void; user: AuthUser }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const t = useT();
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -42,6 +45,7 @@ export function Topbar({ onMenu, user }: { onMenu: () => void; user: AuthUser })
       <SearchBox />
 
       <div className="ml-auto flex items-center gap-2">
+        <LanguageSwitcher />
         {/* White-label switcher is staff-only — a client must never see other brands. */}
         {(!isSupabaseConfigured || user.role !== "client") && <ThemeSwitcher />}
         <NotificationsBell userId={user.id} />
@@ -77,7 +81,7 @@ export function Topbar({ onMenu, user }: { onMenu: () => void; user: AuthUser })
                   className="mt-1 flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
                 >
                   <Settings className="h-4 w-4" />
-                  Settings
+                  {t("nav.settings")}
                 </Link>
                 <form action="/auth/signout" method="post">
                   <button
@@ -85,7 +89,7 @@ export function Topbar({ onMenu, user }: { onMenu: () => void; user: AuthUser })
                     className="mt-1 flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-danger"
                   >
                     <LogOut className="h-4 w-4" />
-                    Sign out
+                    {t("topbar.signOut")}
                   </button>
                 </form>
               </motion.div>

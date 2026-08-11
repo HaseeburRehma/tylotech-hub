@@ -4,12 +4,14 @@ import { motion } from "framer-motion";
 import { BarChart3, Bot, MessagesSquare, ShieldCheck, Sparkles } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { ThemeSwitcher } from "@/components/theme/theme-switcher";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { useTheme } from "@/lib/theme/theme-provider";
+import { useT } from "@/lib/i18n/provider";
 
 const FEATURES = [
-  { icon: BarChart3, title: "Live performance", desc: "Real-time KPIs across Meta, Google & SEO." },
-  { icon: Bot, title: "AI marketing tools", desc: "On-brand content, ad copy & SEO in seconds." },
-  { icon: MessagesSquare, title: "Your team, one click away", desc: "Chat, reports and updates in one place." },
+  { icon: BarChart3, key: "feature1" },
+  { icon: Bot, key: "feature2" },
+  { icon: MessagesSquare, key: "feature3" },
 ];
 
 function PreviewCard() {
@@ -49,6 +51,8 @@ function PreviewCard() {
 
 export function AuthShell({ children }: { children: React.ReactNode }) {
   const { theme } = useTheme();
+  const t = useT();
+  const [headA, headB] = t("auth.headline").split("\n");
 
   return (
     <div className="grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
@@ -72,9 +76,9 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             className="font-display text-4xl font-semibold leading-[1.1] tracking-tight text-white xl:text-[2.75rem]"
           >
-            Your growth,
+            {headA}
             <br />
-            in one place.
+            {headB}
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 12 }}
@@ -82,7 +86,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
             transition={{ delay: 0.1, duration: 0.6 }}
             className="mt-4 max-w-sm text-[15px] leading-relaxed text-white/65"
           >
-            {theme.tagline ?? "KPIs, AI tools, reports and a direct line to your team — beautifully in one dashboard."}
+            {theme.tagline ?? t("dash.subtitle")}
           </motion.p>
 
           <div className="mt-7 space-y-3.5">
@@ -90,7 +94,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
               const Icon = f.icon;
               return (
                 <motion.div
-                  key={f.title}
+                  key={f.key}
                   initial={{ opacity: 0, x: -12 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.15 + i * 0.08, duration: 0.5 }}
@@ -100,8 +104,8 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
                     <Icon className="h-[18px] w-[18px]" />
                   </span>
                   <div>
-                    <p className="text-sm font-semibold text-white">{f.title}</p>
-                    <p className="text-[13px] text-white/65">{f.desc}</p>
+                    <p className="text-sm font-semibold text-white">{t(`auth.${f.key}Title`)}</p>
+                    <p className="text-[13px] text-white/65">{t(`auth.${f.key}Desc`)}</p>
                   </div>
                 </motion.div>
               );
@@ -115,7 +119,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
 
         <div className="flex items-center gap-2 text-[13px] text-white/50">
           <ShieldCheck className="h-4 w-4 text-brand/70" />
-          Private, secure & GDPR-compliant · Powered by TyloTech
+          {t("auth.secure")}
         </div>
       </div>
 
@@ -124,7 +128,8 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
         <div className="pointer-events-none absolute inset-0 -z-10 lg:hidden">
           <div className="absolute left-1/2 top-0 h-[26rem] w-[26rem] -translate-x-1/2 rounded-full bg-brand/[0.12] blur-[120px]" />
         </div>
-        <div className="absolute right-5 top-5">
+        <div className="absolute right-5 top-5 flex items-center gap-2">
+          <LanguageSwitcher />
           <ThemeSwitcher />
         </div>
 
@@ -141,7 +146,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
           {children}
           <div className="mt-8 flex items-center justify-center gap-1.5 text-xs text-muted/60">
             <Sparkles className="h-3 w-3 text-brand/60" />
-            Powered by <span className="font-semibold text-muted">TyloTech</span>
+            {t("auth.poweredBy")} <span className="font-semibold text-muted">TyloTech</span>
           </div>
         </motion.div>
       </div>
