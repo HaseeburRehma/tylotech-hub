@@ -51,10 +51,16 @@ export function InternalView({
     <div className="space-y-6">
       <PageHeader title="Internal Hub" subtitle="TyloTech command center — revenue, clients, team & pipeline.">
         <Badge variant="brand" className="gap-1.5">Super Admin · Ilias</Badge>
+        <Link href="/internal/team/new">
+          <Button size="sm" variant="outline">
+            <Users className="h-4 w-4" />
+            New team member
+          </Button>
+        </Link>
         <Link href="/internal/onboard">
           <Button size="sm">
             <Plus className="h-4 w-4" />
-            Onboard client
+            New client
           </Button>
         </Link>
       </PageHeader>

@@ -191,11 +191,23 @@ export async function listAiTools(): Promise<AiToolRow[]> {
   return (data ?? []) as AiToolRow[];
 }
 
+/**
+ * Fetch staff rows, tolerant of the `title` column not existing yet (pre-0014).
+ * Tries with title, falls back without so the app never breaks before the migration.
+ */
+async function fetchStaff(client: any): Promise<any[]> {
+  let res = await client.from("users").select("id,name,role,title").in("role", ["admin", "team"]).order("name");
+  if (res.error) res = await client.from("users").select("id,name,role").in("role", ["admin", "team"]).order("name");
+  return res.data ?? [];
+}
+
+const staffTitle = (u: any): string => u.title || ROLE_LABEL[u.role] || u.role;
+
 export async function listTeamMembers(): Promise<TeamMember[]> {
   const sb = createClient();
   if (!sb) return [];
-  const { data } = await sb.from("users").select("id,name,role").in("role", ["admin", "team"]);
-  return (data ?? []).map((u: any) => ({ id: u.id, name: u.name, role: ROLE_LABEL[u.role] ?? u.role }));
+  const rows = await fetchStaff(sb);
+  return rows.map((u: any) => ({ id: u.id, name: u.name, role: staffTitle(u) }));
 }
 
 /**
@@ -206,24 +218,20 @@ export async function listTeamMembers(): Promise<TeamMember[]> {
 export async function listTeamPeers(): Promise<ChatPeer[]> {
   const admin = createAdminClient();
   if (!admin) return [];
-  const { data } = await admin
-    .from("users")
-    .select("id,name,role")
-    .in("role", ["admin", "team"])
-    .order("name");
-  return (data ?? []).map((u: any) => ({
+  const rows = await fetchStaff(admin);
+  return rows.map((u: any) => ({
     id: u.id,
     name: u.name,
     role: u.role as Role,
-    title: ROLE_LABEL[u.role] ?? u.role,
+    title: staffTitle(u),
   }));
 }
 
 export async function listTeamLoad(): Promise<TeamLoad[]> {
   const sb = createClient();
   if (!sb) return [];
-  const { data: users } = await sb.from("users").select("id,name,role").in("role", ["admin", "team"]);
-  if (!users?.length) return [];
+  const users = await fetchStaff(sb);
+  if (!users.length) return [];
   const { data: projects } = await sb.from("projects").select("assigned_to_id,client_id,status");
   return users.map((u: any) => {
     const mine = (projects ?? []).filter((p: any) => p.assigned_to_id === u.id);
@@ -232,7 +240,7 @@ export async function listTeamLoad(): Promise<TeamLoad[]> {
     return {
       id: u.id,
       name: u.name,
-      role: ROLE_LABEL[u.role] ?? u.role,
+      role: staffTitle(u),
       load: Math.min(100, 25 + active * 20),
       clients,
       avatar: null,
