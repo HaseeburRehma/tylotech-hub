@@ -176,18 +176,31 @@ export async function fetchSearchConsole(
 ): Promise<FetchedData | null> {
   if (!accessToken || !siteUrl) return null;
   const { start, end } = dateRange(days);
-  const res = await fetch(
-    `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ startDate: start, endDate: end, dimensions: ["date"], rowLimit: days }),
-      cache: "no-store",
-    },
-  ).catch(() => null);
-  if (!res?.ok) return null;
-  const json: any = await res.json();
-  const rows: any[] = json.rows ?? [];
+
+  // A property can be a URL-prefix ("https://site/") or a Domain property
+  // ("sc-domain:site"). They are distinct in Search Console, so if the stored
+  // one 403s, fall back to the Domain variant of the same host.
+  const candidates = [siteUrl];
+  const host = siteUrl.match(/^https?:\/\/([^/]+)/i)?.[1]?.replace(/^www\./i, "");
+  if (host && !siteUrl.startsWith("sc-domain:")) candidates.push(`sc-domain:${host}`);
+
+  let rows: any[] | null = null;
+  for (const prop of candidates) {
+    const res = await fetch(
+      `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(prop)}/searchAnalytics/query`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ startDate: start, endDate: end, dimensions: ["date"], rowLimit: days }),
+        cache: "no-store",
+      },
+    ).catch(() => null);
+    if (!res?.ok) continue;
+    const json: any = await res.json();
+    rows = json.rows ?? [];
+    if (rows && rows.length) break; // got data — stop; otherwise try the next candidate
+  }
+  if (rows == null) return null;
 
   // Map GSC clicks→leads proxy so the shared series shape stays consistent.
   const series = rows.map((r) => ({
