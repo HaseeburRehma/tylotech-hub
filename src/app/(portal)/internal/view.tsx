@@ -10,6 +10,7 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Progress } from "@/components/ui/progress";
 import { MrrBars } from "@/components/charts/mrr-bars";
+import { useT } from "@/lib/i18n/provider";
 import { formatCurrency } from "@/lib/utils";
 import type { Client } from "@/types";
 import type { TeamLoad } from "@/lib/data";
@@ -32,6 +33,7 @@ export function InternalView({
   mrrSeries: { month: string; mrr: number }[];
   projectCount: number;
 }) {
+  const tr = useT();
   const totalMrr = clients.reduce((a, c) => a + (c.mrr ?? 0), 0);
   const utilization = team.length
     ? Math.round(team.reduce((a, t) => a + t.load, 0) / team.length)
@@ -41,26 +43,26 @@ export function InternalView({
     .reduce((a, c) => a + c.projects.length, 0);
 
   const stats = [
-    { label: "Monthly Recurring Revenue", value: formatCurrency(totalMrr), delta: "live", icon: Wallet },
-    { label: "Active Clients", value: String(clients.length), delta: "live", icon: Building2 },
-    { label: "Active Projects", value: String(activeProjects), delta: `${projectCount} total`, icon: TrendingUp },
-    { label: "Team Utilization", value: `${utilization}%`, delta: utilization > 85 ? "High" : "Healthy", icon: Users },
+    { label: tr("hub.mrr"), value: formatCurrency(totalMrr), delta: "live", icon: Wallet },
+    { label: tr("hub.activeClients"), value: String(clients.length), delta: "live", icon: Building2 },
+    { label: tr("hub.activeProjects"), value: String(activeProjects), delta: tr("hub.total", { n: projectCount }), icon: TrendingUp },
+    { label: tr("hub.teamUtil"), value: `${utilization}%`, delta: utilization > 85 ? "High" : "Healthy", icon: Users },
   ];
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Internal Hub" subtitle="TyloTech command center — revenue, clients, team & pipeline.">
+      <PageHeader title={tr("hub.title")} subtitle={tr("hub.subtitle")}>
         <Badge variant="brand" className="gap-1.5">Super Admin · Ilias</Badge>
         <Link href="/internal/team/new">
           <Button size="sm" variant="outline">
             <Users className="h-4 w-4" />
-            New team member
+            {tr("hub.newTeam")}
           </Button>
         </Link>
         <Link href="/internal/onboard">
           <Button size="sm">
             <Plus className="h-4 w-4" />
-            New client
+            {tr("hub.newClient")}
           </Button>
         </Link>
       </PageHeader>

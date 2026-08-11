@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
+import { useT } from "@/lib/i18n/provider";
 import type { IntegrationProvider } from "@/lib/integrations/providers";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -57,6 +58,7 @@ export function IntegrationsBoard({
   liveProviders: string[];
 }) {
   const router = useRouter();
+  const t = useT();
   const [busy, setBusy] = useState<string | null>(null);
 
   const rowFor = (id: string) => rows.find((r) => r.provider === id);
@@ -118,7 +120,7 @@ export function IntegrationsBoard({
       {anyConnected && (
         <div className="flex justify-end">
           <Button size="sm" variant="secondary" loading={busy === "all"} onClick={() => sync()}>
-            <RefreshCw className="h-4 w-4" /> Sync all
+            <RefreshCw className="h-4 w-4" /> {t("integ.syncAll")}
           </Button>
         </div>
       )}
@@ -153,10 +155,10 @@ export function IntegrationsBoard({
                   </div>
                   {connected ? (
                     <Badge variant="success" className="gap-1">
-                      <Check className="h-3 w-3" /> Connected
+                      <Check className="h-3 w-3" /> {t("common.connected")}
                     </Badge>
                   ) : (
-                    <Badge variant="neutral">Not connected</Badge>
+                    <Badge variant="neutral">{t("integ.notConnected")}</Badge>
                   )}
                 </div>
 
@@ -241,24 +243,24 @@ export function IntegrationsBoard({
                     {connected
                       ? row?.last_synced_at
                         ? `Synced ${new Date(row.last_synced_at).toLocaleString("en-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
-                        : row?.account_label ?? "Connected"
-                      : "Pull live KPIs into the portal"}
+                        : row?.account_label ?? t("common.connected")
+                      : t("integ.pullLive")}
                   </span>
                   <div className="flex gap-2">
                     {connected ? (
                       <>
                         <Button size="sm" variant="secondary" loading={busy === p.id} onClick={() => sync(p.id)}>
-                          <RefreshCw className="h-4 w-4" /> Sync
+                          <RefreshCw className="h-4 w-4" /> {t("common.sync")}
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => act(p.id, "disconnect")}>
-                          Disconnect
+                          {t("common.disconnect")}
                         </Button>
                       </>
                     ) : liveProviders.includes(p.id) ? (
                       <a
                         href={`/api/integrations/${p.id}/oauth/start${clientId ? `?clientId=${clientId}` : ""}`}
                       >
-                        <Button size="sm" disabled={!clientId}>Connect</Button>
+                        <Button size="sm" disabled={!clientId}>{t("common.connect")}</Button>
                       </a>
                     ) : (
                       <Button size="sm" loading={busy === p.id} onClick={() => act(p.id, "connect")} disabled={!clientId}>

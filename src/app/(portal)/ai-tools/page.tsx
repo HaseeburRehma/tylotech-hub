@@ -18,6 +18,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
+import { useT } from "@/lib/i18n/provider";
 import { AI_TOOLS } from "@/lib/mock/data";
 import { cn } from "@/lib/utils";
 
@@ -31,14 +32,15 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 export default function AiToolsPage() {
-  const unlocked = AI_TOOLS.filter((t) => t.unlocked).length;
+  const tr = useT();
+  const unlocked = AI_TOOLS.filter((tool) => tool.unlocked).length;
 
   return (
     <div className="space-y-6">
-      <PageHeader title="AI Tools" subtitle="Claude-powered tools tuned to your brand. Unlock more as add-ons.">
+      <PageHeader title={tr("ai.title")} subtitle={tr("ai.subtitle")}>
         <Badge variant="brand" className="gap-1.5">
           <Sparkles className="h-3.5 w-3.5" />
-          {unlocked} of {AI_TOOLS.length} unlocked
+          {tr("ai.unlocked", { n: unlocked, total: AI_TOOLS.length })}
         </Badge>
       </PageHeader>
 
@@ -69,12 +71,12 @@ export default function AiToolsPage() {
                 </span>
                 {!tool.unlocked ? (
                   <Badge variant="warning" className="gap-1">
-                    <Lock className="h-3 w-3" /> Upgrade
+                    <Lock className="h-3 w-3" /> {tr("ai.upgrade")}
                   </Badge>
                 ) : !tool.is_active ? (
-                  <Badge variant="neutral">Soon</Badge>
+                  <Badge variant="neutral">{tr("ai.soon")}</Badge>
                 ) : (
-                  <Badge variant="success">Ready</Badge>
+                  <Badge variant="success">{tr("ai.ready")}</Badge>
                 )}
               </div>
 
@@ -85,12 +87,12 @@ export default function AiToolsPage() {
                 <Badge variant="outline">{tool.category}</Badge>
                 {available ? (
                   <span className="flex items-center gap-1 text-sm font-medium text-brand">
-                    Open <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                    {tr("ai.open")} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                   </span>
                 ) : !tool.unlocked ? (
                   <span className="text-xs font-medium text-warning">+ €99/mo</span>
                 ) : (
-                  <span className="text-xs text-muted">Coming soon</span>
+                  <span className="text-xs text-muted">{tr("ai.comingSoon")}</span>
                 )}
               </div>
             </motion.div>
@@ -107,12 +109,12 @@ export default function AiToolsPage() {
       </div>
 
       <div className="rounded-2xl border border-border bg-surface/40 p-6 text-center">
-        <h3 className="text-base font-semibold">Need a custom AI tool?</h3>
+        <h3 className="text-base font-semibold">{tr("ai.customTitle")}</h3>
         <p className="mx-auto mt-1 max-w-md text-sm text-muted">
-          We build bespoke Claude-powered tools tailored to your workflow. Tell us what you need.
+          {tr("ai.customBody")}
         </p>
         <Link href="/chat" className="mt-4 inline-block">
-          <Button variant="outline" size="sm">Request a tool</Button>
+          <Button variant="outline" size="sm">{tr("ai.requestTool")}</Button>
         </Link>
       </div>
     </div>

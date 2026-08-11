@@ -8,14 +8,11 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { PerfArea } from "@/components/charts/perf-area";
 import { cn, formatCurrency } from "@/lib/utils";
+import { useT } from "@/lib/i18n/provider";
 import type { Kpi, SeriesPoint } from "@/types";
 
 const RANGES = ["7D", "30D", "90D", "YTD"];
-const METRICS: { key: "spend" | "leads" | "roas"; label: string }[] = [
-  { key: "spend", label: "Ad Spend" },
-  { key: "leads", label: "Leads" },
-  { key: "roas", label: "ROAS" },
-];
+const METRIC_KEYS: ("spend" | "leads" | "roas")[] = ["spend", "leads", "roas"];
 
 function kpiValue(k: Kpi) {
   if (k.unit === "currency") return formatCurrency(k.value);
@@ -26,13 +23,15 @@ function kpiValue(k: Kpi) {
 }
 
 export function PerformanceView({ kpis, series }: { kpis: Kpi[]; series: SeriesPoint[] }) {
+  const t = useT();
   const [range, setRange] = useState("30D");
   const [metric, setMetric] = useState<"spend" | "leads" | "roas">("spend");
   const hasData = kpis.length > 0 || series.length > 0;
+  const metricLabel = (k: "spend" | "leads" | "roas") => (k === "spend" ? t("perf.adSpend") : k === "leads" ? "Leads" : "ROAS");
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Performance" subtitle="Cross-channel results for Meta Ads, Google Ads & SEO.">
+      <PageHeader title={t("perf.title")} subtitle={t("perf.subtitle")}>
         <div className="flex rounded-xl border border-border bg-surface-2 p-1">
           {RANGES.map((r) => (
             <button
@@ -49,16 +48,14 @@ export function PerformanceView({ kpis, series }: { kpis: Kpi[]; series: SeriesP
         </div>
         <Button size="sm" variant="secondary" onClick={() => window.open("/api/reports/performance", "_blank")}>
           <Download className="h-4 w-4" />
-          Export PDF
+          {t("perf.exportPdf")}
         </Button>
       </PageHeader>
 
       {!hasData ? (
         <Card className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-sm font-medium text-foreground">No performance data yet</p>
-          <p className="mt-1 max-w-sm text-sm text-muted">
-            Once your TyloTech team connects your ad accounts, your metrics and trends will appear here.
-          </p>
+          <p className="text-sm font-medium text-foreground">{t("perf.noData")}</p>
+          <p className="mt-1 max-w-sm text-sm text-muted">{t("perf.noDataBody")}</p>
         </Card>
       ) : (
         <>
@@ -77,20 +74,20 @@ export function PerformanceView({ kpis, series }: { kpis: Kpi[]; series: SeriesP
           <Card>
             <CardHeader>
               <div>
-                <CardTitle>Trend</CardTitle>
-                <p className="mt-0.5 text-xs text-muted">{range} · by day</p>
+                <CardTitle>{t("perf.trend")}</CardTitle>
+                <p className="mt-0.5 text-xs text-muted">{range} · {t("perf.byDay")}</p>
               </div>
               <div className="flex rounded-xl border border-border bg-surface-2 p-1">
-                {METRICS.map((m) => (
+                {METRIC_KEYS.map((k) => (
                   <button
-                    key={m.key}
-                    onClick={() => setMetric(m.key)}
+                    key={k}
+                    onClick={() => setMetric(k)}
                     className={cn(
                       "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                      metric === m.key ? "bg-brand text-brand-foreground" : "text-muted hover:text-foreground",
+                      metric === k ? "bg-brand text-brand-foreground" : "text-muted hover:text-foreground",
                     )}
                   >
-                    {m.label}
+                    {metricLabel(k)}
                   </button>
                 ))}
               </div>
@@ -99,7 +96,7 @@ export function PerformanceView({ kpis, series }: { kpis: Kpi[]; series: SeriesP
               <PerfArea data={series} keys={[metric]} />
             ) : (
               <div className="flex h-[220px] items-center justify-center text-sm text-muted">
-                No time-series data yet — connect an ad source on the Integrations page.
+                {t("perf.noSeries")}
               </div>
             )}
           </Card>
@@ -107,17 +104,17 @@ export function PerformanceView({ kpis, series }: { kpis: Kpi[]; series: SeriesP
           {kpis.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Metrics detail</CardTitle>
-                <Badge variant="outline">{kpis.length} metrics</Badge>
+                <CardTitle>{t("perf.metricsDetail")}</CardTitle>
+                <Badge variant="outline">{t("perf.metricsCount", { n: kpis.length })}</Badge>
               </CardHeader>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border text-left text-xs text-muted">
-                      <th className="pb-3 font-medium">Metric</th>
-                      <th className="pb-3 font-medium">Source</th>
-                      <th className="pb-3 font-medium">Value</th>
-                      <th className="pb-3 text-right font-medium">Δ vs last period</th>
+                      <th className="pb-3 font-medium">{t("perf.metric")}</th>
+                      <th className="pb-3 font-medium">{t("perf.source")}</th>
+                      <th className="pb-3 font-medium">{t("perf.value")}</th>
+                      <th className="pb-3 text-right font-medium">{t("perf.delta")}</th>
                     </tr>
                   </thead>
                   <tbody>

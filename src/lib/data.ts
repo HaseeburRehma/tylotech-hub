@@ -136,6 +136,32 @@ export async function listMessages(clientId: string | null): Promise<Message[]> 
   }));
 }
 
+/**
+ * Internal staff-only messages (client_id IS NULL): the "TyloTech Team" workspace.
+ * RLS lets staff read the internal group + their own internal DMs.
+ */
+export async function listInternalMessages(): Promise<Message[]> {
+  const sb = createClient();
+  if (!sb) return [];
+  const { data } = await sb
+    .from("messages")
+    .select("*")
+    .is("client_id", null)
+    .order("created_at", { ascending: true });
+  return (data ?? []).map((m: any) => ({
+    id: m.id,
+    client_id: m.client_id,
+    sender_id: m.sender_id,
+    sender_name: m.sender_name ?? "TyloTech",
+    sender_role: (m.sender_role ?? "team") as Role,
+    recipient_id: m.recipient_id ?? null,
+    content: m.content,
+    content_translated: m.content_translated ?? null,
+    translated_to: m.translated_to ?? null,
+    created_at: m.created_at,
+  }));
+}
+
 /** Client-side users of a tenant — the staff-facing DM peer list. */
 export async function listClientUsers(clientId: string | null): Promise<ChatPeer[]> {
   const sb = createClient();

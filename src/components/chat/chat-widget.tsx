@@ -7,14 +7,15 @@ import { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { useUser } from "@/components/providers/user-provider";
 import { cn } from "@/lib/utils";
-
-const QUICK = ["Request a report", "Book a call", "New AI task"];
+import { useT } from "@/lib/i18n/provider";
 
 export function ChatWidget() {
   const user = useUser();
+  const t = useT();
+  const QUICK = [t("widget.reqReport"), t("widget.bookCall"), t("widget.newTask")];
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<{ me: boolean; text: string }[]>([
-    { me: false, text: "Hi! 👋 This is the TyloTech team. How can we help today?" },
+    { me: false, text: t("widget.greeting") },
   ]);
   const [val, setVal] = useState("");
   const pathname = usePathname();
@@ -37,8 +38,8 @@ export function ChatWidget() {
       {
         me: false,
         text: res?.ok
-          ? "Sent ✓ — your team will reply in Chat shortly."
-          : "Couldn't send right now — please try the Chat page.",
+          ? t("widget.sent")
+          : t("widget.error"),
       },
     ]);
   }
@@ -61,8 +62,8 @@ export function ChatWidget() {
                   <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-success ring-2 ring-bg" />
                 </span>
                 <div className="leading-tight">
-                  <p className="text-sm font-semibold">TyloTech Team</p>
-                  <p className="text-[11px] text-success">Online · replies in ~5m</p>
+                  <p className="text-sm font-semibold">{t("widget.team")}</p>
+                  <p className="text-[11px] text-success">{t("widget.online")}</p>
                 </div>
               </div>
               <button
@@ -113,7 +114,7 @@ export function ChatWidget() {
               <input
                 value={val}
                 onChange={(e) => setVal(e.target.value)}
-                placeholder="Message TyloTech…"
+                placeholder={t("widget.placeholder")}
                 className="h-10 flex-1 rounded-xl border border-border bg-bg/60 px-3 text-sm outline-none focus:border-brand/50"
               />
               <button

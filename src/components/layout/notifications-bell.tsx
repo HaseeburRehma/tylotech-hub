@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatRelativeTime } from "@/lib/utils";
+import { useT } from "@/lib/i18n/provider";
 
 interface Item {
   id: string;
@@ -18,6 +19,7 @@ interface Item {
 
 export function NotificationsBell({ userId }: { userId: string }) {
   const router = useRouter();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const [unread, setUnread] = useState(0);
@@ -97,16 +99,16 @@ export function NotificationsBell({ userId }: { userId: string }) {
             className="glass absolute right-0 z-50 mt-2 w-80 rounded-2xl border border-border p-2 shadow-float"
           >
             <div className="flex items-center justify-between px-3 py-2">
-              <p className="text-sm font-semibold text-foreground">Notifications</p>
+              <p className="text-sm font-semibold text-foreground">{t("notif.title")}</p>
               {unread > 0 && (
                 <button onClick={markAll} className="inline-flex items-center gap-1 text-xs text-brand hover:underline">
-                  <CheckCheck className="h-3.5 w-3.5" /> Mark all read
+                  <CheckCheck className="h-3.5 w-3.5" /> {t("notif.markAll")}
                 </button>
               )}
             </div>
             <div className="max-h-80 overflow-y-auto">
               {items.length === 0 ? (
-                <p className="px-3 py-8 text-center text-sm text-muted">You&apos;re all caught up.</p>
+                <p className="px-3 py-8 text-center text-sm text-muted">{t("notif.caughtUp")}</p>
               ) : (
                 items.map((i) => (
                   <button

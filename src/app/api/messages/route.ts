@@ -20,24 +20,33 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => ({}))) as {
     content?: string;
-    clientId?: string;
+    clientId?: string | null;
     recipientId?: string | null;
+    internal?: boolean;
   };
   const content = body.content?.trim();
   if (!content) return NextResponse.json({ error: "Message is empty." }, { status: 400 });
 
-  const clientId = user.role === "client" ? user.client_id : body.clientId;
-  if (!clientId) return NextResponse.json({ error: "Missing client." }, { status: 400 });
-  if (user.role === "client" && clientId !== user.client_id) {
+  const isClient = user.role === "client";
+  // Internal (staff-only) workspace has no tenant → client_id null.
+  const internal = !isClient && (body.internal === true || body.clientId == null);
+  const clientId: string | null = isClient ? user.client_id : internal ? null : body.clientId ?? null;
+
+  if (isClient && !clientId) return NextResponse.json({ error: "Missing client." }, { status: 400 });
+  if (isClient && clientId !== user.client_id) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
+  if (!isClient && !internal && !clientId) {
+    return NextResponse.json({ error: "Missing client." }, { status: 400 });
   }
 
   const sb = createClient();
   if (!sb) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
 
-  // Optional direct-message recipient. Validate the pairing so a client can only
-  // DM staff, and staff can only DM a user inside the same tenant. Uses the admin
-  // client because RLS hides staff rows from clients (and vice-versa).
+  const staffRoles = ["admin", "team"];
+
+  // Optional direct-message recipient. Validate the pairing: a client DMs staff,
+  // staff DM a user in the same tenant, and internal DMs are staff↔staff.
   const recipientId: string | null = body.recipientId ?? null;
   if (recipientId) {
     const admin = createAdminClient();
@@ -47,18 +56,19 @@ export async function POST(req: Request) {
       .eq("id", recipientId)
       .single();
     if (!recipient) return NextResponse.json({ error: "Recipient not found." }, { status: 400 });
-    const staffRoles = ["admin", "team"];
-    const ok =
-      user.role === "client"
-        ? staffRoles.includes(recipient.role) // client → any staff member
+    const ok = isClient
+      ? staffRoles.includes(recipient.role) // client → any staff member
+      : internal
+        ? staffRoles.includes(recipient.role) // internal → another staff member
         : recipient.client_id === clientId && recipient.role === "client"; // staff → a user of this tenant
     if (!ok) return NextResponse.json({ error: "Invalid recipient." }, { status: 403 });
   }
 
   // Client writes German → translate to English for the team.
   // Team writes English → translate to German for the client.
-  const target = user.role === "client" ? "en" : "de";
-  const contentTranslated = await translateMessage(content, target);
+  // Internal staff↔staff needs no translation.
+  const target = isClient ? "en" : "de";
+  const contentTranslated = internal ? null : await translateMessage(content, target);
 
   const { data, error } = await sb
     .from("messages")
@@ -70,7 +80,7 @@ export async function POST(req: Request) {
       recipient_id: recipientId,
       content,
       content_translated: contentTranslated,
-      translated_to: target,
+      translated_to: internal ? null : target,
     })
     .select()
     .single();
@@ -78,26 +88,30 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   // Notify the other side of the conversation.
+  const preview = content.slice(0, 120);
   if (recipientId) {
     // Direct message → notify only the recipient.
-    const href = user.role === "client" ? `/internal/clients/${clientId}` : "/chat";
+    const href = internal ? "/internal/team" : isClient ? `/internal/clients/${clientId}` : "/chat";
     await notifyUser(recipientId, {
       title: `New message from ${user.name}`,
-      body: content.slice(0, 120),
+      body: preview,
       href,
       type: "message",
     });
-  } else if (user.role === "client") {
+  } else if (internal) {
+    // Internal group → notify all staff.
+    await notifyStaff({ title: `Team chat · ${user.name}`, body: preview, href: "/internal/team", type: "message" });
+  } else if (isClient) {
     await notifyStaff({
       title: `New message from ${user.name}`,
-      body: content.slice(0, 120),
+      body: preview,
       href: `/internal/clients/${clientId}`,
       type: "message",
     });
   } else {
-    await notifyClientUsers(clientId, {
+    await notifyClientUsers(clientId!, {
       title: "New message from your TyloTech team",
-      body: content.slice(0, 120),
+      body: preview,
       href: "/chat",
       type: "message",
     });

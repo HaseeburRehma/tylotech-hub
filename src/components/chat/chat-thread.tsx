@@ -23,6 +23,7 @@ export function ChatThread({
   title,
   subtitle,
   className,
+  internal = false,
 }: {
   initialMessages: Message[];
   currentUserId: string;
@@ -34,6 +35,8 @@ export function ChatThread({
   title: string;
   subtitle?: string;
   className?: string;
+  /** Staff-only internal workspace (client_id null). */
+  internal?: boolean;
 }) {
   const t = useT();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -112,16 +115,22 @@ export function ChatThread({
   }, [selected]);
 
   useEffect(() => {
-    if (!clientId) return;
+    if (!clientId && !internal) return;
     const supabase = createClient();
     if (!supabase) return;
+    // Internal chat has no tenant filter — RLS scopes what this staff user receives.
+    const changeFilter = internal
+      ? { event: "INSERT" as const, schema: "public", table: "messages" }
+      : { event: "INSERT" as const, schema: "public", table: "messages", filter: `client_id=eq.${clientId}` };
     const channel = supabase
-      .channel(`messages:${clientId}`)
+      .channel(internal ? "messages:internal" : `messages:${clientId}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `client_id=eq.${clientId}` },
+        changeFilter,
         (payload) => {
           const m = payload.new as any;
+          // In internal mode only accept the staff workspace (client_id null).
+          if (internal ? m.client_id != null : m.client_id !== clientId) return;
           if (seen.current.has(m.id)) return;
           seen.current.add(m.id);
           const msg: Message = {
@@ -151,7 +160,7 @@ export function ChatThread({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [clientId, currentUserId]);
+  }, [clientId, currentUserId, internal]);
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
@@ -178,7 +187,7 @@ export function ChatThread({
     const res = await fetch("/api/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content, clientId, recipientId }),
+      body: JSON.stringify({ content, clientId, recipientId, internal }),
     }).catch(() => null);
     if (res?.ok) {
       const { message } = await res.json();

@@ -8,6 +8,7 @@ import {
   Plug,
   FolderKanban,
   SlidersHorizontal,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -30,6 +31,7 @@ export const CLIENT_NAV: NavItem[] = [
 
 export const INTERNAL_NAV: NavItem[] = [
   { href: "/internal", label: "nav.internalHub", icon: Building2 },
+  { href: "/internal/team", label: "nav.team", icon: Users },
   { href: "/internal/projects", label: "nav.projects", icon: FolderKanban },
   { href: "/internal/ai-tools", label: "nav.aiPrompts", icon: SlidersHorizontal },
 ];
