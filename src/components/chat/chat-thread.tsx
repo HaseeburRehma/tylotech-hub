@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Languages, Paperclip, Send, Users } from "lucide-react";
+import { Download, FileText, Languages, Loader2, Paperclip, Send, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,12 @@ import { cn, formatRelativeTime } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
 
 const GROUP = "group";
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
 
 export function ChatThread({
   initialMessages,
@@ -43,6 +49,9 @@ export function ChatThread({
   const [selected, setSelected] = useState<string>(GROUP); // GROUP | peerId
   const [unread, setUnread] = useState<Record<string, number>>({});
   const [val, setVal] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const seen = useRef<Set<string>>(new Set(initialMessages.map((m) => m.id)));
   const selectedRef = useRef(selected);
@@ -140,9 +149,12 @@ export function ChatThread({
             sender_name: m.sender_name ?? "TyloTech",
             sender_role: (m.sender_role ?? "team") as Role,
             recipient_id: m.recipient_id ?? null,
-            content: m.content,
+            content: m.content ?? "",
             content_translated: m.content_translated ?? null,
             translated_to: m.translated_to ?? null,
+            attachment_name: m.attachment_name ?? null,
+            attachment_mime: m.attachment_mime ?? null,
+            attachment_size: m.attachment_size ?? null,
             created_at: m.created_at,
           };
           setMessages((prev) => [...prev, msg]);
@@ -195,6 +207,51 @@ export function ChatThread({
         seen.current.add(message.id);
         setMessages((m) => m.map((x) => (x.id === tempId ? { ...x, id: message.id } : x)));
       }
+    }
+  }
+
+  async function uploadFile(file: File) {
+    if (!file) return;
+    const recipientId = selected === GROUP ? null : selected;
+    const tempId = `temp-${Date.now()}`;
+    seen.current.add(tempId);
+    // Optimistic placeholder while uploading.
+    setMessages((m) => [
+      ...m,
+      {
+        id: tempId,
+        client_id: clientId ?? "",
+        sender_id: currentUserId,
+        sender_name: currentName,
+        sender_role: currentRole,
+        recipient_id: recipientId,
+        content: "",
+        attachment_name: file.name,
+        attachment_mime: file.type || "application/octet-stream",
+        attachment_size: file.size,
+        created_at: new Date().toISOString(),
+      },
+    ]);
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    if (clientId) fd.append("clientId", clientId);
+    if (recipientId) fd.append("recipientId", recipientId);
+    if (internal) fd.append("internal", "true");
+    const res = await fetch("/api/messages/attachment", { method: "POST", body: fd }).catch(() => null);
+    setUploading(false);
+    if (res?.ok) {
+      const { message } = await res.json();
+      if (message?.id) {
+        seen.current.add(message.id);
+        setMessages((m) => m.map((x) => (x.id === tempId ? { ...x, id: message.id } : x)));
+      }
+    } else {
+      // Roll back the optimistic bubble on failure.
+      setMessages((m) => m.filter((x) => x.id !== tempId));
+      const err = res ? (await res.json().catch(() => null))?.error : null;
+      setUploadError(err || "Upload failed.");
+      setTimeout(() => setUploadError(null), 4000);
     }
   }
 
@@ -292,6 +349,11 @@ export function ChatThread({
             const displayText = versions[selectedLang] ?? m.content;
             const isTranslated = selectedLang !== originalLangOf(m) && versions[selectedLang] != null;
             const loading = pending[m.id] && versions[selectedLang] == null;
+            const hasText = !!(displayText && displayText.trim());
+            const mime = m.attachment_mime || "";
+            const hasAttachment = !!mime;
+            const isTemp = m.id.startsWith("temp-");
+            const attUrl = `/api/messages/attachment?id=${m.id}`;
             return (
               <motion.div
                 key={m.id}
@@ -302,32 +364,74 @@ export function ChatThread({
                 {!mine && <Avatar name={m.sender_name} size={32} className="mt-1" />}
                 <div className={cn("max-w-[72%]", mine && "items-end text-right")}>
                   {!mine && <p className="mb-1 text-[11px] font-medium text-muted">{m.sender_name}</p>}
-                  <div
-                    title={isTranslated ? `Original: ${m.content}` : undefined}
-                    className={cn(
-                      "inline-block rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
-                      mine ? "rounded-br-md bg-brand text-brand-foreground" : "rounded-bl-md bg-surface-2 text-foreground",
-                    )}
-                  >
-                    {loading ? <span className="opacity-60">…</span> : displayText}
-                  </div>
-                  <div className={cn("mt-1 flex items-center gap-2 text-[10px] text-muted/60", mine && "flex-row-reverse")}>
-                    <span className="inline-flex overflow-hidden rounded-full border border-border">
-                      {(["en", "de"] as const).map((l) => (
-                        <button
-                          key={l}
-                          onClick={() => pickLang(m, l)}
-                          title={l === "en" ? "English" : "Deutsch"}
+
+                  {hasAttachment && (
+                    <div className={cn("mb-1", hasText && "mb-2")}>
+                      {isTemp ? (
+                        <div className="inline-flex items-center gap-2 rounded-2xl bg-surface-2 px-3.5 py-2.5 text-sm text-muted">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="max-w-[200px] truncate">{m.attachment_name}</span>
+                        </div>
+                      ) : mime.startsWith("image/") ? (
+                        <a href={attUrl} target="_blank" rel="noopener noreferrer">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={attUrl} alt={m.attachment_name ?? "image"} className="max-h-64 max-w-full rounded-2xl border border-border object-cover" />
+                        </a>
+                      ) : mime.startsWith("video/") ? (
+                        <video src={attUrl} controls className="max-h-64 max-w-full rounded-2xl border border-border" />
+                      ) : mime.startsWith("audio/") ? (
+                        <audio src={attUrl} controls className="w-64 max-w-full" />
+                      ) : (
+                        <a
+                          href={attUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className={cn(
-                            "px-1.5 py-0.5 text-[9px] font-semibold uppercase transition-colors",
-                            selectedLang === l ? "bg-brand text-brand-foreground" : "text-muted hover:text-foreground",
+                            "inline-flex items-center gap-2.5 rounded-2xl border border-border px-3.5 py-2.5 text-sm transition-colors hover:border-brand/40",
+                            mine ? "bg-brand/10" : "bg-surface-2",
                           )}
                         >
-                          {l}
-                        </button>
-                      ))}
-                    </span>
-                    {isTranslated && (
+                          <FileText className="h-5 w-5 shrink-0 text-brand" />
+                          <span className="min-w-0">
+                            <span className="block max-w-[200px] truncate font-medium text-foreground">{m.attachment_name}</span>
+                            {m.attachment_size ? <span className="block text-[10px] text-muted">{formatBytes(m.attachment_size)}</span> : null}
+                          </span>
+                          <Download className="h-4 w-4 shrink-0 text-muted" />
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {hasText && (
+                    <div
+                      title={isTranslated ? `Original: ${m.content}` : undefined}
+                      className={cn(
+                        "inline-block rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
+                        mine ? "rounded-br-md bg-brand text-brand-foreground" : "rounded-bl-md bg-surface-2 text-foreground",
+                      )}
+                    >
+                      {loading ? <span className="opacity-60">…</span> : displayText}
+                    </div>
+                  )}
+                  <div className={cn("mt-1 flex items-center gap-2 text-[10px] text-muted/60", mine && "flex-row-reverse")}>
+                    {hasText && (
+                      <span className="inline-flex overflow-hidden rounded-full border border-border">
+                        {(["en", "de"] as const).map((l) => (
+                          <button
+                            key={l}
+                            onClick={() => pickLang(m, l)}
+                            title={l === "en" ? "English" : "Deutsch"}
+                            className={cn(
+                              "px-1.5 py-0.5 text-[9px] font-semibold uppercase transition-colors",
+                              selectedLang === l ? "bg-brand text-brand-foreground" : "text-muted hover:text-foreground",
+                            )}
+                          >
+                            {l}
+                          </button>
+                        ))}
+                      </span>
+                    )}
+                    {hasText && isTranslated && (
                       <span className="inline-flex items-center gap-1 text-brand">
                         <Languages className="h-2.5 w-2.5" />
                         {selectedLang === "de" ? "Übersetzt" : "Translated"}
@@ -342,9 +446,29 @@ export function ChatThread({
           <div ref={endRef} />
         </div>
 
+        {uploadError && (
+          <p className="border-t border-border px-4 pt-2 text-xs text-danger">{uploadError}</p>
+        )}
         <form onSubmit={send} className="flex items-center gap-2 border-t border-border p-3">
-          <button type="button" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-muted hover:text-foreground">
-            <Paperclip className="h-[18px] w-[18px]" />
+          <input
+            ref={fileRef}
+            type="file"
+            className="hidden"
+            accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.csv,.txt"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void uploadFile(f);
+              e.target.value = "";
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            title={t("chat.attach")}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-muted transition-colors hover:text-foreground disabled:opacity-50"
+          >
+            {uploading ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <Paperclip className="h-[18px] w-[18px]" />}
           </button>
           <input
             value={val}

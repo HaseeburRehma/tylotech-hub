@@ -48,6 +48,10 @@ export interface Message {
   content: string;
   content_translated?: string | null;
   translated_to?: string | null;
+  /** Attachment metadata (path is server-only; download via /api/messages/attachment?id=). */
+  attachment_name?: string | null;
+  attachment_mime?: string | null;
+  attachment_size?: number | null;
   created_at: string;
 }
 

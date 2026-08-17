@@ -129,9 +129,12 @@ export async function listMessages(clientId: string | null): Promise<Message[]> 
     sender_name: m.sender_name ?? "TyloTech",
     sender_role: (m.sender_role ?? "team") as Role,
     recipient_id: m.recipient_id ?? null,
-    content: m.content,
+    content: m.content ?? "",
     content_translated: m.content_translated ?? null,
     translated_to: m.translated_to ?? null,
+    attachment_name: m.attachment_name ?? null,
+    attachment_mime: m.attachment_mime ?? null,
+    attachment_size: m.attachment_size ?? null,
     created_at: m.created_at,
   }));
 }
@@ -155,9 +158,12 @@ export async function listInternalMessages(): Promise<Message[]> {
     sender_name: m.sender_name ?? "TyloTech",
     sender_role: (m.sender_role ?? "team") as Role,
     recipient_id: m.recipient_id ?? null,
-    content: m.content,
+    content: m.content ?? "",
     content_translated: m.content_translated ?? null,
     translated_to: m.translated_to ?? null,
+    attachment_name: m.attachment_name ?? null,
+    attachment_mime: m.attachment_mime ?? null,
+    attachment_size: m.attachment_size ?? null,
     created_at: m.created_at,
   }));
 }

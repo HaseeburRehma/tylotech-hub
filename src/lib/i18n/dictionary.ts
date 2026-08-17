@@ -97,6 +97,7 @@ const en: Dict = {
   "chat.messagePerson": "Message {name}…",
   "chat.thisMonthAt": "This month at TyloTech",
   "chat.translated": "Translated",
+  "chat.attach": "Attach a file (image, PDF, audio, video)",
 
   // common
   "common.connect": "Connect",
@@ -290,6 +291,7 @@ const de: Dict = {
   "chat.messagePerson": "Nachricht an {name}…",
   "chat.thisMonthAt": "Diesen Monat bei TyloTech",
   "chat.translated": "Übersetzt",
+  "chat.attach": "Datei anhängen (Bild, PDF, Audio, Video)",
 
   "common.connect": "Verbinden",
   "common.connected": "Verbunden",
