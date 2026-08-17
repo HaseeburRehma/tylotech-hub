@@ -37,19 +37,19 @@ function applyVars(theme: BrandTheme) {
 export function ThemeProvider({
   children,
   initialTheme,
+  brands,
 }: {
   children: React.ReactNode;
   /** The signed-in client's brand, built from their DB record. */
   initialTheme?: BrandTheme;
+  /** Live client brands (name + logo + colors) for the white-label switcher. */
+  brands?: BrandTheme[];
 }) {
-  // The switcher offers the built-in demo themes plus the live client brand.
-  const allThemes = useMemo<BrandTheme[]>(
-    () =>
-      initialTheme && !THEMES.some((t) => t.id === initialTheme.id)
-        ? [initialTheme, ...THEMES]
-        : THEMES,
-    [initialTheme],
-  );
+  // Prefer the live client brands; fall back to the built-in demo themes.
+  const allThemes = useMemo<BrandTheme[]>(() => {
+    const base = brands && brands.length ? brands : THEMES;
+    return initialTheme && !base.some((t) => t.id === initialTheme.id) ? [initialTheme, ...base] : base;
+  }, [initialTheme, brands]);
 
   const [theme, setTheme] = useState<BrandTheme>(initialTheme ?? DEFAULT_THEME);
 

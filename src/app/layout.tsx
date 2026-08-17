@@ -2,8 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Sora } from "next/font/google";
 import { cookies } from "next/headers";
 import { ThemeProvider } from "@/lib/theme/theme-provider";
-import { buildClientTheme, type BrandTheme } from "@/lib/theme/themes";
+import { buildClientTheme, TYLOTECH_THEME, type BrandTheme } from "@/lib/theme/themes";
 import { getAuthUser } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { DEFAULT_LOCALE, LOCALE_COOKIE, LOCALES, type Locale } from "@/lib/i18n/dictionary";
 import "./globals.css";
@@ -42,11 +43,33 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     });
   }
 
+  // White-label switcher options: TyloTech + every real client (name, logo, colors).
+  let brands: BrandTheme[] = [TYLOTECH_THEME];
+  const admin = createAdminClient();
+  if (admin) {
+    const { data } = await admin
+      .from("clients")
+      .select("id,company,primary_color,secondary_color,logo_url")
+      .order("company");
+    brands = [
+      TYLOTECH_THEME,
+      ...(data ?? []).map((c: any) =>
+        buildClientTheme({
+          id: c.id,
+          company: c.company,
+          primary: c.primary_color ?? "#C9A84C",
+          secondary: c.secondary_color ?? "#0A0A0A",
+          logoUrl: c.logo_url,
+        }),
+      ),
+    ];
+  }
+
   return (
     <html lang={locale} className={`${inter.variable} ${sora.variable}`} suppressHydrationWarning>
       <body className="min-h-screen bg-bg text-foreground antialiased">
         <I18nProvider initialLocale={locale}>
-          <ThemeProvider initialTheme={initialTheme}>{children}</ThemeProvider>
+          <ThemeProvider initialTheme={initialTheme} brands={brands}>{children}</ThemeProvider>
         </I18nProvider>
       </body>
     </html>
