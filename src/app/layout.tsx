@@ -3,7 +3,7 @@ import { Inter, Sora } from "next/font/google";
 import { cookies } from "next/headers";
 import { ThemeProvider } from "@/lib/theme/theme-provider";
 import { buildClientTheme, TYLOTECH_THEME, type BrandTheme } from "@/lib/theme/themes";
-import { getAuthUser } from "@/lib/auth";
+import { getAuthUser, isStaff } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { DEFAULT_LOCALE, LOCALE_COOKIE, LOCALES, type Locale } from "@/lib/i18n/dictionary";
@@ -43,30 +43,34 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     });
   }
 
-  // White-label switcher options: TyloTech + every real client (name, logo, colors).
-  let brands: BrandTheme[] = [TYLOTECH_THEME];
-  const admin = createAdminClient();
-  if (admin) {
-    const { data } = await admin
-      .from("clients")
-      .select("id,company,primary_color,secondary_color,logo_url")
-      .order("company");
-    // TyloTech's own brand is the default; skip a client tenant that duplicates it.
-    const seen = new Set([TYLOTECH_THEME.company.toLowerCase()]);
-    brands = [TYLOTECH_THEME];
-    for (const c of data ?? []) {
-      const key = (c.company ?? "").toLowerCase();
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      brands.push(
-        buildClientTheme({
-          id: c.id,
-          company: c.company,
-          primary: c.primary_color ?? "#C9A84C",
-          secondary: c.secondary_color ?? "#0A0A0A",
-          logoUrl: c.logo_url,
-        }),
-      );
+  // The full client roster is confidential — only STAFF get every brand in the
+  // white-label switcher. The public login (and clients) fall back to the small
+  // built-in showcase (undefined → ThemeProvider uses THEMES). Clients also have
+  // the switcher hidden entirely in the top bar.
+  let brands: BrandTheme[] | undefined;
+  if (isStaff(user)) {
+    const admin = createAdminClient();
+    if (admin) {
+      const { data } = await admin
+        .from("clients")
+        .select("id,company,primary_color,secondary_color,logo_url")
+        .order("company");
+      const seen = new Set([TYLOTECH_THEME.company.toLowerCase()]);
+      brands = [TYLOTECH_THEME];
+      for (const c of data ?? []) {
+        const key = (c.company ?? "").toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        brands.push(
+          buildClientTheme({
+            id: c.id,
+            company: c.company,
+            primary: c.primary_color ?? "#C9A84C",
+            secondary: c.secondary_color ?? "#0A0A0A",
+            logoUrl: c.logo_url,
+          }),
+        );
+      }
     }
   }
 
