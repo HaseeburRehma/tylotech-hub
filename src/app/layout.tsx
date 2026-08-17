@@ -51,9 +51,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       .from("clients")
       .select("id,company,primary_color,secondary_color,logo_url")
       .order("company");
-    brands = [
-      TYLOTECH_THEME,
-      ...(data ?? []).map((c: any) =>
+    // TyloTech's own brand is the default; skip a client tenant that duplicates it.
+    const seen = new Set([TYLOTECH_THEME.company.toLowerCase()]);
+    brands = [TYLOTECH_THEME];
+    for (const c of data ?? []) {
+      const key = (c.company ?? "").toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      brands.push(
         buildClientTheme({
           id: c.id,
           company: c.company,
@@ -61,8 +66,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           secondary: c.secondary_color ?? "#0A0A0A",
           logoUrl: c.logo_url,
         }),
-      ),
-    ];
+      );
+    }
   }
 
   return (
