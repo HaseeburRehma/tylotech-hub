@@ -52,6 +52,7 @@ export interface Message {
   attachment_name?: string | null;
   attachment_mime?: string | null;
   attachment_size?: number | null;
+  edited_at?: string | null;
   created_at: string;
 }
 

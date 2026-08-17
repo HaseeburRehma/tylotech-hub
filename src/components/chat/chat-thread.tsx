@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Download, FileText, Languages, Loader2, Paperclip, Send, Users } from "lucide-react";
+import { Check, Download, FileText, Languages, Loader2, Paperclip, Pencil, Send, Trash2, Users, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,8 @@ export function ChatThread({
   const [val, setVal] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editVal, setEditVal] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const seen = useRef<Set<string>>(new Set(initialMessages.map((m) => m.id)));
@@ -127,47 +129,50 @@ export function ChatThread({
     if (!clientId && !internal) return;
     const supabase = createClient();
     if (!supabase) return;
-    // Internal chat has no tenant filter — RLS scopes what this staff user receives.
-    const changeFilter = internal
-      ? { event: "INSERT" as const, schema: "public", table: "messages" }
-      : { event: "INSERT" as const, schema: "public", table: "messages", filter: `client_id=eq.${clientId}` };
+    const base = internal
+      ? { schema: "public", table: "messages" }
+      : { schema: "public", table: "messages", filter: `client_id=eq.${clientId}` };
+    const mine = (m: any) => (internal ? m.client_id == null : m.client_id === clientId);
+    const toMsg = (m: any): Message => ({
+      id: m.id,
+      client_id: m.client_id,
+      sender_id: m.sender_id,
+      sender_name: m.sender_name ?? "TyloTech",
+      sender_role: (m.sender_role ?? "team") as Role,
+      recipient_id: m.recipient_id ?? null,
+      content: m.content ?? "",
+      content_translated: m.content_translated ?? null,
+      translated_to: m.translated_to ?? null,
+      attachment_name: m.attachment_name ?? null,
+      attachment_mime: m.attachment_mime ?? null,
+      attachment_size: m.attachment_size ?? null,
+      edited_at: m.edited_at ?? null,
+      created_at: m.created_at,
+    });
     const channel = supabase
       .channel(internal ? "messages:internal" : `messages:${clientId}`)
-      .on(
-        "postgres_changes",
-        changeFilter,
-        (payload) => {
-          const m = payload.new as any;
-          // In internal mode only accept the staff workspace (client_id null).
-          if (internal ? m.client_id != null : m.client_id !== clientId) return;
-          if (seen.current.has(m.id)) return;
-          seen.current.add(m.id);
-          const msg: Message = {
-            id: m.id,
-            client_id: m.client_id,
-            sender_id: m.sender_id,
-            sender_name: m.sender_name ?? "TyloTech",
-            sender_role: (m.sender_role ?? "team") as Role,
-            recipient_id: m.recipient_id ?? null,
-            content: m.content ?? "",
-            content_translated: m.content_translated ?? null,
-            translated_to: m.translated_to ?? null,
-            attachment_name: m.attachment_name ?? null,
-            attachment_mime: m.attachment_mime ?? null,
-            attachment_size: m.attachment_size ?? null,
-            created_at: m.created_at,
-          };
-          setMessages((prev) => [...prev, msg]);
-          const key = !msg.recipient_id
-            ? GROUP
-            : msg.sender_id === currentUserId
-              ? msg.recipient_id
-              : msg.sender_id;
-          if (msg.sender_id !== currentUserId && key !== selectedRef.current) {
-            setUnread((u) => ({ ...u, [key]: (u[key] ?? 0) + 1 }));
-          }
-        },
-      )
+      .on("postgres_changes", { event: "INSERT", ...base }, (payload) => {
+        const m = payload.new as any;
+        if (!mine(m) || seen.current.has(m.id)) return;
+        seen.current.add(m.id);
+        const msg = toMsg(m);
+        setMessages((prev) => [...prev, msg]);
+        const key = !msg.recipient_id ? GROUP : msg.sender_id === currentUserId ? msg.recipient_id : msg.sender_id;
+        if (msg.sender_id !== currentUserId && key !== selectedRef.current) {
+          setUnread((u) => ({ ...u, [key]: (u[key] ?? 0) + 1 }));
+        }
+      })
+      .on("postgres_changes", { event: "UPDATE", ...base }, (payload) => {
+        const m = payload.new as any;
+        if (!mine(m)) return;
+        // Drop any cached translation of the old text so the edit re-renders.
+        setCache((c) => { const n = { ...c }; delete n[m.id]; return n; });
+        setMessages((prev) => prev.map((x) => (x.id === m.id ? toMsg(m) : x)));
+      })
+      .on("postgres_changes", { event: "DELETE", ...base }, (payload) => {
+        const oldId = (payload.old as any)?.id;
+        if (oldId) setMessages((prev) => prev.filter((x) => x.id !== oldId));
+      })
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -205,8 +210,50 @@ export function ChatThread({
       const { message } = await res.json();
       if (message?.id) {
         seen.current.add(message.id);
-        setMessages((m) => m.map((x) => (x.id === tempId ? { ...x, id: message.id } : x)));
+        // If realtime already delivered the real row, drop the temp instead of duplicating.
+        setMessages((m) =>
+          m.some((x) => x.id === message.id) ? m.filter((x) => x.id !== tempId) : m.map((x) => (x.id === tempId ? { ...x, id: message.id } : x)),
+        );
       }
+    }
+  }
+
+  function startEdit(m: Message) {
+    setEditingId(m.id);
+    setEditVal(m.content);
+  }
+
+  async function saveEdit(id: string) {
+    const content = editVal.trim();
+    if (!content) return;
+    const prev = messages.find((x) => x.id === id); // snapshot for rollback
+    setEditingId(null);
+    setCache((c) => { const n = { ...c }; delete n[id]; return n; }); // stale translation
+    setMessages((ms) => ms.map((x) => (x.id === id ? { ...x, content, edited_at: new Date().toISOString() } : x)));
+    const res = await fetch("/api/messages", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, content }),
+    }).catch(() => null);
+    if (res?.ok) {
+      const { message } = await res.json();
+      if (message?.id) setMessages((ms) => ms.map((x) => (x.id === id ? { ...x, ...message } : x)));
+    } else if (prev) {
+      setMessages((ms) => ms.map((x) => (x.id === id ? prev : x))); // rollback
+      setUploadError(t("chat.editFailed"));
+      setTimeout(() => setUploadError(null), 4000);
+    }
+  }
+
+  async function deleteMsg(id: string) {
+    if (!window.confirm(t("chat.deleteConfirm"))) return;
+    const snapshot = messages; // for rollback
+    setMessages((ms) => ms.filter((x) => x.id !== id));
+    const res = await fetch(`/api/messages?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null);
+    if (!res?.ok) {
+      setMessages(snapshot); // restore on failure
+      setUploadError(t("chat.deleteFailed"));
+      setTimeout(() => setUploadError(null), 4000);
     }
   }
 
@@ -244,7 +291,9 @@ export function ChatThread({
       const { message } = await res.json();
       if (message?.id) {
         seen.current.add(message.id);
-        setMessages((m) => m.map((x) => (x.id === tempId ? { ...x, id: message.id } : x)));
+        setMessages((m) =>
+          m.some((x) => x.id === message.id) ? m.filter((x) => x.id !== tempId) : m.map((x) => (x.id === tempId ? { ...x, id: message.id } : x)),
+        );
       }
     } else {
       // Roll back the optimistic bubble on failure.
@@ -304,7 +353,7 @@ export function ChatThread({
                       )}
                     </span>
                     <span className="block truncate text-[11px] text-muted">
-                      {last ? last.content : t.sub}
+                      {last ? last.content || (last.attachment_name ? `📎 ${last.attachment_name}` : t.sub) : t.sub}
                     </span>
                   </span>
                 </button>
@@ -402,7 +451,22 @@ export function ChatThread({
                     </div>
                   )}
 
-                  {hasText && (
+                  {editingId === m.id ? (
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        autoFocus
+                        value={editVal}
+                        onChange={(e) => setEditVal(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveEdit(m.id);
+                          if (e.key === "Escape") setEditingId(null);
+                        }}
+                        className="h-9 w-56 rounded-xl border border-brand/50 bg-bg/60 px-3 text-sm outline-none focus:ring-2 focus:ring-brand/15"
+                      />
+                      <button onClick={() => saveEdit(m.id)} title={t("chat.save")} className="text-brand hover:text-brand/80"><Check className="h-4 w-4" /></button>
+                      <button onClick={() => setEditingId(null)} title={t("chat.cancel")} className="text-muted hover:text-foreground"><X className="h-4 w-4" /></button>
+                    </div>
+                  ) : hasText ? (
                     <div
                       title={isTranslated ? `Original: ${m.content}` : undefined}
                       className={cn(
@@ -412,7 +476,7 @@ export function ChatThread({
                     >
                       {loading ? <span className="opacity-60">…</span> : displayText}
                     </div>
-                  )}
+                  ) : null}
                   <div className={cn("mt-1 flex items-center gap-2 text-[10px] text-muted/60", mine && "flex-row-reverse")}>
                     {hasText && (
                       <span className="inline-flex overflow-hidden rounded-full border border-border">
@@ -438,6 +502,19 @@ export function ChatThread({
                       </span>
                     )}
                     <span>{formatRelativeTime(m.created_at)}</span>
+                    {m.edited_at && <span className="italic">· {t("chat.edited")}</span>}
+                    {mine && !isTemp && editingId !== m.id && (
+                      <span className="inline-flex items-center gap-1.5">
+                        {hasText && (
+                          <button onClick={() => startEdit(m)} title={t("chat.edit")} className="hover:text-foreground">
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        )}
+                        <button onClick={() => deleteMsg(m.id)} title={t("chat.delete")} className="hover:text-danger">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </span>
+                    )}
                   </div>
                 </div>
               </motion.div>

@@ -119,3 +119,68 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true, message: data });
 }
+
+/** Edit a message — RLS restricts this to the message's own sender. */
+export async function PATCH(req: Request) {
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+
+  const rl = await getRateLimiter().limit(`msg:${user.id}`, config.rateLimit.api);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Slow down a moment." }, { status: 429, headers: rateLimitHeaders(rl) });
+  }
+
+  const body = (await req.json().catch(() => ({}))) as { id?: string; content?: string };
+  const content = body.content?.trim();
+  if (!body.id) return NextResponse.json({ error: "Missing id." }, { status: 400 });
+  if (!content) return NextResponse.json({ error: "Message is empty." }, { status: 400 });
+
+  const sb = createClient();
+  if (!sb) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
+
+  // Read the row (RLS = participant) to know its workspace for re-translation.
+  const { data: existing } = await sb.from("messages").select("client_id,sender_id").eq("id", body.id).single();
+  if (!existing) return NextResponse.json({ error: "Not found." }, { status: 404 });
+  if (existing.sender_id !== user.id) return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+
+  const internal = user.role !== "client" && existing.client_id == null;
+  const target = user.role === "client" ? "en" : "de";
+  const contentTranslated = internal ? null : await translateMessage(content, target);
+
+  // RLS update policy also enforces sender-only; select back only safe columns.
+  const { data, error } = await sb
+    .from("messages")
+    .update({ content, content_translated: contentTranslated, translated_to: internal ? null : target, edited_at: new Date().toISOString() })
+    .eq("id", body.id)
+    .select("id,client_id,sender_id,sender_name,sender_role,recipient_id,content,content_translated,translated_to,attachment_name,attachment_mime,attachment_size,edited_at,created_at")
+    .single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  return NextResponse.json({ ok: true, message: data });
+}
+
+/** Delete a message (+ its attachment) — RLS restricts this to the sender. */
+export async function DELETE(req: Request) {
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+
+  const id = new URL(req.url).searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "Missing id." }, { status: 400 });
+
+  const sb = createClient();
+  const admin = createAdminClient();
+  if (!sb || !admin) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
+
+  // Read via RLS (participant) to find any attachment; ownership is enforced by
+  // the delete policy + the explicit check below.
+  const { data: msg } = await sb.from("messages").select("sender_id,attachment_path").eq("id", id).single();
+  if (!msg) return NextResponse.json({ error: "Not found." }, { status: 404 });
+  if (msg.sender_id !== user.id) return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+
+  const { error } = await sb.from("messages").delete().eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  const path = (msg as { attachment_path?: string }).attachment_path;
+  if (path) await admin.storage.from("chat").remove([path]);
+
+  return NextResponse.json({ ok: true });
+}

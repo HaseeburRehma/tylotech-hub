@@ -135,6 +135,7 @@ export async function listMessages(clientId: string | null): Promise<Message[]> 
     attachment_name: m.attachment_name ?? null,
     attachment_mime: m.attachment_mime ?? null,
     attachment_size: m.attachment_size ?? null,
+    edited_at: m.edited_at ?? null,
     created_at: m.created_at,
   }));
 }
@@ -164,6 +165,7 @@ export async function listInternalMessages(): Promise<Message[]> {
     attachment_name: m.attachment_name ?? null,
     attachment_mime: m.attachment_mime ?? null,
     attachment_size: m.attachment_size ?? null,
+    edited_at: m.edited_at ?? null,
     created_at: m.created_at,
   }));
 }

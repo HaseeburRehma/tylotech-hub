@@ -9,7 +9,10 @@ import { notifyClientUsers, notifyStaff, notifyUser } from "@/lib/notify";
 export const runtime = "nodejs";
 
 const MAX_BYTES = 50 * 1024 * 1024; // 50 MB
-const ALLOWED = /^(image\/|audio\/|video\/|application\/pdf$|application\/(msword|vnd\.|zip)|text\/)/i;
+// Allowed media/doc types. SVG and HTML are excluded: they can carry scripts that
+// would execute when served inline from the storage origin (stored-XSS vector).
+const ALLOWED = /^(image\/|audio\/|video\/|application\/pdf$|application\/(msword|vnd\.(openxmlformats|ms-)|zip)|text\/(plain|csv))/i;
+const BLOCKED = /(svg|html)/i;
 
 /** Upload a chat attachment and post it as a message in the conversation. */
 export async function POST(req: Request) {
@@ -29,12 +32,11 @@ export async function POST(req: Request) {
   const file = form?.get("file");
   const recipientId = (form?.get("recipientId") as string | null) || null;
   const internalFlag = (form?.get("internal") as string | null) === "true";
-  const caption = ((form?.get("caption") as string | null) || "").trim() || null;
 
   if (!(file instanceof File)) return NextResponse.json({ error: "No file provided." }, { status: 400 });
   if (file.size > MAX_BYTES) return NextResponse.json({ error: "File too large (max 50 MB)." }, { status: 413 });
   const mime = file.type || "application/octet-stream";
-  if (!ALLOWED.test(mime)) return NextResponse.json({ error: "Unsupported file type." }, { status: 415 });
+  if (!ALLOWED.test(mime) || BLOCKED.test(mime)) return NextResponse.json({ error: "Unsupported file type." }, { status: 415 });
 
   const isClient = user.role === "client";
   const internal = !isClient && (internalFlag || form?.get("clientId") == null);
@@ -74,7 +76,7 @@ export async function POST(req: Request) {
       sender_name: user.name,
       sender_role: user.role,
       recipient_id: recipientId,
-      content: caption,
+      content: null,
       attachment_path: path,
       attachment_name: file.name,
       attachment_mime: mime,
