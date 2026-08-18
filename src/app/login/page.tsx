@@ -11,11 +11,17 @@ import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { useT } from "@/lib/i18n/provider";
 
+/** Only allow same-origin relative paths — blocks open redirects (//evil.com, https://…, /\evil). */
+function safeRedirect(raw: string | null): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return "/dashboard";
+  return raw;
+}
+
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const t = useT();
-  const redirectTo = params.get("redirect") || "/dashboard";
+  const redirectTo = safeRedirect(params.get("redirect"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
