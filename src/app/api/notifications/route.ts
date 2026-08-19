@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { listNotifications } from "@/lib/data";
+import { resetEmailCooldown } from "@/lib/notify";
 
 export const runtime = "nodejs";
 
@@ -23,5 +24,7 @@ export async function PATCH(req: Request) {
   q = b.id ? q.eq("id", b.id) : q.eq("read", false);
   const { error } = await q;
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  // Caught up on notifications → let the next new message email them again.
+  if (!b.id) await resetEmailCooldown(user.id);
   return NextResponse.json({ ok: true });
 }
