@@ -87,34 +87,20 @@ export async function POST(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  // Notify the other side of the conversation.
+  // Notify the other side of the conversation (in-app + bilingual email).
   const preview = content.slice(0, 120);
+  const email = { senderName: user.name, preview: content };
   if (recipientId) {
     // Direct message → notify only the recipient.
     const href = internal ? "/internal/team" : isClient ? `/internal/clients/${clientId}` : "/chat";
-    await notifyUser(recipientId, {
-      title: `New message from ${user.name}`,
-      body: preview,
-      href,
-      type: "message",
-    });
+    await notifyUser(recipientId, { title: `New message from ${user.name}`, body: preview, href, type: "message", email });
   } else if (internal) {
     // Internal group → notify all staff.
-    await notifyStaff({ title: `Team chat · ${user.name}`, body: preview, href: "/internal/team", type: "message" });
+    await notifyStaff({ title: `Team chat · ${user.name}`, body: preview, href: "/internal/team", type: "message", email });
   } else if (isClient) {
-    await notifyStaff({
-      title: `New message from ${user.name}`,
-      body: preview,
-      href: `/internal/clients/${clientId}`,
-      type: "message",
-    });
+    await notifyStaff({ title: `New message from ${user.name}`, body: preview, href: `/internal/clients/${clientId}`, type: "message", email });
   } else {
-    await notifyClientUsers(clientId!, {
-      title: "New message from your TyloTech team",
-      body: preview,
-      href: "/chat",
-      type: "message",
-    });
+    await notifyClientUsers(clientId!, { title: "New message from your TyloTech team", body: preview, href: "/chat", type: "message", email });
   }
 
   return NextResponse.json({ ok: true, message: data });
