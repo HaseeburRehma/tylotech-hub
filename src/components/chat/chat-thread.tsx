@@ -86,10 +86,11 @@ export function ChatThread({
   const [cache, setCache] = useState<Record<string, Partial<Record<Lang, string>>>>({});
   const [pending, setPending] = useState<Record<string, boolean>>({});
 
-  const originalLangOf = (m: Message): Lang => (m.sender_role === "client" ? "de" : "en");
-
+  // Known translations only — never assume the original's language from the
+  // sender role (a team member may well write in German). Anything not known is
+  // fetched on demand from the original `content`, which stays the fallback.
   const versionsOf = (m: Message): Partial<Record<Lang, string>> => {
-    const v: Partial<Record<Lang, string>> = { [originalLangOf(m)]: m.content };
+    const v: Partial<Record<Lang, string>> = {};
     if (m.content_translated && (m.translated_to === "en" || m.translated_to === "de")) {
       v[m.translated_to as Lang] = m.content_translated;
     }
@@ -396,7 +397,7 @@ export function ChatThread({
             const selectedLang: Lang = langByMsg[m.id] ?? viewerLang;
             const versions = versionsOf(m);
             const displayText = versions[selectedLang] ?? m.content;
-            const isTranslated = selectedLang !== originalLangOf(m) && versions[selectedLang] != null;
+            const isTranslated = versions[selectedLang] != null && versions[selectedLang] !== m.content;
             const loading = pending[m.id] && versions[selectedLang] == null;
             const hasText = !!(displayText && displayText.trim());
             const mime = m.attachment_mime || "";
