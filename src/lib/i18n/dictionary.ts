@@ -114,6 +114,10 @@ const en: Dict = {
   "common.sync": "Sync",
   "common.client": "Client",
   "common.backToHub": "Internal Hub",
+  "common.cancel": "Cancel",
+  "common.delete": "Delete",
+  "documents.deleteTitle": "Delete document?",
+  "documents.deleteBody": "This permanently removes the file for everyone and cannot be undone.",
 
   // performance
   "perf.title": "Performance",
@@ -315,6 +319,10 @@ const de: Dict = {
   "common.sync": "Synchronisieren",
   "common.client": "Kunde",
   "common.backToHub": "Interner Bereich",
+  "common.cancel": "Abbrechen",
+  "common.delete": "Löschen",
+  "documents.deleteTitle": "Dokument löschen?",
+  "documents.deleteBody": "Dies entfernt die Datei dauerhaft für alle und kann nicht rückgängig gemacht werden.",
 
   "perf.title": "Leistung",
   "perf.subtitle": "Kanalübergreifende Ergebnisse für Meta Ads, Google Ads & SEO.",

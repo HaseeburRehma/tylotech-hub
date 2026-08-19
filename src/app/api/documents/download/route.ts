@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   if (!id) return NextResponse.json({ error: "id required." }, { status: 400 });
 
   // RLS ensures the requester can only read their own client's documents.
-  const { data: doc } = await sb.from("documents").select("file_url").eq("id", id).single();
+  const { data: doc } = await sb.from("documents").select("client_id,file_url").eq("id", id).single();
   if (!doc) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
   const path = doc.file_url as string;
@@ -25,6 +25,13 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "No file attached." }, { status: 404 });
   }
   if (path.startsWith("http")) return NextResponse.redirect(path);
+
+  // Defense-in-depth: a client can control file_url on rows in their own tenant,
+  // so never sign a storage path that doesn't live under this document's own
+  // client folder — otherwise a crafted row could point at another tenant's file.
+  if (!path.startsWith(`${doc.client_id}/`)) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
 
   const { data, error } = await admin.storage.from("documents").createSignedUrl(path, 60);
   if (error || !data) return NextResponse.json({ error: "Could not generate link." }, { status: 400 });

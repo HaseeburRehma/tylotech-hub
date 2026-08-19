@@ -120,9 +120,18 @@ export async function GET(req: Request) {
   if (!id) return NextResponse.json({ error: "id required." }, { status: 400 });
 
   // RLS ensures the requester can only read messages they participate in.
-  const { data: msg } = await sb.from("messages").select("attachment_path").eq("id", id).single();
-  const path = (msg as { attachment_path?: string } | null)?.attachment_path;
+  const { data: msg } = await sb.from("messages").select("client_id,attachment_path").eq("id", id).single();
+  const row = msg as { client_id?: string | null; attachment_path?: string } | null;
+  const path = row?.attachment_path;
   if (!path) return NextResponse.json({ error: "Not found." }, { status: 404 });
+
+  // Defense-in-depth: sender controls attachment_path on their own message rows,
+  // so only sign paths under this message's own tenant folder (uploads are keyed
+  // `${clientId ?? "internal"}/…`). Blocks a crafted row pointing at another tenant.
+  const expectedPrefix = `${row?.client_id ?? "internal"}/`;
+  if (!path.startsWith(expectedPrefix)) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
 
   const { data, error } = await admin.storage.from("chat").createSignedUrl(path, 3600);
   if (error || !data) return NextResponse.json({ error: "Could not generate link." }, { status: 400 });

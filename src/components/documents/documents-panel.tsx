@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { DocItem, DocType } from "@/types";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n/provider";
 
 const META: Record<DocType, { label: string; icon: LucideIcon; variant: "info" | "brand" | "success" | "warning" }> = {
   report: { label: "Report", icon: FileText, variant: "info" },
@@ -42,10 +43,13 @@ export function DocumentsPanel({
   clientId: string | null;
 }) {
   const router = useRouter();
+  const t = useT();
   const [filter, setFilter] = useState<DocType | "all">("all");
   const [uploadType, setUploadType] = useState<DocType>("report");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<DocItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const docs = documents.filter((d) => filter === "all" || d.type === filter);
@@ -67,8 +71,12 @@ export function DocumentsPanel({
     router.refresh();
   }
 
-  async function remove(id: string) {
-    await fetch(`/api/documents?id=${id}`, { method: "DELETE" });
+  async function confirmRemove() {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    await fetch(`/api/documents?id=${pendingDelete.id}`, { method: "DELETE" }).catch(() => null);
+    setDeleting(false);
+    setPendingDelete(null);
     router.refresh();
   }
 
@@ -173,7 +181,7 @@ export function DocumentsPanel({
                     </span>
                   )}
                   <button
-                    onClick={() => remove(d.id)}
+                    onClick={() => setPendingDelete(d)}
                     className="flex h-9 w-9 items-center justify-center rounded-xl text-muted transition-colors hover:text-danger"
                     aria-label={`Delete ${d.name}`}
                   >
@@ -185,6 +193,41 @@ export function DocumentsPanel({
           </ul>
         )}
       </Card>
+
+      {pendingDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => !deleting && setPendingDelete(null)}
+        >
+          <Card
+            className="w-full max-w-sm space-y-4 p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="space-y-1.5">
+              <h3 className="text-base font-semibold text-foreground">{t("documents.deleteTitle")}</h3>
+              <p className="truncate text-sm font-medium text-foreground">{pendingDelete.name}</p>
+              <p className="text-sm text-muted">{t("documents.deleteBody")}</p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setPendingDelete(null)}
+                disabled={deleting}
+                className="inline-flex h-9 items-center rounded-xl border border-border px-3.5 text-sm text-foreground transition-colors hover:bg-surface-2 disabled:opacity-50"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                onClick={confirmRemove}
+                disabled={deleting}
+                className="inline-flex h-9 items-center gap-2 rounded-xl bg-danger px-3.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {t("common.delete")}
+              </button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
