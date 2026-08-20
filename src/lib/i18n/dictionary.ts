@@ -107,6 +107,8 @@ const en: Dict = {
   "chat.editFailed": "Couldn't save the edit.",
   "chat.deleteFailed": "Couldn't delete the message.",
   "chat.translateUnavailable": "Translation unavailable",
+  "chat.dropHere": "Drop images or files to attach…",
+  "chat.composerHint": "Enter to send · Shift+Enter for a new line · paste or drop images",
 
   // common
   "common.connect": "Connect",
@@ -314,6 +316,8 @@ const de: Dict = {
   "chat.editFailed": "Bearbeitung konnte nicht gespeichert werden.",
   "chat.deleteFailed": "Nachricht konnte nicht gelöscht werden.",
   "chat.translateUnavailable": "Übersetzung nicht verfügbar",
+  "chat.dropHere": "Bilder oder Dateien zum Anhängen ablegen…",
+  "chat.composerHint": "Enter zum Senden · Umschalt+Enter für neue Zeile · Bilder einfügen oder ablegen",
 
   "common.connect": "Verbinden",
   "common.connected": "Verbunden",

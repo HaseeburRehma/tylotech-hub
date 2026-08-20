@@ -55,6 +55,8 @@ export function ChatThread({
   const [editVal, setEditVal] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const [dragOver, setDragOver] = useState(false);
   const seen = useRef<Set<string>>(new Set(initialMessages.map((m) => m.id)));
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
@@ -222,8 +224,8 @@ export function ChatThread({
     };
   }, [clientId, currentUserId, internal]);
 
-  async function send(e: React.FormEvent) {
-    e.preventDefault();
+  async function send(e?: React.FormEvent) {
+    e?.preventDefault();
     const content = val.trim();
     if (!content) return;
     setVal("");
@@ -258,6 +260,50 @@ export function ChatThread({
           m.some((x) => x.id === message.id) ? m.filter((x) => x.id !== tempId) : m.map((x) => (x.id === tempId ? { ...x, id: message.id } : x)),
         );
       }
+    }
+  }
+
+  // Auto-grow the composer to fit its content (up to a cap, then it scrolls).
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = "0px";
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, [val]);
+
+  // Enter sends; Shift+Enter (or ⌘/Ctrl+Enter) inserts a newline.
+  function onComposerKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+      e.preventDefault();
+      void send();
+    }
+  }
+
+  // Give a clipboard/dropped blob a real filename so the upload names it sensibly.
+  function named(f: File): File {
+    if (f.name) return f;
+    const ext = (f.type.split("/")[1] || "png").split("+")[0];
+    return new File([f], `pasted-${Date.now()}.${ext}`, { type: f.type || "application/octet-stream" });
+  }
+
+  // Paste images/files straight into the chat (like Claude): upload each as an attachment.
+  function onComposerPaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const files = Array.from(e.clipboardData?.items ?? [])
+      .filter((it) => it.kind === "file")
+      .map((it) => it.getAsFile())
+      .filter((f): f is File => !!f);
+    if (files.length) {
+      e.preventDefault();
+      files.forEach((f) => void uploadFile(named(f)));
+    }
+  }
+
+  function onDrop(e: React.DragEvent) {
+    const files = Array.from(e.dataTransfer?.files ?? []);
+    if (files.length) {
+      e.preventDefault();
+      setDragOver(false);
+      files.forEach((f) => void uploadFile(named(f)));
     }
   }
 
@@ -591,36 +637,64 @@ export function ChatThread({
         {uploadError && (
           <p className="border-t border-border px-4 pt-2 text-xs text-danger">{uploadError}</p>
         )}
-        <form onSubmit={send} className="flex items-center gap-2 border-t border-border p-3">
+        <form
+          onSubmit={send}
+          onDrop={onDrop}
+          onDragOver={(e) => {
+            if (e.dataTransfer?.types?.includes("Files")) {
+              e.preventDefault();
+              setDragOver(true);
+            }
+          }}
+          onDragLeave={() => setDragOver(false)}
+          className="border-t border-border p-3"
+        >
           <input
             ref={fileRef}
             type="file"
+            multiple
             className="hidden"
             accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.csv,.txt"
             onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void uploadFile(f);
+              Array.from(e.target.files ?? []).forEach((f) => void uploadFile(f));
               e.target.value = "";
             }}
           />
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            title={t("chat.attach")}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-muted transition-colors hover:text-foreground disabled:opacity-50"
+          <div
+            className={cn(
+              "flex items-end gap-1.5 rounded-2xl border bg-bg/60 px-2 py-1.5 transition-colors",
+              dragOver ? "border-brand bg-brand/[0.06]" : "border-border focus-within:border-brand/50 focus-within:ring-2 focus-within:ring-brand/15",
+            )}
           >
-            {uploading ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <Paperclip className="h-[18px] w-[18px]" />}
-          </button>
-          <input
-            value={val}
-            onChange={(e) => setVal(e.target.value)}
-            placeholder={selected === GROUP ? t("chat.messageTeam") : t("chat.messagePerson", { name: headerTitle })}
-            className="h-11 flex-1 rounded-xl border border-border bg-bg/60 px-4 text-sm outline-none focus:border-brand/50 focus:ring-2 focus:ring-brand/15"
-          />
-          <Button type="submit" size="icon" className="h-11 w-11 shrink-0">
-            <Send className="h-[18px] w-[18px]" />
-          </Button>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              title={t("chat.attach")}
+              className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+            >
+              {uploading ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <Paperclip className="h-[18px] w-[18px]" />}
+            </button>
+            <textarea
+              ref={composerRef}
+              value={val}
+              onChange={(e) => setVal(e.target.value)}
+              onKeyDown={onComposerKeyDown}
+              onPaste={onComposerPaste}
+              rows={1}
+              placeholder={dragOver ? t("chat.dropHere") : selected === GROUP ? t("chat.messageTeam") : t("chat.messagePerson", { name: headerTitle })}
+              className="max-h-[200px] min-h-[36px] flex-1 resize-none self-center bg-transparent px-1 py-2 text-sm leading-relaxed outline-none placeholder:text-muted/60"
+            />
+            <Button
+              type="submit"
+              size="icon"
+              disabled={!val.trim() && !uploading}
+              className="mb-0.5 h-9 w-9 shrink-0 disabled:opacity-40"
+            >
+              <Send className="h-[18px] w-[18px]" />
+            </Button>
+          </div>
+          <p className="mt-1 px-2 text-[10px] text-muted/50">{t("chat.composerHint")}</p>
         </form>
       </div>
     </Card>
