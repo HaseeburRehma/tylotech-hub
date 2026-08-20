@@ -80,3 +80,56 @@ export async function sendChatEmail(to: string, e: ChatEmail): Promise<void> {
 
   await send(to, subject, html);
 }
+
+/** Bilingual (DE + EN) password-reset email with a secure, time-limited link. */
+export async function sendPasswordResetEmail(to: string, resetUrl: string): Promise<void> {
+  if (!emailConfigured) return;
+  const url = resetUrl; // already an absolute Supabase recovery action link
+
+  const de = {
+    subject: "Passwort zurücksetzen",
+    lead: "Wir haben eine Anfrage erhalten, das Passwort für Ihr TyloTech-Konto zurückzusetzen. Klicken Sie auf den Button, um ein neues Passwort festzulegen.",
+    cta: "Passwort zurücksetzen",
+    note: "Der Link ist aus Sicherheitsgründen nur begrenzt gültig. Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren – Ihr Passwort bleibt unverändert.",
+  };
+  const en = {
+    subject: "Reset your password",
+    lead: "We received a request to reset the password for your TyloTech account. Click the button below to set a new password.",
+    cta: "Reset password",
+    note: "For your security this link is valid for a limited time only. If you didn't request this, you can safely ignore this email — your password stays unchanged.",
+  };
+
+  const subject = `${de.subject} · ${en.subject}`;
+  const button = (label: string) =>
+    `<a href="${url}" style="display:inline-block;background:#C9A84C;color:#111;text-decoration:none;font-weight:600;padding:11px 22px;border-radius:10px;font-size:14px">${label} →</a>`;
+
+  const html = `<!doctype html><html><body style="margin:0;background:#f4f4f5;padding:24px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+    <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e5e5">
+      <tr><td style="padding:20px 28px;border-bottom:1px solid #eee">
+        <span style="font-size:17px;font-weight:700;color:#111">Tylo<span style="color:#C9A84C">Tech</span></span>
+      </td></tr>
+      <tr><td style="padding:24px 28px 8px">
+        <p style="margin:0 0 6px;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:#999">Deutsch</p>
+        <p style="margin:0 0 4px;font-size:16px;font-weight:600;color:#111">${de.subject}</p>
+        <p style="margin:0 0 14px;font-size:14px;color:#555;line-height:1.5">${de.lead}</p>
+        ${button(de.cta)}
+        <p style="margin:14px 0 0;font-size:12px;color:#999;line-height:1.5">${de.note}</p>
+      </td></tr>
+      <tr><td style="padding:8px 28px"><hr style="border:none;border-top:1px solid #eee;margin:16px 0"/></td></tr>
+      <tr><td style="padding:0 28px 24px">
+        <p style="margin:0 0 6px;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:#999">English</p>
+        <p style="margin:0 0 4px;font-size:16px;font-weight:600;color:#111">${en.subject}</p>
+        <p style="margin:0 0 14px;font-size:14px;color:#555;line-height:1.5">${en.lead}</p>
+        ${button(en.cta)}
+        <p style="margin:14px 0 0;font-size:12px;color:#999;line-height:1.5">${en.note}</p>
+      </td></tr>
+      <tr><td style="padding:16px 28px;background:#fafafa;border-top:1px solid #eee">
+        <p style="margin:0;font-size:12px;color:#999">Diese E-Mail wurde automatisch gesendet. · This email was sent automatically. — TyloTech</p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+  </body></html>`;
+
+  await send(to, subject, html);
+}

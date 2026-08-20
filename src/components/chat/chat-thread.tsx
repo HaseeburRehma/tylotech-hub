@@ -58,6 +58,8 @@ export function ChatThread({
   const seen = useRef<Set<string>>(new Set(initialMessages.map((m) => m.id)));
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
 
   // Which thread a message belongs to, from THIS user's perspective.
   const threadKeyOf = (m: Message): string => {
@@ -142,6 +144,12 @@ export function ChatThread({
       ? { schema: "public", table: "messages" }
       : { schema: "public", table: "messages", filter: `client_id=eq.${clientId}` };
     const mine = (m: any) => (internal ? m.client_id == null : m.client_id === clientId);
+    // Defense-in-depth: even if Realtime RLS were ever misconfigured, never surface
+    // a direct message the current user is neither the sender nor recipient of.
+    const participant = (m: any) =>
+      !m.recipient_id || m.sender_id === currentUserId || m.recipient_id === currentUserId;
+    const SELECT =
+      "id,client_id,sender_id,sender_name,sender_role,recipient_id,content,content_translated,translated_to,attachment_name,attachment_mime,attachment_size,edited_at,created_at";
     const toMsg = (m: any): Message => ({
       id: m.id,
       client_id: m.client_id,
@@ -162,7 +170,7 @@ export function ChatThread({
       .channel(internal ? "messages:internal" : `messages:${clientId}`)
       .on("postgres_changes", { event: "INSERT", ...base }, (payload) => {
         const m = payload.new as any;
-        if (!mine(m) || seen.current.has(m.id)) return;
+        if (!mine(m) || !participant(m) || seen.current.has(m.id)) return;
         seen.current.add(m.id);
         const msg = toMsg(m);
         setMessages((prev) => [...prev, msg]);
@@ -182,7 +190,27 @@ export function ChatThread({
         const oldId = (payload.old as any)?.id;
         if (oldId) setMessages((prev) => prev.filter((x) => x.id !== oldId));
       })
-      .subscribe();
+      .subscribe((status) => {
+        // On (re)connect, pull anything inserted while the socket was down —
+        // postgres_changes only delivers events for a live connection, so without
+        // this a message sent during a brief drop would vanish until a reload.
+        if (status === "SUBSCRIBED") void backfill();
+      });
+
+    async function backfill() {
+      const known = messagesRef.current.filter((m) => !m.id.startsWith("temp-"));
+      const since = known.reduce<string | null>((a, m) => (a && a >= m.created_at ? a : m.created_at), null);
+      let q = supabase!.from("messages").select(SELECT).order("created_at", { ascending: true });
+      q = internal ? q.is("client_id", null) : q.eq("client_id", clientId!);
+      if (since) q = q.gt("created_at", since);
+      const { data } = await q;
+      if (!data?.length) return;
+      const fresh = (data as any[]).filter((m) => mine(m) && participant(m) && !seen.current.has(m.id));
+      if (!fresh.length) return;
+      fresh.forEach((m) => seen.current.add(m.id));
+      setMessages((prev) => [...prev, ...fresh.map(toMsg)]);
+    }
+
     return () => {
       supabase.removeChannel(channel);
     };

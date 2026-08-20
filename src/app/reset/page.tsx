@@ -7,7 +7,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Logo } from "@/components/ui/logo";
-import { createClient } from "@/lib/supabase/client";
 
 export default function ResetPage() {
   const [email, setEmail] = useState("");
@@ -18,18 +17,18 @@ export default function ResetPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const supabase = createClient();
-    if (!supabase) {
-      setError("Backend not configured.");
-      return;
-    }
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/update-password`,
-    });
+    // Server generates the recovery link and emails it via our branded Resend
+    // template. It always responds ok (no account enumeration), so we always
+    // show the same "check your inbox" confirmation.
+    const res = await fetch("/api/auth/reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    }).catch(() => null);
     setLoading(false);
-    if (error) {
-      setError(error.message);
+    if (!res?.ok) {
+      setError("Something went wrong. Please try again.");
       return;
     }
     setSent(true);

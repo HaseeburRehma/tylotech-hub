@@ -40,7 +40,14 @@ export async function GET() {
   const element = createElement(ReportDocument, props) as unknown as Parameters<
     typeof renderToBuffer
   >[0];
-  const buffer = await renderToBuffer(element);
+
+  let buffer: Awaited<ReturnType<typeof renderToBuffer>>;
+  try {
+    buffer = await renderToBuffer(element);
+  } catch (err) {
+    console.error("PDF report render failed:", err);
+    return NextResponse.json({ error: "Could not generate the report." }, { status: 500 });
+  }
   const filename = `${(props.company || "report").replace(/\s+/g, "-").toLowerCase()}-performance.pdf`;
 
   return new NextResponse(new Blob([new Uint8Array(buffer)], { type: "application/pdf" }), {

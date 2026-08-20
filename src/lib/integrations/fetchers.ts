@@ -38,7 +38,8 @@ export async function fetchMetaAds(
   const url = `https://graph.facebook.com/v19.0/${acct}/insights?fields=spend,actions,purchase_roas&time_increment=1&date_preset=last_30d&access_token=${encodeURIComponent(accessToken)}`;
   const res = await fetch(url, { cache: "no-store" }).catch(() => null);
   if (!res?.ok) return null;
-  const json: any = await res.json();
+  const json: any = await res.json().catch(() => null);
+  if (!json) return null;
   const rows: any[] = json.data ?? [];
 
   const series = rows.map((r) => {
@@ -88,7 +89,8 @@ export async function fetchGa4(
     },
   ).catch(() => null);
   if (!res?.ok) return null;
-  const json: any = await res.json();
+  const json: any = await res.json().catch(() => null);
+  if (!json) return null;
   const rows: any[] = json.rows ?? [];
 
   const users = rows.reduce((a, r) => a + Number(r.metricValues?.[0]?.value ?? 0), 0);
@@ -132,7 +134,8 @@ export async function fetchGoogleAds(
     cache: "no-store",
   }).catch(() => null);
   if (!res?.ok) return null;
-  const json: any = await res.json();
+  const json: any = await res.json().catch(() => null);
+  if (!json) return null;
   // searchStream returns an array of batches, each with a results[] array.
   const batches: any[] = Array.isArray(json) ? json : [json];
   const results: any[] = batches.flatMap((b) => b.results ?? []);
@@ -196,7 +199,8 @@ export async function fetchSearchConsole(
       },
     ).catch(() => null);
     if (!res?.ok) continue;
-    const json: any = await res.json();
+    const json: any = await res.json().catch(() => null);
+    if (!json) continue;
     rows = json.rows ?? [];
     if (rows && rows.length) break; // got data — stop; otherwise try the next candidate
   }
