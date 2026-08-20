@@ -87,6 +87,7 @@ export function ChatThread({
   const [langByMsg, setLangByMsg] = useState<Record<string, Lang>>({});
   const [cache, setCache] = useState<Record<string, Partial<Record<Lang, string>>>>({});
   const [pending, setPending] = useState<Record<string, boolean>>({});
+  const [transErr, setTransErr] = useState<Record<string, boolean>>({});
 
   // Known translations only — never assume the original's language from the
   // sender role (a team member may well write in German). A stored translation
@@ -110,6 +111,7 @@ export function ChatThread({
   async function ensureLang(m: Message, target: Lang) {
     if (versionsOf(m)[target]) return;
     setPending((p) => ({ ...p, [m.id]: true }));
+    setTransErr((e) => (e[m.id] ? { ...e, [m.id]: false } : e));
     const res = await fetch("/api/translate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -118,6 +120,10 @@ export function ChatThread({
     if (res?.ok) {
       const { translation } = await res.json();
       setCache((c) => ({ ...c, [m.id]: { ...(c[m.id] ?? {}), [target]: translation } }));
+    } else {
+      // Service unavailable (e.g. no API credits) — surface it instead of silently
+      // leaving the original text under a highlighted target-language tab.
+      setTransErr((e) => ({ ...e, [m.id]: true }));
     }
     setPending((p) => ({ ...p, [m.id]: false }));
   }
@@ -553,6 +559,11 @@ export function ChatThread({
                       <span className="inline-flex items-center gap-1 text-brand">
                         <Languages className="h-2.5 w-2.5" />
                         {selectedLang === "de" ? "Übersetzt" : "Translated"}
+                      </span>
+                    )}
+                    {hasText && transErr[m.id] && !isTranslated && !loading && (
+                      <span className="text-warning/80" title={t("chat.translateUnavailable")}>
+                        {t("chat.translateUnavailable")}
                       </span>
                     )}
                     <span>{formatRelativeTime(m.created_at)}</span>

@@ -7,13 +7,18 @@ const LANG_NAME: Record<Lang, string> = { en: "English", de: "German" };
 
 /**
  * Translate a chat message into the target language using Claude.
- * Returns the original text unchanged if no API key is configured or on error,
- * so chat never breaks — translation is a graceful enhancement.
+ *
+ * Returns `null` when translation is UNAVAILABLE — no API key, or the API call
+ * failed (network, invalid key, or "credit balance too low"). Callers decide how
+ * to degrade: the send path stores null (no pre-translation) so chat never breaks,
+ * and the /api/translate route turns null into a 502 so the UI can show
+ * "translation unavailable" instead of silently re-showing the original text
+ * (which looks like a broken toggle).
  */
-export async function translateMessage(text: string, target: Lang): Promise<string> {
+export async function translateMessage(text: string, target: Lang): Promise<string | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   const trimmed = text.trim();
-  if (!apiKey || !trimmed) return text;
+  if (!apiKey || !trimmed) return null;
 
   try {
     const client = new Anthropic({ apiKey });
@@ -35,8 +40,9 @@ export async function translateMessage(text: string, target: Lang): Promise<stri
       .map((b) => b.text)
       .join("")
       .trim();
-    return out || text;
-  } catch {
-    return text;
+    return out || null;
+  } catch (err) {
+    console.error("translateMessage failed:", err);
+    return null;
   }
 }

@@ -106,6 +106,7 @@ const en: Dict = {
   "chat.deleteConfirm": "Delete this message?",
   "chat.editFailed": "Couldn't save the edit.",
   "chat.deleteFailed": "Couldn't delete the message.",
+  "chat.translateUnavailable": "Translation unavailable",
 
   // common
   "common.connect": "Connect",
@@ -312,6 +313,7 @@ const de: Dict = {
   "chat.deleteConfirm": "Diese Nachricht löschen?",
   "chat.editFailed": "Bearbeitung konnte nicht gespeichert werden.",
   "chat.deleteFailed": "Nachricht konnte nicht gelöscht werden.",
+  "chat.translateUnavailable": "Übersetzung nicht verfügbar",
 
   "common.connect": "Verbinden",
   "common.connected": "Verbunden",
