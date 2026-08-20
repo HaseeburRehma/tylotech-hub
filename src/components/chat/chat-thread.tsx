@@ -87,11 +87,19 @@ export function ChatThread({
   const [pending, setPending] = useState<Record<string, boolean>>({});
 
   // Known translations only — never assume the original's language from the
-  // sender role (a team member may well write in German). Anything not known is
-  // fetched on demand from the original `content`, which stays the fallback.
+  // sender role (a team member may well write in German). A stored translation
+  // is only trusted when it actually DIFFERS from the original: the send-time
+  // auto-translate targets a language by role, so a German message from the team
+  // gets a no-op "de→de" translation equal to the original — trusting that would
+  // wrongly short-circuit ensureLang and show German under the EN tab forever.
+  // Anything not known is fetched on demand from `content`, the safe fallback.
   const versionsOf = (m: Message): Partial<Record<Lang, string>> => {
     const v: Partial<Record<Lang, string>> = {};
-    if (m.content_translated && (m.translated_to === "en" || m.translated_to === "de")) {
+    if (
+      m.content_translated &&
+      m.content_translated !== m.content &&
+      (m.translated_to === "en" || m.translated_to === "de")
+    ) {
       v[m.translated_to as Lang] = m.content_translated;
     }
     return { ...v, ...(cache[m.id] ?? {}) };
@@ -453,19 +461,36 @@ export function ChatThread({
                   )}
 
                   {editingId === m.id ? (
-                    <div className="flex items-center gap-1.5">
-                      <input
+                    <div className={cn("flex flex-col gap-1.5", mine && "items-end")}>
+                      <textarea
                         autoFocus
                         value={editVal}
                         onChange={(e) => setEditVal(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") saveEdit(m.id);
+                          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                            e.preventDefault();
+                            saveEdit(m.id);
+                          }
                           if (e.key === "Escape") setEditingId(null);
                         }}
-                        className="h-9 w-56 rounded-xl border border-brand/50 bg-bg/60 px-3 text-sm outline-none focus:ring-2 focus:ring-brand/15"
+                        rows={Math.min(14, Math.max(2, editVal.split("\n").length))}
+                        className="w-[20rem] max-w-[75vw] resize-y rounded-xl border border-brand/50 bg-bg/60 px-3 py-2 text-left text-sm leading-relaxed text-foreground outline-none focus:ring-2 focus:ring-brand/15 sm:w-[26rem]"
                       />
-                      <button onClick={() => saveEdit(m.id)} title={t("chat.save")} className="text-brand hover:text-brand/80"><Check className="h-4 w-4" /></button>
-                      <button onClick={() => setEditingId(null)} title={t("chat.cancel")} className="text-muted hover:text-foreground"><X className="h-4 w-4" /></button>
+                      <div className={cn("flex items-center gap-2", mine && "flex-row-reverse")}>
+                        <button
+                          onClick={() => saveEdit(m.id)}
+                          className="inline-flex items-center gap-1 rounded-lg bg-brand px-2.5 py-1 text-xs font-medium text-brand-foreground transition-opacity hover:opacity-90"
+                        >
+                          <Check className="h-3.5 w-3.5" /> {t("chat.save")}
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs text-muted transition-colors hover:text-foreground"
+                        >
+                          <X className="h-3.5 w-3.5" /> {t("chat.cancel")}
+                        </button>
+                        <span className="text-[10px] text-muted/50">⌘/Ctrl + ↵</span>
+                      </div>
                     </div>
                   ) : hasText ? (
                     <div

@@ -19,7 +19,9 @@ export async function translateMessage(text: string, target: Lang): Promise<stri
     const client = new Anthropic({ apiKey });
     const msg = await client.messages.create({
       model: config.ai.translateModel,
-      max_tokens: 1024,
+      // Generous ceiling: chat messages can be long (multi-paragraph briefs), and
+      // a truncated translation would fall back to the untranslated original.
+      max_tokens: 8192,
       system:
         `You are a professional translator for a marketing agency's client chat. ` +
         `Translate the user's message into ${LANG_NAME[target]}. ` +
