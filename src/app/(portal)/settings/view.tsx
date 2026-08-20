@@ -39,7 +39,7 @@ export function SettingsView({ name, email }: { name: string; email: string }) {
     }).catch(() => null);
     if (!res?.ok) {
       const d = res ? await res.json().catch(() => ({})) : {};
-      setProfileError(d.error ?? "Could not save.");
+      setProfileError(d.error ?? t("settings.saveFailed"));
       setProfileState("error");
       return;
     }
@@ -53,7 +53,7 @@ export function SettingsView({ name, email }: { name: string; email: string }) {
     if (pw.length < 8) return setPwError(t("settings.pwTooShort"));
     if (pw !== pw2) return setPwError(t("settings.pwMismatch"));
     const supabase = createClient();
-    if (!supabase) return setPwError("Backend not configured.");
+    if (!supabase) return setPwError(t("settings.backendError"));
     setPwState("saving");
     const { error } = await supabase.auth.updateUser({ password: pw });
     if (error) {

@@ -119,6 +119,9 @@ export function DashboardView({
             </Link>
           </CardHeader>
           <ul className="space-y-1">
+            {updates.length === 0 && (
+              <li className="py-6 text-center text-sm text-muted">{t("dash.noUpdates")}</li>
+            )}
             {updates.map((u, i) => {
               const meta = UPDATE_META[u.type];
               return (
@@ -150,10 +153,13 @@ export function DashboardView({
 
         <Card>
           <CardHeader>
-            <CardTitle>Active projects</CardTitle>
+            <CardTitle>{t("dash.activeProjects")}</CardTitle>
             <Badge variant="brand">{projects.length}</Badge>
           </CardHeader>
           <div className="space-y-4">
+            {projects.length === 0 && (
+              <p className="py-6 text-center text-sm text-muted">{t("dash.noProjects")}</p>
+            )}
             {projects.map((p) => {
               const s = PROJECT_STATUS[p.status];
               return (
@@ -186,15 +192,13 @@ export function DashboardView({
               <Sparkles className="h-5 w-5 text-brand" />
             </span>
             <div>
-              <h3 className="text-base font-semibold">Try the AI Content Generator</h3>
-              <p className="mt-0.5 text-sm text-muted">
-                Generate on-brand posts and captions in seconds — included in your plan.
-              </p>
+              <h3 className="text-base font-semibold">{t("dash.aiCtaTitle")}</h3>
+              <p className="mt-0.5 text-sm text-muted">{t("dash.aiCtaBody")}</p>
             </div>
           </div>
           <Link href="/ai-tools/content-generator">
             <Button>
-              Open tool
+              {t("dash.openTool")}
               <ArrowUpRight className="h-4 w-4" />
             </Button>
           </Link>

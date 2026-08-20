@@ -58,7 +58,7 @@ export function Topbar({ onMenu, user }: { onMenu: () => void; user: AuthUser })
             <Avatar name={user.name} size={30} />
             <div className="hidden leading-tight text-left sm:block">
               <p className="text-xs font-semibold text-foreground">{user.name}</p>
-              <p className="text-[11px] text-muted">{ROLE_LABEL[user.role] ?? user.role}</p>
+              <p className="text-[11px] text-muted">{user.role === "client" ? t("common.client") : ROLE_LABEL[user.role] ?? user.role}</p>
             </div>
           </button>
 

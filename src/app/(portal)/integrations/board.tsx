@@ -100,7 +100,7 @@ export function IntegrationsBoard({
     <div className="space-y-5">
       {isStaff && clients.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted">Managing for:</span>
+          <span className="text-xs text-muted">{t("integ.managingFor")}</span>
           {clients.map((c) => (
             <a
               key={c.id}
@@ -168,7 +168,7 @@ export function IntegrationsBoard({
                   <div className="mt-3">
                     {p.id === "meta_ads" && (
                       <label className="block text-[11px] text-muted">
-                        Ad account ID
+                        {t("integrations.metaAccountId")}
                         <input
                           defaultValue={row?.meta?.accountId ?? ""}
                           onBlur={(e) => e.target.value !== (row?.meta?.accountId ?? "") && configure(p.id, "accountId", e.target.value)}
@@ -179,7 +179,7 @@ export function IntegrationsBoard({
                     )}
                     {p.id === "google_ads" && (
                       <label className="block text-[11px] text-muted">
-                        Customer ID
+                        {t("integrations.googleCustomerId")}
                         <input
                           defaultValue={row?.meta?.accountId ?? ""}
                           onBlur={(e) => e.target.value !== (row?.meta?.accountId ?? "") && configure(p.id, "accountId", e.target.value)}
@@ -190,7 +190,7 @@ export function IntegrationsBoard({
                     )}
                     {p.id === "ga4" && (
                       <label className="block text-[11px] text-muted">
-                        GA4 Property ID <span className="text-muted/60">(numeric — Admin → Property Settings)</span>
+                        {t("integrations.ga4PropertyId")} <span className="text-muted/60">{t("integrations.ga4Hint")}</span>
                         <input
                           defaultValue={row?.meta?.propertyId ?? ""}
                           onBlur={(e) => e.target.value !== (row?.meta?.propertyId ?? "") && configure(p.id, "propertyId", e.target.value)}
@@ -201,7 +201,7 @@ export function IntegrationsBoard({
                     )}
                     {p.id === "search_console" && (
                       <label className="block text-[11px] text-muted">
-                        Property / site URL
+                        {t("integrations.siteUrl")}
                         <input
                           defaultValue={row?.meta?.siteUrl ?? ""}
                           onBlur={(e) => e.target.value !== (row?.meta?.siteUrl ?? "") && configure(p.id, "siteUrl", e.target.value)}
@@ -264,7 +264,7 @@ export function IntegrationsBoard({
                       </a>
                     ) : (
                       <Button size="sm" loading={busy === p.id} onClick={() => act(p.id, "connect")} disabled={!clientId}>
-                        Connect
+                        {t("common.connect")}
                       </Button>
                     )}
                   </div>

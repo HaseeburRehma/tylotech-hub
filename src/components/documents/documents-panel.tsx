@@ -20,19 +20,20 @@ import { DocItem, DocType } from "@/types";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
 
+// `label` values are i18n keys — translated at render via t().
 const META: Record<DocType, { label: string; icon: LucideIcon; variant: "info" | "brand" | "success" | "warning" }> = {
-  report: { label: "Report", icon: FileText, variant: "info" },
-  contract: { label: "Contract", icon: ScrollText, variant: "brand" },
-  invoice: { label: "Invoice", icon: Receipt, variant: "success" },
-  asset: { label: "Asset", icon: FileArchive, variant: "warning" },
+  report: { label: "documents.report", icon: FileText, variant: "info" },
+  contract: { label: "documents.contract", icon: ScrollText, variant: "brand" },
+  invoice: { label: "documents.invoice", icon: Receipt, variant: "success" },
+  asset: { label: "documents.asset", icon: FileArchive, variant: "warning" },
 };
 
 const FILTERS: { key: DocType | "all"; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "report", label: "Reports" },
-  { key: "contract", label: "Contracts" },
-  { key: "invoice", label: "Invoices" },
-  { key: "asset", label: "Assets" },
+  { key: "all", label: "documents.all" },
+  { key: "report", label: "documents.reports" },
+  { key: "contract", label: "documents.contracts" },
+  { key: "invoice", label: "documents.invoices" },
+  { key: "asset", label: "documents.assets" },
 ];
 
 export function DocumentsPanel({
@@ -65,7 +66,7 @@ export function DocumentsPanel({
     setUploading(false);
     if (!res?.ok) {
       const d = res ? await res.json().catch(() => ({})) : {};
-      setError(d.error ?? "Upload failed.");
+      setError(d.error ?? t("documents.uploadFailed"));
       return;
     }
     router.refresh();
@@ -95,7 +96,7 @@ export function DocumentsPanel({
                   : "border-border text-muted hover:text-foreground",
               )}
             >
-              {f.label}
+              {t(f.label)}
             </button>
           ))}
         </div>
@@ -105,10 +106,10 @@ export function DocumentsPanel({
             onChange={(e) => setUploadType(e.target.value as DocType)}
             className="h-9 rounded-xl border border-border bg-surface-2 px-2 text-xs outline-none focus:border-brand/50"
           >
-            <option value="report" className="bg-surface">Report</option>
-            <option value="contract" className="bg-surface">Contract</option>
-            <option value="invoice" className="bg-surface">Invoice</option>
-            <option value="asset" className="bg-surface">Asset</option>
+            <option value="report" className="bg-surface">{t("documents.report")}</option>
+            <option value="contract" className="bg-surface">{t("documents.contract")}</option>
+            <option value="invoice" className="bg-surface">{t("documents.invoice")}</option>
+            <option value="asset" className="bg-surface">{t("documents.asset")}</option>
           </select>
           <button
             onClick={() => fileRef.current?.click()}
@@ -116,7 +117,7 @@ export function DocumentsPanel({
             className="inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 text-sm text-foreground transition-colors hover:border-brand/40 disabled:opacity-50"
           >
             {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-            Upload
+            {t("documents.upload")}
           </button>
           <input
             ref={fileRef}
@@ -137,7 +138,7 @@ export function DocumentsPanel({
 
       <Card className="p-2">
         {docs.length === 0 ? (
-          <p className="py-10 text-center text-sm text-muted">No documents yet.</p>
+          <p className="py-10 text-center text-sm text-muted">{t("documents.noDocs")}</p>
         ) : (
           <ul className="divide-y divide-border">
             {docs.map((d, i) => {
@@ -161,7 +162,7 @@ export function DocumentsPanel({
                       {d.size ? ` · ${d.size}` : ""}
                     </p>
                   </div>
-                  <Badge variant={m.variant} className="hidden sm:inline-flex">{m.label}</Badge>
+                  <Badge variant={m.variant} className="hidden sm:inline-flex">{t(m.label)}</Badge>
                   {d.file_url && !d.file_url.startsWith("#") ? (
                     <a
                       href={`/api/documents/download?id=${d.id}`}

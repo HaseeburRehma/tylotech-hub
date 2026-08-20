@@ -77,7 +77,12 @@ export function ChatView({
             <Badge variant="brand">{updates.length}</Badge>
           </CardHeader>
           <div className="relative space-y-5 pl-5">
-            <span className="absolute left-[7px] top-1.5 h-[calc(100%-1rem)] w-px bg-border" />
+            {updates.length === 0 && (
+              <p className="py-6 text-sm text-muted">{t("chat.noUpdates")}</p>
+            )}
+            {updates.length > 0 && (
+              <span className="absolute left-[7px] top-1.5 h-[calc(100%-1rem)] w-px bg-border" />
+            )}
             {updates.map((u) => {
               const meta = UPDATE_META[u.type];
               return (

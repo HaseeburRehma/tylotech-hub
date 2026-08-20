@@ -1,8 +1,10 @@
+import { cookies } from "next/headers";
 import { PageHeader } from "@/components/ui/page-header";
 import { getAuthUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PROVIDERS, isProviderLive } from "@/lib/integrations/providers";
+import { translate, LOCALE_COOKIE, DEFAULT_LOCALE, LOCALES, type Locale } from "@/lib/i18n/dictionary";
 import { IntegrationsBoard } from "./board";
 
 export default async function IntegrationsPage({
@@ -13,6 +15,8 @@ export default async function IntegrationsPage({
   const user = await getAuthUser();
   const supabase = createClient();
   const isStaff = user?.role !== "client";
+  const cookieLocale = cookies().get(LOCALE_COOKIE)?.value as Locale | undefined;
+  const locale: Locale = cookieLocale && LOCALES.includes(cookieLocale) ? cookieLocale : DEFAULT_LOCALE;
 
   let clients: { id: string; company: string }[] = [];
   if (supabase && isStaff) {
@@ -38,8 +42,8 @@ export default async function IntegrationsPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Integrations"
-        subtitle="Connect ad & analytics sources to pull live KPIs into the portal."
+        title={translate(locale, "integrations.title")}
+        subtitle={translate(locale, "integrations.subtitle")}
       />
       <IntegrationsBoard
         providers={PROVIDERS}
