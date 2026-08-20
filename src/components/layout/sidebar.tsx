@@ -3,22 +3,27 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 import { CLIENT_NAV, INTERNAL_NAV } from "@/lib/nav";
 import { Logo } from "@/components/ui/logo";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Sparkles } from "lucide-react";
 import { useT } from "@/lib/i18n/provider";
+import { useUnreadHrefs } from "@/lib/hooks/use-unread";
 
 function NavList({
   onNavigate,
   canSeeInternal,
+  userId,
 }: {
   onNavigate?: () => void;
   canSeeInternal: boolean;
+  userId: string;
 }) {
   const pathname = usePathname();
   const t = useT();
+  const { hrefs: unreadHrefs, reload } = useUnreadHrefs(userId);
 
   // Longest-prefix match so /internal/projects highlights "Projects", not "Internal Hub".
   const allHrefs = [...CLIENT_NAV, ...INTERNAL_NAV].map((i) => i.href);
@@ -26,10 +31,36 @@ function NavList({
     .filter((h) => pathname === h || pathname.startsWith(h + "/"))
     .sort((a, b) => b.length - a.length)[0];
 
+  // Real unread badge per item: count unread notifications whose link lives under
+  // this item, attributing each to its LONGEST-matching nav href (so a client
+  // message counts for Chat, and /internal/clients/… counts for Internal Hub).
+  const countFor = (href: string) =>
+    unreadHrefs.filter((h) => {
+      const best = allHrefs
+        .filter((n) => h === n || h.startsWith(n + "/"))
+        .sort((a, b) => b.length - a.length)[0];
+      return best === href;
+    }).length;
+
+  // Opening a section clears its badge: mark its unread notifications read.
+  useEffect(() => {
+    if (!activeHref) return;
+    const hasUnread = unreadHrefs.some((h) => h === activeHref || h.startsWith(activeHref + "/"));
+    if (!hasUnread) return;
+    fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hrefPrefix: activeHref }),
+    })
+      .then(() => reload())
+      .catch(() => {});
+  }, [activeHref, unreadHrefs, reload]);
+
   const render = (items: typeof CLIENT_NAV) =>
     items.map((item) => {
       const active = item.href === activeHref;
       const Icon = item.icon;
+      const count = countFor(item.href);
       return (
         <Link
           key={item.href}
@@ -49,9 +80,9 @@ function NavList({
           )}
           <Icon className={cn("h-[18px] w-[18px]", active && "text-brand")} />
           <span className="flex-1 font-medium">{t(item.label)}</span>
-          {item.badge && (
+          {count > 0 && (
             <Badge variant="brand" className="px-1.5 py-0.5 text-[10px]">
-              {item.badge}
+              {count > 9 ? "9+" : count}
             </Badge>
           )}
         </Link>
@@ -79,9 +110,11 @@ function NavList({
 export function Sidebar({
   onNavigate,
   canSeeInternal,
+  userId,
 }: {
   onNavigate?: () => void;
   canSeeInternal: boolean;
+  userId: string;
 }) {
   const t = useT();
   return (
@@ -90,7 +123,7 @@ export function Sidebar({
         <Logo />
       </div>
 
-      <NavList onNavigate={onNavigate} canSeeInternal={canSeeInternal} />
+      <NavList onNavigate={onNavigate} canSeeInternal={canSeeInternal} userId={userId} />
 
       <div className="m-3 mt-auto rounded-2xl border border-brand/20 bg-brand/[0.06] p-4">
         <div className="mb-1.5 flex items-center gap-2">

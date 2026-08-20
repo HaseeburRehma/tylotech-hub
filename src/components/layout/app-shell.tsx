@@ -28,7 +28,7 @@ export function AppShell({
 
       {/* Desktop sidebar */}
       <div className="sticky top-0 hidden h-screen lg:block">
-        <Sidebar canSeeInternal={canSeeInternal} />
+        <Sidebar canSeeInternal={canSeeInternal} userId={user.id} />
       </div>
 
       {/* Mobile drawer */}
@@ -49,7 +49,7 @@ export function AppShell({
               transition={{ type: "spring", stiffness: 380, damping: 36 }}
               className="fixed inset-y-0 left-0 z-50 bg-bg lg:hidden"
             >
-              <Sidebar canSeeInternal={canSeeInternal} onNavigate={() => setOpen(false)} />
+              <Sidebar canSeeInternal={canSeeInternal} userId={user.id} onNavigate={() => setOpen(false)} />
             </motion.div>
           </>
         )}

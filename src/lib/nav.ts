@@ -16,7 +16,6 @@ export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
-  badge?: string;
 }
 
 // `label` is an i18n key (see src/lib/i18n/dictionary.ts); the sidebar translates it.
@@ -25,7 +24,7 @@ export const CLIENT_NAV: NavItem[] = [
   { href: "/performance", label: "nav.performance", icon: LineChart },
   { href: "/integrations", label: "nav.integrations", icon: Plug },
   { href: "/ai-tools", label: "nav.aiTools", icon: Bot },
-  { href: "/chat", label: "nav.chat", icon: MessagesSquare, badge: "2" },
+  { href: "/chat", label: "nav.chat", icon: MessagesSquare },
   { href: "/documents", label: "nav.documents", icon: FileText },
 ];
 
