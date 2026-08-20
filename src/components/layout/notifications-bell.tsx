@@ -96,7 +96,7 @@ export function NotificationsBell({ userId }: { userId: string }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.97 }}
             transition={{ duration: 0.15 }}
-            className="glass absolute right-0 z-50 mt-2 w-80 rounded-2xl border border-border p-2 shadow-float"
+            className="absolute right-0 z-50 mt-2 w-80 rounded-2xl border border-border bg-surface p-2 shadow-float"
           >
             <div className="flex items-center justify-between px-3 py-2">
               <p className="text-sm font-semibold text-foreground">{t("notif.title")}</p>

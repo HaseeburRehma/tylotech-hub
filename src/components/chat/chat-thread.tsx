@@ -57,6 +57,8 @@ export function ChatThread({
   const endRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  // Attachments staged in the composer (preview + optional caption) before sending.
+  const [pendingAtt, setPendingAtt] = useState<{ id: string; file: File; url: string | null }[]>([]);
   const seen = useRef<Set<string>>(new Set(initialMessages.map((m) => m.id)));
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
@@ -275,7 +277,7 @@ export function ChatThread({
   function onComposerKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
       e.preventDefault();
-      void send();
+      void submit();
     }
   }
 
@@ -286,7 +288,29 @@ export function ChatThread({
     return new File([f], `pasted-${Date.now()}.${ext}`, { type: f.type || "application/octet-stream" });
   }
 
-  // Paste images/files straight into the chat (like Claude): upload each as an attachment.
+  // Stage files in the composer as previews (with the textarea as an optional
+  // caption). Nothing uploads until the user hits send.
+  function stageFiles(files: File[]) {
+    const staged = files.map((raw) => {
+      const file = named(raw);
+      return {
+        id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        file,
+        url: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+      };
+    });
+    setPendingAtt((p) => [...p, ...staged]);
+  }
+
+  function removePending(id: string) {
+    setPendingAtt((p) => {
+      const gone = p.find((x) => x.id === id);
+      if (gone?.url) URL.revokeObjectURL(gone.url);
+      return p.filter((x) => x.id !== id);
+    });
+  }
+
+  // Paste images/files straight into the chat (like Claude): stage as previews.
   function onComposerPaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
     const files = Array.from(e.clipboardData?.items ?? [])
       .filter((it) => it.kind === "file")
@@ -294,7 +318,7 @@ export function ChatThread({
       .filter((f): f is File => !!f);
     if (files.length) {
       e.preventDefault();
-      files.forEach((f) => void uploadFile(named(f)));
+      stageFiles(files);
     }
   }
 
@@ -303,8 +327,26 @@ export function ChatThread({
     if (files.length) {
       e.preventDefault();
       setDragOver(false);
-      files.forEach((f) => void uploadFile(named(f)));
+      stageFiles(files);
     }
+  }
+
+  // Send: upload every staged attachment (caption rides on the first), then any
+  // remaining text as its own message. Falls back to a plain text send.
+  async function submit(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (pendingAtt.length) {
+      const caption = val.trim();
+      const files = pendingAtt;
+      setPendingAtt([]);
+      setVal("");
+      for (let i = 0; i < files.length; i++) {
+        await uploadFile(files[i].file, i === 0 ? caption : undefined);
+        if (files[i].url) URL.revokeObjectURL(files[i].url!);
+      }
+      return;
+    }
+    await send();
   }
 
   function startEdit(m: Message) {
@@ -346,10 +388,10 @@ export function ChatThread({
     }
   }
 
-  async function uploadFile(file: File) {
+  async function uploadFile(file: File, caption?: string) {
     if (!file) return;
     const recipientId = selected === GROUP ? null : selected;
-    const tempId = `temp-${Date.now()}`;
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     seen.current.add(tempId);
     // Optimistic placeholder while uploading.
     setMessages((m) => [
@@ -361,7 +403,7 @@ export function ChatThread({
         sender_name: currentName,
         sender_role: currentRole,
         recipient_id: recipientId,
-        content: "",
+        content: caption?.trim() || "",
         attachment_name: file.name,
         attachment_mime: file.type || "application/octet-stream",
         attachment_size: file.size,
@@ -371,6 +413,7 @@ export function ChatThread({
     setUploading(true);
     const fd = new FormData();
     fd.append("file", file);
+    if (caption?.trim()) fd.append("caption", caption.trim());
     if (clientId) fd.append("clientId", clientId);
     if (recipientId) fd.append("recipientId", recipientId);
     if (internal) fd.append("internal", "true");
@@ -638,7 +681,7 @@ export function ChatThread({
           <p className="border-t border-border px-4 pt-2 text-xs text-danger">{uploadError}</p>
         )}
         <form
-          onSubmit={send}
+          onSubmit={submit}
           onDrop={onDrop}
           onDragOver={(e) => {
             if (e.dataTransfer?.types?.includes("Files")) {
@@ -656,43 +699,81 @@ export function ChatThread({
             className="hidden"
             accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.csv,.txt"
             onChange={(e) => {
-              Array.from(e.target.files ?? []).forEach((f) => void uploadFile(f));
+              stageFiles(Array.from(e.target.files ?? []));
               e.target.value = "";
             }}
           />
           <div
             className={cn(
-              "flex items-end gap-1.5 rounded-2xl border bg-bg/60 px-2 py-1.5 transition-colors",
+              "rounded-2xl border bg-bg/60 transition-colors",
               dragOver ? "border-brand bg-brand/[0.06]" : "border-border focus-within:border-brand/50 focus-within:ring-2 focus-within:ring-brand/15",
             )}
           >
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              disabled={uploading}
-              title={t("chat.attach")}
-              className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
-            >
-              {uploading ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <Paperclip className="h-[18px] w-[18px]" />}
-            </button>
-            <textarea
-              ref={composerRef}
-              value={val}
-              onChange={(e) => setVal(e.target.value)}
-              onKeyDown={onComposerKeyDown}
-              onPaste={onComposerPaste}
-              rows={1}
-              placeholder={dragOver ? t("chat.dropHere") : selected === GROUP ? t("chat.messageTeam") : t("chat.messagePerson", { name: headerTitle })}
-              className="max-h-[200px] min-h-[36px] flex-1 resize-none self-center bg-transparent px-1 py-2 text-sm leading-relaxed outline-none placeholder:text-muted/60"
-            />
-            <Button
-              type="submit"
-              size="icon"
-              disabled={!val.trim() && !uploading}
-              className="mb-0.5 h-9 w-9 shrink-0 disabled:opacity-40"
-            >
-              <Send className="h-[18px] w-[18px]" />
-            </Button>
+            {pendingAtt.length > 0 && (
+              <div className="flex flex-wrap gap-2 border-b border-border/60 p-2">
+                {pendingAtt.map((a) => (
+                  <div key={a.id} className="group relative">
+                    {a.url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={a.url} alt={a.file.name} className="h-16 w-16 rounded-lg border border-border object-cover" />
+                    ) : (
+                      <div className="flex h-16 w-28 items-center gap-2 rounded-lg border border-border bg-surface-2 px-2">
+                        <FileText className="h-5 w-5 shrink-0 text-brand" />
+                        <span className="min-w-0">
+                          <span className="block truncate text-[11px] font-medium text-foreground">{a.file.name}</span>
+                          <span className="block text-[10px] text-muted">{formatBytes(a.file.size)}</span>
+                        </span>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removePending(a.id)}
+                      aria-label={t("chat.remove")}
+                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-danger text-white shadow ring-2 ring-bg transition-transform hover:scale-105"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex items-end gap-1.5 px-2 py-1.5">
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                title={t("chat.attach")}
+                className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+              >
+                {uploading ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <Paperclip className="h-[18px] w-[18px]" />}
+              </button>
+              <textarea
+                ref={composerRef}
+                value={val}
+                onChange={(e) => setVal(e.target.value)}
+                onKeyDown={onComposerKeyDown}
+                onPaste={onComposerPaste}
+                rows={1}
+                placeholder={
+                  dragOver
+                    ? t("chat.dropHere")
+                    : pendingAtt.length
+                      ? t("chat.captionPlaceholder")
+                      : selected === GROUP
+                        ? t("chat.messageTeam")
+                        : t("chat.messagePerson", { name: headerTitle })
+                }
+                className="max-h-[200px] min-h-[36px] flex-1 resize-none self-center bg-transparent px-1 py-2 text-sm leading-relaxed outline-none placeholder:text-muted/60"
+              />
+              <Button
+                type="submit"
+                size="icon"
+                disabled={!val.trim() && !pendingAtt.length}
+                className="mb-0.5 h-9 w-9 shrink-0 disabled:opacity-40"
+              >
+                <Send className="h-[18px] w-[18px]" />
+              </Button>
+            </div>
           </div>
           <p className="mt-1 px-2 text-[10px] text-muted/50">{t("chat.composerHint")}</p>
         </form>

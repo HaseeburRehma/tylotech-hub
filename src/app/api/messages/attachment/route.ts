@@ -32,6 +32,7 @@ export async function POST(req: Request) {
   const file = form?.get("file");
   const recipientId = (form?.get("recipientId") as string | null) || null;
   const internalFlag = (form?.get("internal") as string | null) === "true";
+  const caption = ((form?.get("caption") as string | null) || "").trim().slice(0, 4000) || null;
 
   if (!(file instanceof File)) return NextResponse.json({ error: "No file provided." }, { status: 400 });
   if (file.size > MAX_BYTES) return NextResponse.json({ error: "File too large (max 50 MB)." }, { status: 413 });
@@ -76,7 +77,7 @@ export async function POST(req: Request) {
       sender_name: user.name,
       sender_role: user.role,
       recipient_id: recipientId,
-      content: null,
+      content: caption,
       attachment_path: path,
       attachment_name: file.name,
       attachment_mime: mime,

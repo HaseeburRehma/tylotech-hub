@@ -7,14 +7,22 @@ import { Topbar } from "./topbar";
 import { ChatWidget } from "@/components/chat/chat-widget";
 import type { AuthUser } from "@/lib/auth";
 
+export interface SidebarClient {
+  id: string;
+  name: string;
+  logoUrl: string | null;
+}
+
 export function AppShell({
   children,
   user,
   canSeeInternal,
+  clients = [],
 }: {
   children: React.ReactNode;
   user: AuthUser;
   canSeeInternal: boolean;
+  clients?: SidebarClient[];
 }) {
   const [open, setOpen] = useState(false);
 
@@ -28,7 +36,7 @@ export function AppShell({
 
       {/* Desktop sidebar */}
       <div className="sticky top-0 hidden h-screen lg:block">
-        <Sidebar canSeeInternal={canSeeInternal} userId={user.id} />
+        <Sidebar canSeeInternal={canSeeInternal} userId={user.id} clients={clients} />
       </div>
 
       {/* Mobile drawer */}
@@ -49,7 +57,7 @@ export function AppShell({
               transition={{ type: "spring", stiffness: 380, damping: 36 }}
               className="fixed inset-y-0 left-0 z-50 bg-bg lg:hidden"
             >
-              <Sidebar canSeeInternal={canSeeInternal} userId={user.id} onNavigate={() => setOpen(false)} />
+              <Sidebar canSeeInternal={canSeeInternal} userId={user.id} clients={clients} onNavigate={() => setOpen(false)} />
             </motion.div>
           </>
         )}

@@ -24,6 +24,7 @@ const en: Dict = {
   "nav.documents": "Documents",
   "nav.internalHub": "Internal Hub",
   "nav.team": "Team",
+  "nav.clients": "Clients",
   "nav.projects": "Projects",
   "nav.aiPrompts": "AI Prompts",
   "team.title": "Team chat",
@@ -109,6 +110,8 @@ const en: Dict = {
   "chat.translateUnavailable": "Translation unavailable",
   "chat.dropHere": "Drop images or files to attach…",
   "chat.composerHint": "Enter to send · Shift+Enter for a new line · paste or drop images",
+  "chat.captionPlaceholder": "Add a caption… (optional)",
+  "chat.remove": "Remove",
 
   // common
   "common.connect": "Connect",
@@ -237,6 +240,7 @@ const de: Dict = {
   "nav.documents": "Dokumente",
   "nav.internalHub": "Interner Bereich",
   "nav.team": "Team",
+  "nav.clients": "Kunden",
   "nav.projects": "Projekte",
   "nav.aiPrompts": "KI-Prompts",
   "team.title": "Team-Chat",
@@ -318,6 +322,8 @@ const de: Dict = {
   "chat.translateUnavailable": "Übersetzung nicht verfügbar",
   "chat.dropHere": "Bilder oder Dateien zum Anhängen ablegen…",
   "chat.composerHint": "Enter zum Senden · Umschalt+Enter für neue Zeile · Bilder einfügen oder ablegen",
+  "chat.captionPlaceholder": "Bildunterschrift hinzufügen… (optional)",
+  "chat.remove": "Entfernen",
 
   "common.connect": "Verbinden",
   "common.connected": "Verbunden",
