@@ -543,7 +543,7 @@ export function ChatThread({
                 className={cn("flex gap-2.5", mine && "flex-row-reverse")}
               >
                 {!mine && <Avatar name={m.sender_name} size={32} className="mt-1" />}
-                <div className={cn("max-w-[72%]", mine && "items-end text-right")}>
+                <div className={cn("flex max-w-[72%] flex-col", mine ? "items-end" : "items-start")}>
                   {!mine && <p className="mb-1 text-[11px] font-medium text-muted">{m.sender_name}</p>}
 
                   {hasAttachment && (
@@ -619,7 +619,7 @@ export function ChatThread({
                     <div
                       title={isTranslated ? `Original: ${m.content}` : undefined}
                       className={cn(
-                        "inline-block rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
+                        "inline-block whitespace-pre-wrap break-words text-left rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
                         mine ? "rounded-br-md bg-brand text-brand-foreground" : "rounded-bl-md bg-surface-2 text-foreground",
                       )}
                     >
