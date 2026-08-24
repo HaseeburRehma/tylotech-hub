@@ -112,21 +112,56 @@ export function ChatThread({
     return { ...v, ...(cache[m.id] ?? {}) };
   };
 
+  // Browser-side translation via Google's public endpoint (reachable with CORS
+  // from the client even when it blocks our server). Long text is chunked to
+  // stay within the GET query limit. Returns null on any failure.
+  async function browserTranslate(text: string, target: Lang): Promise<string | null> {
+    const chunks: string[] = [];
+    for (const seg of (text.length <= 1200 ? [text] : text.match(/[\s\S]{1,1200}/g) ?? [text])) {
+      chunks.push(seg);
+    }
+    try {
+      const parts: string[] = [];
+      for (const piece of chunks) {
+        const r = await fetch(
+          `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${target}&dt=t&q=${encodeURIComponent(piece)}`,
+        ).catch(() => null);
+        if (!r?.ok) return null;
+        const data = await r.json().catch(() => null);
+        if (!Array.isArray(data?.[0])) return null;
+        parts.push((data[0] as any[]).map((s) => (s && s[0]) || "").join(""));
+      }
+      const out = parts.join("").trim();
+      return out || null;
+    } catch {
+      return null;
+    }
+  }
+
   async function ensureLang(m: Message, target: Lang) {
     if (versionsOf(m)[target]) return;
     setPending((p) => ({ ...p, [m.id]: true }));
     setTransErr((e) => (e[m.id] ? { ...e, [m.id]: false } : e));
+
+    // Primary: server translation (Claude when credits exist, else its own fallback).
+    let translation: string | null = null;
     const res = await fetch("/api/translate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: m.content, target }),
     }).catch(() => null);
     if (res?.ok) {
-      const { translation } = await res.json();
-      setCache((c) => ({ ...c, [m.id]: { ...(c[m.id] ?? {}), [target]: translation } }));
+      translation = (await res.json().catch(() => null))?.translation ?? null;
     } else {
-      // Service unavailable (e.g. no API credits) — surface it instead of silently
-      // leaving the original text under a highlighted target-language tab.
+      // Server translation unavailable (no credits, or Google blocks Vercel's IPs).
+      // Google's public endpoint IS reachable from the browser (CORS-allowed), so
+      // translate directly from the client as a last resort.
+      translation = await browserTranslate(m.content, target);
+    }
+
+    if (translation) {
+      setCache((c) => ({ ...c, [m.id]: { ...(c[m.id] ?? {}), [target]: translation! } }));
+    } else {
       setTransErr((e) => ({ ...e, [m.id]: true }));
     }
     setPending((p) => ({ ...p, [m.id]: false }));
