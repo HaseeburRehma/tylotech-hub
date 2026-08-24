@@ -42,6 +42,13 @@ export async function fetchMetaAds(
   if (!json) return null;
   const rows: any[] = json.data ?? [];
 
+  // False-zero guard (Meta reporting change, 6 Aug 2026): non-opted breakdowns —
+  // and, in practice, some accounts/date-ranges — return HTTP 200 with an EMPTY
+  // `data` array rather than an error. Ingesting that would silently overwrite good
+  // KPIs with zeros. Treat "200 but no rows" as "no data" and skip, preserving
+  // whatever is already stored. (Genuine zero-delivery still returns dated rows.)
+  if (!rows.length) return null;
+
   const series = rows.map((r) => {
     const leads = Number(
       (r.actions ?? []).find((a: any) => /lead/i.test(a.action_type))?.value ?? 0,
@@ -53,12 +60,15 @@ export async function fetchMetaAds(
   const totalSpend = series.reduce((a, p) => a + p.spend, 0);
   const totalLeads = series.reduce((a, p) => a + p.leads, 0);
   const avgRoas = series.length ? series.reduce((a, p) => a + p.roas, 0) / series.length : 0;
+  // Cost per Lead — the metric the partner dashboard needs alongside Leads.
+  const cpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
 
   return {
     series,
     kpis: [
       { metric_name: "ad_spend", label: "Monthly Ad Spend", value: Math.round(totalSpend), unit: "currency", delta: 0, period: "Last 30d", source: "Meta Ads" },
       { metric_name: "leads", label: "Leads Generated", value: totalLeads, unit: "number", delta: 0, period: "Last 30d", source: "Meta Ads" },
+      { metric_name: "cpl", label: "Cost per Lead", value: Number(cpl.toFixed(2)), unit: "currency", delta: 0, period: "Last 30d", source: "Meta Ads" },
       { metric_name: "roas", label: "ROAS", value: Number(avgRoas.toFixed(1)), unit: "ratio", delta: 0, period: "Last 30d", source: "Meta Ads" },
     ],
   };
