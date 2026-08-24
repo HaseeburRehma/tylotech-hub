@@ -30,6 +30,7 @@ const ROLE_LABEL: Record<string, string> = {
 function mapClient(c: any): Client {
   return {
     id: c.id,
+    slug: c.slug ?? null,
     name: c.name,
     company: c.company,
     logo_url: c.logo_url,
@@ -53,6 +54,21 @@ export async function getClient(id: string): Promise<Client | null> {
   const sb = createClient();
   if (!sb) return null;
   const { data } = await sb.from("clients").select("*").eq("id", id).single();
+  return data ? mapClient(data) : null;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Resolve a client by a URL ref that may be a slug (clean links) OR a UUID
+ * (legacy links, notification/search hrefs). Access control stays server-side —
+ * the ref is just a lookup key, never the security boundary.
+ */
+export async function getClientByRef(ref: string): Promise<Client | null> {
+  const sb = createClient();
+  if (!sb || !ref) return null;
+  const column = UUID_RE.test(ref) ? "id" : "slug";
+  const { data } = await sb.from("clients").select("*").eq(column, ref).maybeSingle();
   return data ? mapClient(data) : null;
 }
 

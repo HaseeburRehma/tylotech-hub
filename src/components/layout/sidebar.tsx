@@ -28,26 +28,37 @@ function NavList({
   const pathname = usePathname();
   const t = useT();
   const { hrefs: unreadHrefs, reload } = useUnreadHrefs(userId);
-  const clientHref = (id: string) => `/internal/clients/${id}`;
+  // idHref = canonical UUID path used by stored notifications (badge matching).
+  // linkHref = clean slug path used for the visible link (falls back to id).
+  const idHref = (id: string) => `/internal/clients/${id}`;
+  const linkHref = (c: SidebarClient) => `/internal/clients/${c.slug || c.id}`;
   const onClientPage = pathname.startsWith("/internal/clients/");
   const [clientsOpen, setClientsOpen] = useState(false);
   useEffect(() => {
     if (onClientPage) setClientsOpen(true);
   }, [onClientPage]);
 
-  // Longest-prefix match so /internal/projects highlights "Projects", not "Internal Hub".
-  // Client rows are included so a client's messages attribute to THAT client's row.
+  // Which client (if any) the current path points at — by slug OR uuid.
+  const activeClient = clients.find(
+    (c) =>
+      pathname === linkHref(c) ||
+      pathname.startsWith(linkHref(c) + "/") ||
+      pathname === idHref(c.id) ||
+      pathname.startsWith(idHref(c.id) + "/"),
+  );
+
+  // Longest-prefix match for the main nav. Client UUID hrefs are included so a
+  // client's messages attribute to THAT client (not "Internal Hub"). Disabled on
+  // client pages so Internal Hub doesn't falsely highlight — the client row does.
   const allHrefs = [
     ...CLIENT_NAV.map((i) => i.href),
     ...INTERNAL_NAV.map((i) => i.href),
-    ...clients.map((c) => clientHref(c.id)),
+    ...clients.map((c) => idHref(c.id)),
   ];
-  const activeHref = allHrefs
-    .filter((h) => pathname === h || pathname.startsWith(h + "/"))
-    .sort((a, b) => b.length - a.length)[0];
+  const activeHref = onClientPage
+    ? undefined
+    : allHrefs.filter((h) => pathname === h || pathname.startsWith(h + "/")).sort((a, b) => b.length - a.length)[0];
 
-  // Real unread badge per item: count unread notifications whose link lives under
-  // this item, attributing each to its LONGEST-matching href.
   const countFor = (href: string) =>
     unreadHrefs.filter((h) => {
       const best = allHrefs
@@ -55,13 +66,12 @@ function NavList({
         .sort((a, b) => b.length - a.length)[0];
       return best === href;
     }).length;
-  const clientsTotal = clients.reduce((sum, c) => sum + countFor(clientHref(c.id)), 0);
+  const clientsTotal = clients.reduce((sum, c) => sum + countFor(idHref(c.id)), 0);
 
-  // Opening a section clears its badge: mark its unread notifications read.
+  // Opening a main-nav section clears its badge.
   useEffect(() => {
     if (!activeHref) return;
-    const hasUnread = unreadHrefs.some((h) => h === activeHref || h.startsWith(activeHref + "/"));
-    if (!hasUnread) return;
+    if (!unreadHrefs.some((h) => h === activeHref || h.startsWith(activeHref + "/"))) return;
     fetch("/api/notifications", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -70,6 +80,22 @@ function NavList({
       .then(() => reload())
       .catch(() => {});
   }, [activeHref, unreadHrefs, reload]);
+
+  // Opening a client clears ITS badge — matched on the UUID href (notifications
+  // are stored with the uuid path even when the URL is a slug).
+  useEffect(() => {
+    if (!activeClient) return;
+    const prefix = idHref(activeClient.id);
+    if (!unreadHrefs.some((h) => h === prefix || h.startsWith(prefix + "/"))) return;
+    fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hrefPrefix: prefix }),
+    })
+      .then(() => reload())
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeClient?.id, unreadHrefs, reload]);
 
   const badge = (count: number) =>
     count > 0 ? (
@@ -135,13 +161,12 @@ function NavList({
               {clientsOpen && (
                 <div className="mt-0.5 space-y-0.5 pl-3">
                   {clients.map((c) => {
-                    const href = clientHref(c.id);
-                    const active = href === activeHref;
-                    const count = countFor(href);
+                    const active = activeClient?.id === c.id;
+                    const count = countFor(idHref(c.id));
                     return (
                       <Link
                         key={c.id}
-                        href={href}
+                        href={linkHref(c)}
                         onClick={onNavigate}
                         className={cn(
                           "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ring-focus",

@@ -9,6 +9,7 @@ import type { AuthUser } from "@/lib/auth";
 
 export interface SidebarClient {
   id: string;
+  slug: string | null;
   name: string;
   logoUrl: string | null;
 }

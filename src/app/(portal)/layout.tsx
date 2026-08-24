@@ -10,12 +10,14 @@ export default async function PortalLayout({ children }: { children: React.React
 
   // Staff get the client roster in the sidebar (to jump into each client's
   // workspace/chat). The list is confidential, so clients never receive it.
-  let clients: { id: string; name: string; logoUrl: string | null }[] = [];
+  let clients: { id: string; slug: string | null; name: string; logoUrl: string | null }[] = [];
   if (isStaff(user)) {
     const admin = createAdminClient();
     if (admin) {
-      const { data } = await admin.from("clients").select("id,company,logo_url").order("company");
-      clients = (data ?? []).map((c) => ({ id: c.id, name: c.company ?? "Client", logoUrl: c.logo_url }));
+      // Tolerate the pre-0021 window where `slug` doesn't exist yet.
+      let res: { data: any[] | null; error: any } = await admin.from("clients").select("id,slug,company,logo_url").order("company");
+      if (res.error) res = await admin.from("clients").select("id,company,logo_url").order("company");
+      clients = (res.data ?? []).map((c: any) => ({ id: c.id, slug: c.slug ?? null, name: c.company ?? "Client", logoUrl: c.logo_url }));
     }
   }
 

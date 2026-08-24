@@ -4,6 +4,7 @@ export type Plan = "Starter" | "Growth" | "Scale" | "Enterprise";
 
 export interface Client {
   id: string;
+  slug?: string | null;
   name: string;
   company: string;
   logo_url: string | null;

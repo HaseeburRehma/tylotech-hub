@@ -150,7 +150,7 @@ export function InternalView({
               {clients.map((c) => (
                 <tr key={c.id} className="border-b border-border/50 transition-colors last:border-0 hover:bg-surface-2">
                   <td className="py-3.5">
-                    <Link href={`/internal/clients/${c.id}`} className="flex items-center gap-2.5 group">
+                    <Link href={`/internal/clients/${c.slug ?? c.id}`} className="flex items-center gap-2.5 group">
                       <span className="h-8 w-8 rounded-lg ring-1 ring-border" style={{ background: `${c.primary_color}26` }}>
                         <span className="flex h-full w-full items-center justify-center text-xs font-semibold" style={{ color: c.primary_color }}>
                           {c.company.slice(0, 2).toUpperCase()}

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getAuthUser, isStaff } from "@/lib/auth";
 import {
-  getClient,
+  getClientByRef,
   getKpis,
   listClientUsers,
   listDocuments,
@@ -14,7 +14,7 @@ import { PROVIDERS, isProviderLive } from "@/lib/integrations/providers";
 import { ClientDetail } from "./detail";
 
 export default async function ClientDetailPage({ params }: { params: { id: string } }) {
-  const [user, client] = await Promise.all([getAuthUser(), getClient(params.id)]);
+  const [user, client] = await Promise.all([getAuthUser(), getClientByRef(params.id)]);
   if (!client) notFound();
   // This is a staff-only console — never render another tenant's data to a client.
   if (!isStaff(user)) notFound();

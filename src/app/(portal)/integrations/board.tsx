@@ -85,6 +85,13 @@ export function IntegrationsBoard({
     router.refresh();
   }
 
+  async function syncAllClients() {
+    setBusy("all-clients");
+    await fetch("/api/integrations/sync-all", { method: "POST" }).catch(() => null);
+    setBusy(null);
+    router.refresh();
+  }
+
   async function configure(providerId: string, field: "accountId" | "siteUrl" | "propertyId" | "accessToken", value: string) {
     await fetch(`/api/integrations/${providerId}`, {
       method: "POST",
@@ -117,11 +124,18 @@ export function IntegrationsBoard({
         </div>
       )}
 
-      {anyConnected && (
-        <div className="flex justify-end">
-          <Button size="sm" variant="secondary" loading={busy === "all"} onClick={() => sync()}>
-            <RefreshCw className="h-4 w-4" /> {t("integ.syncAll")}
-          </Button>
+      {(anyConnected || isStaff) && (
+        <div className="flex justify-end gap-2">
+          {isStaff && (
+            <Button size="sm" variant="secondary" loading={busy === "all-clients"} onClick={syncAllClients}>
+              <RefreshCw className="h-4 w-4" /> {t("integ.syncAllClients")}
+            </Button>
+          )}
+          {anyConnected && (
+            <Button size="sm" variant="secondary" loading={busy === "all"} onClick={() => sync()}>
+              <RefreshCw className="h-4 w-4" /> {t("integ.syncAll")}
+            </Button>
+          )}
         </div>
       )}
 

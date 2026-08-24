@@ -27,11 +27,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Company name is required." }, { status: 400 });
   }
 
+  // Clean, unique slug for the client's URL (/internal/clients/<slug>).
+  const base = company.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "client";
+  let slug = base;
+  const { data: taken } = await admin.from("clients").select("slug").eq("slug", base).maybeSingle();
+  if (taken) slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
+
   const { data: client, error } = await admin
     .from("clients")
     .insert({
       name: company,
       company,
+      slug,
       primary_color: body.primaryColor || "#C9A84C",
       secondary_color: body.secondaryColor || "#0A0A0A",
       plan: body.plan || "Starter",
