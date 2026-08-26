@@ -119,6 +119,10 @@ const en: Dict = {
   "chat.composerHint": "Enter to send · Shift+Enter for a new line · paste or drop images",
   "chat.captionPlaceholder": "Add a caption… (optional)",
   "chat.remove": "Remove",
+  "chat.roleTeam": "Team",
+  "chat.roleClient": "Client",
+  "chat.bold": "Bold (**text**)",
+  "chat.highlight": "Highlight (==text==)",
 
   // common
   "common.connect": "Connect",
@@ -400,6 +404,10 @@ const de: Dict = {
   "chat.composerHint": "Enter zum Senden · Umschalt+Enter für neue Zeile · Bilder einfügen oder ablegen",
   "chat.captionPlaceholder": "Bildunterschrift hinzufügen… (optional)",
   "chat.remove": "Entfernen",
+  "chat.roleTeam": "Team",
+  "chat.roleClient": "Kunde",
+  "chat.bold": "Fett (**Text**)",
+  "chat.highlight": "Hervorheben (==Text==)",
 
   "common.connect": "Verbinden",
   "common.connected": "Verbunden",

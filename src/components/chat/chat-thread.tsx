@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Check, Download, FileText, Languages, Loader2, Paperclip, Pencil, Send, Trash2, Users, X } from "lucide-react";
+import { Bold, Check, Download, FileText, Highlighter, Languages, Loader2, Paperclip, Pencil, Send, Trash2, Users, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,18 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/**
+ * Render lightweight markdown (bold **…**, highlight ==…==) as safe HTML.
+ * Everything is HTML-escaped FIRST, then only our own markers become tags, so
+ * message content can never inject markup (no stored XSS).
+ */
+function renderRich(text: string): string {
+  const esc = text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+  return esc
+    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/==([^=\n]+)==/g, '<mark style="background:rgba(201,168,76,.38);color:inherit;border-radius:3px;padding:0 2px">$1</mark>');
 }
 
 export function ChatThread({
@@ -337,6 +349,20 @@ export function ChatThread({
     setPendingAtt((p) => [...p, ...staged]);
   }
 
+  // Wrap the composer's current selection in a formatting marker (** or ==),
+  // inserting a placeholder when nothing is selected.
+  function wrapSelection(marker: string, placeholder: string) {
+    const el = composerRef.current;
+    const start = el?.selectionStart ?? val.length;
+    const end = el?.selectionEnd ?? val.length;
+    const sel = val.slice(start, end) || placeholder;
+    setVal(val.slice(0, start) + marker + sel + marker + val.slice(end));
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(start + marker.length, start + marker.length + sel.length);
+    });
+  }
+
   function removePending(id: string) {
     setPendingAtt((p) => {
       const gone = p.find((x) => x.id === id);
@@ -577,9 +603,21 @@ export function ChatThread({
                 animate={{ opacity: 1, y: 0 }}
                 className={cn("flex gap-2.5", mine && "flex-row-reverse")}
               >
-                {!mine && <Avatar name={m.sender_name} size={32} className="mt-1" />}
+                <Avatar name={mine ? currentName : m.sender_name} size={32} className="mt-1 shrink-0" />
                 <div className={cn("flex max-w-[72%] flex-col", mine ? "items-end" : "items-start")}>
-                  {!mine && <p className="mb-1 text-[11px] font-medium text-muted">{m.sender_name}</p>}
+                  {!mine && (
+                    <p className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-muted">
+                      {m.sender_name}
+                      <span
+                        className={cn(
+                          "rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide",
+                          m.sender_role === "client" ? "bg-info/15 text-info" : "bg-brand/15 text-brand",
+                        )}
+                      >
+                        {m.sender_role === "client" ? t("chat.roleClient") : t("chat.roleTeam")}
+                      </span>
+                    </p>
+                  )}
 
                   {hasAttachment && (
                     <div className={cn("mb-1", hasText && "mb-2")}>
@@ -652,13 +690,16 @@ export function ChatThread({
                     </div>
                   ) : hasText ? (
                     <div
-                      title={isTranslated ? `Original: ${m.content}` : undefined}
                       className={cn(
                         "inline-block whitespace-pre-wrap break-words text-left rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
                         mine ? "rounded-br-md bg-brand text-brand-foreground" : "rounded-bl-md bg-surface-2 text-foreground",
                       )}
                     >
-                      {loading ? <span className="opacity-60">…</span> : displayText}
+                      {loading ? (
+                        <span className="opacity-60">…</span>
+                      ) : (
+                        <span dangerouslySetInnerHTML={{ __html: renderRich(displayText) }} />
+                      )}
                     </div>
                   ) : null}
                   <div className={cn("mt-1 flex items-center gap-2 text-[10px] text-muted/60", mine && "flex-row-reverse")}>
@@ -772,6 +813,26 @@ export function ChatThread({
                 ))}
               </div>
             )}
+            <div className="flex items-center justify-end gap-1 border-b border-border/60 px-2 py-1">
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => wrapSelection("**", "text")}
+                title={t("chat.bold")}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+              >
+                <Bold className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => wrapSelection("==", "highlight")}
+                title={t("chat.highlight")}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+              >
+                <Highlighter className="h-3.5 w-3.5" />
+              </button>
+            </div>
             <div className="flex items-end gap-1.5 px-2 py-1.5">
               <button
                 type="button"
