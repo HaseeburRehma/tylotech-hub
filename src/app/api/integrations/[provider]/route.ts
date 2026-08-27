@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getProvider, isProviderLive } from "@/lib/integrations/providers";
 
@@ -33,11 +32,13 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
-  const supabase = createClient();
-  if (!supabase) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
+  // integrations SELECT/UPDATE/INSERT are revoked from the browser role, so every
+  // branch below needs the service-role client — not the RLS-scoped `supabase`.
+  const admin = createAdminClient();
+  if (!admin) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
 
   if (action === "disconnect") {
-    const { error } = await supabase
+    const { error } = await admin
       .from("integrations")
       .update({ status: "disconnected" })
       .eq("client_id", clientId)
@@ -48,11 +49,7 @@ export async function POST(
 
   if (action === "configure") {
     // Store account/site/property (merged into meta) and, optionally, a pasted API
-    // access token. Only staff may set the token. Uses the service role because
-    // integrations SELECT is revoked from the browser role (needed to merge meta).
-    const admin = createAdminClient();
-    if (!admin) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
-
+    // access token. Only staff may set the token.
     const { data: existing } = await admin
       .from("integrations")
       .select("meta")
@@ -81,10 +78,8 @@ export async function POST(
   }
 
   // connect — real OAuth would happen here when credentials are configured.
-  // No .select() back: integrations SELECT is revoked from the browser role, and
-  // the board refreshes from the (service-role) server page after this returns.
   const live = isProviderLive(provider);
-  const { error } = await supabase
+  const { error } = await admin
     .from("integrations")
     .upsert(
       {
