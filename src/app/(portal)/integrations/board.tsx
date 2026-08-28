@@ -15,7 +15,6 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
 import type { IntegrationProvider } from "@/lib/integrations/providers";
 
@@ -32,14 +31,7 @@ interface Row {
   account_label: string | null;
   last_synced_at: string | null;
   has_token?: boolean;
-  meta: { metrics?: Record<string, number>; accountId?: string; siteUrl?: string; propertyId?: string } | null;
-}
-
-function fmt(unit: string, v: number) {
-  if (unit === "currency") return formatCurrency(v);
-  if (unit === "ratio") return `${v.toFixed(1)}x`;
-  if (unit === "percent") return `${v}%`;
-  return new Intl.NumberFormat("en").format(v);
+  meta: { accountId?: string; siteUrl?: string; propertyId?: string } | null;
 }
 
 export function IntegrationsBoard({
@@ -144,7 +136,6 @@ export function IntegrationsBoard({
           const Icon = ICONS[p.id] ?? Plug;
           const row = rowFor(p.id);
           const connected = row?.status === "connected";
-          const metrics = row?.meta?.metrics;
           return (
             <motion.div
               key={p.id}
@@ -236,19 +227,6 @@ export function IntegrationsBoard({
                         />
                       </label>
                     )}
-                  </div>
-                )}
-
-                {connected && metrics && (
-                  <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl border border-border bg-bg/40 p-3">
-                    {p.metrics.map((m) => (
-                      <div key={m.key}>
-                        <p className="text-[10px] text-muted">{m.label}</p>
-                        <p className="text-sm font-semibold text-foreground">
-                          {metrics[m.key] != null ? fmt(m.unit, metrics[m.key]) : "—"}
-                        </p>
-                      </div>
-                    ))}
                   </div>
                 )}
 

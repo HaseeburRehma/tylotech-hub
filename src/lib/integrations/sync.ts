@@ -3,37 +3,6 @@ import { fetchGa4, fetchGoogleAds, fetchSearchConsole, type FetchedData } from "
 import { fetchMetaAdsKpis } from "@/lib/integrations/meta-ads-adapter";
 import { refreshGoogleAccessToken } from "@/lib/integrations/oauth";
 import { notifyClientUsers } from "@/lib/notify";
-import { getProvider, type ProviderId } from "./providers";
-
-/**
- * Deterministic sandbox metrics for a provider — used before live API credentials
- * exist so the feature is demoable. Live syncs use syncClient() below.
- */
-export function generateMetrics(provider: ProviderId, seed = 1): Record<string, number> {
-  const p = getProvider(provider);
-  if (!p) return {};
-  // Deterministic pseudo-noise (no Math.random → stable across renders/instances).
-  const noise = (i: number) => Math.abs((Math.sin((seed + i) * 12.9898) * 43758.5453) % 1);
-
-  const out: Record<string, number> = {};
-  p.metrics.forEach((m, i) => {
-    const r = noise(i);
-    switch (m.unit) {
-      case "currency":
-        out[m.key] = Math.round(2000 + r * 18000);
-        break;
-      case "ratio":
-        out[m.key] = Number((2 + r * 4).toFixed(2));
-        break;
-      case "percent":
-        out[m.key] = Number((1 + r * 6).toFixed(2));
-        break;
-      default:
-        out[m.key] = Math.round(50 + r * 5000);
-    }
-  });
-  return out;
-}
 
 const GOOGLE_PROVIDERS = new Set(["google_ads", "ga4", "search_console"]);
 const AUTO_MIN_AGE_MS = 25 * 60 * 1000; // auto/cron skips rows synced < 25 min ago
