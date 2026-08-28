@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { getKpis } from "@/lib/data";
+import { getClient, getKpis } from "@/lib/data";
 import { ReportDocument, type ReportProps } from "@/lib/pdf/report-document";
 import { formatCurrency } from "@/lib/utils";
 
@@ -16,12 +16,20 @@ function formatKpi(unit: string, value: number) {
   return new Intl.NumberFormat("en").format(value);
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getAuthUser();
   if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
 
-  // Real KPIs for this client (staff without a tenant get an empty report).
-  const raw = await getKpis(user.client_id ?? null);
+  // Staff (admin/team) can request another client's report via ?client=; a
+  // client-role user always gets their own tenant, regardless of the query.
+  const isStaff = user.role !== "client";
+  const requested = new URL(request.url).searchParams.get("client");
+  const clientId = isStaff ? (requested ?? user.client_id ?? null) : (user.client_id ?? null);
+
+  const target = clientId && clientId !== user.client_id ? await getClient(clientId) : null;
+
+  // Real KPIs for this client (staff without a tenant/selection get an empty report).
+  const raw = await getKpis(clientId);
   const kpis = raw.map((k) => ({
     label: k.label,
     value: formatKpi(k.unit, k.value),
@@ -30,8 +38,8 @@ export async function GET() {
   }));
 
   const props: ReportProps = {
-    company: user.company ?? "TyloTech Client",
-    brandColor: user.primaryColor ?? "#C9A84C",
+    company: target?.company ?? user.company ?? "TyloTech Client",
+    brandColor: target?.primary_color ?? user.primaryColor ?? "#C9A84C",
     period: new Date().toLocaleDateString("en-DE", { month: "long", year: "numeric" }),
     generatedAt: new Date().toLocaleString("en-DE"),
     kpis,

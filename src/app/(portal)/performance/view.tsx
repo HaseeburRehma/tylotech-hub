@@ -22,12 +22,25 @@ function kpiValue(k: Kpi) {
   return new Intl.NumberFormat("en").format(k.value);
 }
 
-export function PerformanceView({ kpis, series }: { kpis: Kpi[]; series: SeriesPoint[] }) {
+export function PerformanceView({
+  kpis,
+  series,
+  clients = [],
+  selectedClientId = null,
+  isStaff = false,
+}: {
+  kpis: Kpi[];
+  series: SeriesPoint[];
+  clients?: { id: string; company: string }[];
+  selectedClientId?: string | null;
+  isStaff?: boolean;
+}) {
   const t = useT();
   const [range, setRange] = useState("30D");
   const [metric, setMetric] = useState<"spend" | "leads" | "roas">("spend");
   const hasData = kpis.length > 0 || series.length > 0;
   const metricLabel = (k: "spend" | "leads" | "roas") => (k === "spend" ? t("perf.adSpend") : k === "leads" ? "Leads" : "ROAS");
+  const exportHref = selectedClientId ? `/api/reports/performance?client=${selectedClientId}` : "/api/reports/performance";
 
   return (
     <div className="space-y-6">
@@ -46,11 +59,31 @@ export function PerformanceView({ kpis, series }: { kpis: Kpi[]; series: SeriesP
             </button>
           ))}
         </div>
-        <Button size="sm" variant="secondary" onClick={() => window.open("/api/reports/performance", "_blank")}>
+        <Button size="sm" variant="secondary" onClick={() => window.open(exportHref, "_blank")}>
           <Download className="h-4 w-4" />
           {t("perf.exportPdf")}
         </Button>
       </PageHeader>
+
+      {isStaff && clients.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted">{t("perf.viewingFor")}</span>
+          {clients.map((c) => (
+            <a
+              key={c.id}
+              href={`/performance?client=${c.id}`}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                c.id === selectedClientId
+                  ? "border-brand/40 bg-brand/10 text-brand"
+                  : "border-border text-muted hover:text-foreground",
+              )}
+            >
+              {c.company}
+            </a>
+          ))}
+        </div>
+      )}
 
       {!hasData ? (
         <Card className="flex flex-col items-center justify-center py-16 text-center">

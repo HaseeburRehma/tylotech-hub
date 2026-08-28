@@ -151,6 +151,8 @@ const en: Dict = {
   // performance
   "perf.title": "Performance",
   "perf.subtitle": "Cross-channel results for Meta Ads, Google Ads & SEO.",
+  "perf.viewingFor": "Viewing:",
+  "perf.allClients": "All clients",
   "perf.exportPdf": "Export PDF",
   "perf.noData": "No performance data yet",
   "perf.noDataBody": "Once your TyloTech team connects your ad accounts, your metrics and trends will appear here.",
@@ -434,6 +436,8 @@ const de: Dict = {
 
   "perf.title": "Leistung",
   "perf.subtitle": "Kanalübergreifende Ergebnisse für Meta Ads, Google Ads & SEO.",
+  "perf.viewingFor": "Ansicht:",
+  "perf.allClients": "Alle Kunden",
   "perf.exportPdf": "PDF exportieren",
   "perf.noData": "Noch keine Leistungsdaten",
   "perf.noDataBody": "Sobald Ihr TyloTech-Team Ihre Werbekonten verbindet, erscheinen Ihre Kennzahlen und Trends hier.",
