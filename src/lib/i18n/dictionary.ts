@@ -166,6 +166,9 @@ const en: Dict = {
   "perf.value": "Value",
   "perf.delta": "Δ vs last period",
   "perf.adSpend": "Ad Spend",
+  "perf.stale": "Stale",
+  "perf.staleSince": "Integration disconnected — data last synced {date}",
+  "perf.staleNoSync": "Integration disconnected — never synced",
 
   // documents
   "docs.title": "Documents",
@@ -451,6 +454,9 @@ const de: Dict = {
   "perf.value": "Wert",
   "perf.delta": "Δ ggü. Vorperiode",
   "perf.adSpend": "Werbeausgaben",
+  "perf.stale": "Veraltet",
+  "perf.staleSince": "Integration getrennt — zuletzt synchronisiert am {date}",
+  "perf.staleNoSync": "Integration getrennt — nie synchronisiert",
 
   "docs.title": "Dokumente",
   "docs.subtitle": "Verträge, Berichte, Rechnungen und Markenassets — alles an einem Ort.",

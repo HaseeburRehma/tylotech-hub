@@ -1,6 +1,6 @@
 "use client";
 
-import { Download } from "lucide-react";
+import { AlertTriangle, Download } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,11 @@ import { PerfArea } from "@/components/charts/perf-area";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
 import type { Kpi, SeriesPoint } from "@/types";
+
+export interface SourceStatus {
+  connected: boolean;
+  lastSyncedAt: string | null;
+}
 
 const RANGES = ["7D", "30D", "90D", "YTD"];
 const METRIC_KEYS: ("spend" | "leads" | "roas")[] = ["spend", "leads", "roas"];
@@ -22,18 +27,35 @@ function kpiValue(k: Kpi) {
   return new Intl.NumberFormat("en").format(k.value);
 }
 
+function StaleBadge({ status, t }: { status: SourceStatus | undefined; t: (k: string, v?: Record<string, string | number>) => string }) {
+  if (!status || status.connected) return null;
+  const since = status.lastSyncedAt
+    ? new Date(status.lastSyncedAt).toLocaleDateString("en-DE", { day: "numeric", month: "short" })
+    : null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-danger/10 px-1.5 py-0.5 text-[10px] font-medium text-danger"
+      title={since ? t("perf.staleSince", { date: since }) : t("perf.staleNoSync")}
+    >
+      <AlertTriangle className="h-2.5 w-2.5" /> {t("perf.stale")}
+    </span>
+  );
+}
+
 export function PerformanceView({
   kpis,
   series,
   clients = [],
   selectedClientId = null,
   isStaff = false,
+  sourceStatus = {},
 }: {
   kpis: Kpi[];
   series: SeriesPoint[];
   clients?: { id: string; company: string }[];
   selectedClientId?: string | null;
   isStaff?: boolean;
+  sourceStatus?: Record<string, SourceStatus>;
 }) {
   const t = useT();
   const [range, setRange] = useState("30D");
@@ -98,7 +120,10 @@ export function PerformanceView({
                 <Card key={k.id} className="p-4">
                   <p className="text-xs text-muted">{k.label}</p>
                   <p className="mt-1.5 font-display text-xl font-semibold">{kpiValue(k)}</p>
-                  <p className="mt-0.5 text-[11px] text-muted">{k.source}</p>
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    <p className="text-[11px] text-muted">{k.source}</p>
+                    <StaleBadge status={sourceStatus[k.source]} t={t} />
+                  </div>
                 </Card>
               ))}
             </div>
@@ -154,7 +179,12 @@ export function PerformanceView({
                     {kpis.map((k) => (
                       <tr key={k.id} className="border-b border-border/50 last:border-0">
                         <td className="py-3 font-medium text-foreground">{k.label}</td>
-                        <td className="py-3 text-muted">{k.source}</td>
+                        <td className="py-3 text-muted">
+                          <span className="inline-flex items-center gap-1.5">
+                            {k.source}
+                            <StaleBadge status={sourceStatus[k.source]} t={t} />
+                          </span>
+                        </td>
                         <td className="py-3 text-muted">{kpiValue(k)}</td>
                         <td className={cn("py-3 text-right font-semibold", k.delta >= 0 ? "text-success" : "text-danger")}>
                           {k.delta > 0 ? "+" : ""}{k.delta}%
