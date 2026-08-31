@@ -102,7 +102,7 @@ export function PerformanceView({
 }: {
   kpis: Kpi[];
   series: ProviderSeriesPoint[];
-  clients?: { id: string; company: string }[];
+  clients?: { id: string; company: string; slug: string | null }[];
   selectedClientId?: string | null;
   isStaff?: boolean;
   sourceStatus?: Record<string, SourceStatus>;
@@ -169,7 +169,7 @@ export function PerformanceView({
           {clients.map((c) => (
             <a
               key={c.id}
-              href={`/performance?client=${c.id}`}
+              href={`/performance?client=${c.slug ?? c.id}`}
               className={cn(
                 "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
                 c.id === selectedClientId

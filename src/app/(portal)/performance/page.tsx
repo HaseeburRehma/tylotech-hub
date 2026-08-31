@@ -1,5 +1,5 @@
 import { getAuthUser } from "@/lib/auth";
-import { getKpis, getSeriesByProvider } from "@/lib/data";
+import { getKpis, getSeriesByProvider, getClientByRef } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PROVIDERS } from "@/lib/integrations/providers";
@@ -13,16 +13,18 @@ export default async function PerformancePage({
   const user = await getAuthUser();
   const isStaff = user?.role !== "client";
 
-  let clients: { id: string; company: string }[] = [];
+  let clients: { id: string; company: string; slug: string | null }[] = [];
   if (isStaff) {
     const sb = createClient();
     if (sb) {
-      const { data } = await sb.from("clients").select("id,company").order("company");
+      const { data } = await sb.from("clients").select("id,company,slug").order("company");
       clients = data ?? [];
     }
   }
 
-  const clientId = isStaff ? (searchParams.client ?? clients[0]?.id ?? null) : (user?.client_id ?? null);
+  // searchParams.client may be a slug (clean links) or a legacy UUID.
+  const requestedClient = isStaff && searchParams.client ? await getClientByRef(searchParams.client) : null;
+  const clientId = isStaff ? (requestedClient?.id ?? clients[0]?.id ?? null) : (user?.client_id ?? null);
 
   const [kpis, series] = await Promise.all([getKpis(clientId), getSeriesByProvider(clientId)]);
 
