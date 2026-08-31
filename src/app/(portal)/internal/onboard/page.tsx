@@ -84,6 +84,7 @@ export default function OnboardPage() {
         return;
       }
       setResult({ ok: true, warning: data.warning });
+      setLoading(false);
     } catch {
       setError("Network error. Please try again.");
       setLoading(false);
