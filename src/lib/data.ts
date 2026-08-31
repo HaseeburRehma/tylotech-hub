@@ -72,6 +72,29 @@ export async function getClientByRef(ref: string): Promise<Client | null> {
   return data ? mapClient(data) : null;
 }
 
+export interface ProviderSeriesPoint extends SeriesPoint {
+  provider: string;
+}
+
+/** Raw per-provider daily rows (no combining) — lets a client component filter
+ * by source instantly without a server round-trip per tab switch. */
+export async function getSeriesByProvider(clientId: string | null): Promise<ProviderSeriesPoint[]> {
+  const sb = createClient();
+  if (!sb || !clientId) return [];
+  const { data } = await sb
+    .from("metric_points")
+    .select("date,spend,leads,roas,provider")
+    .eq("client_id", clientId)
+    .order("date", { ascending: true });
+  return (data ?? []).map((p: any) => ({
+    date: p.date,
+    spend: Number(p.spend),
+    leads: Number(p.leads),
+    roas: Number(p.roas),
+    provider: p.provider,
+  }));
+}
+
 export async function getKpis(clientId: string | null): Promise<Kpi[]> {
   const sb = createClient();
   if (!sb || !clientId) return [];
@@ -83,20 +106,44 @@ export async function getKpis(clientId: string | null): Promise<Kpi[]> {
   return (data ?? []) as Kpi[];
 }
 
-export async function getSeries(clientId: string | null): Promise<SeriesPoint[]> {
+/**
+ * Daily series for a client. Pass `provider` (e.g. "meta_ads", "search_console")
+ * to get that source's own numbers untouched; omit it to get the combined view —
+ * same-day rows from different sources summed (roas averaged) into one point,
+ * matching the pre-multi-source shape callers like the dashboard already expect.
+ */
+export async function getSeries(clientId: string | null, provider?: string): Promise<SeriesPoint[]> {
   const sb = createClient();
   if (!sb || !clientId) return [];
-  const { data } = await sb
-    .from("metric_points")
-    .select("date,spend,leads,roas")
-    .eq("client_id", clientId)
-    .order("date", { ascending: true });
-  return (data ?? []).map((p: any) => ({
-    date: p.date,
-    spend: Number(p.spend),
-    leads: Number(p.leads),
-    roas: Number(p.roas),
-  }));
+  let query = sb.from("metric_points").select("date,spend,leads,roas,provider").eq("client_id", clientId);
+  if (provider) query = query.eq("provider", provider);
+  const { data } = await query.order("date", { ascending: true });
+  const rows = data ?? [];
+
+  if (provider) {
+    return rows.map((p: any) => ({ date: p.date, spend: Number(p.spend), leads: Number(p.leads), roas: Number(p.roas) }));
+  }
+
+  const byDate = new Map<string, { spend: number; leads: number; roasTotal: number; roasCount: number }>();
+  for (const p of rows) {
+    const cur = byDate.get(p.date) ?? { spend: 0, leads: 0, roasTotal: 0, roasCount: 0 };
+    cur.spend += Number(p.spend);
+    cur.leads += Number(p.leads);
+    const roas = Number(p.roas);
+    if (roas) {
+      cur.roasTotal += roas;
+      cur.roasCount += 1;
+    }
+    byDate.set(p.date, cur);
+  }
+  return Array.from(byDate.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, v]) => ({
+      date,
+      spend: v.spend,
+      leads: v.leads,
+      roas: v.roasCount ? Number((v.roasTotal / v.roasCount).toFixed(2)) : 0,
+    }));
 }
 
 export async function listProjects(clientId?: string | null): Promise<Project[]> {
@@ -291,7 +338,9 @@ export async function listTeamLoad(): Promise<TeamLoad[]> {
       id: u.id,
       name: u.name,
       role: staffTitle(u),
-      load: Math.min(100, 25 + active * 20),
+      // No fixed baseline — a member with zero assigned clients/projects is at
+      // 0% load, not a fabricated "healthy" floor.
+      load: Math.min(100, clients * 15 + active * 20),
       clients,
       avatar: null,
     };

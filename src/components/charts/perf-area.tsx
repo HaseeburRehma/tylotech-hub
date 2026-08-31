@@ -15,7 +15,7 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("en", { day: "numeric", month: "short" });
 }
 
-function ChartTooltip({ active, payload, label }: any) {
+function ChartTooltip({ active, payload, label, labels }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div className="glass rounded-xl border border-border px-3 py-2 text-xs shadow-float">
@@ -23,7 +23,7 @@ function ChartTooltip({ active, payload, label }: any) {
       {payload.map((p: any) => (
         <p key={p.dataKey} className="flex items-center gap-2 text-muted">
           <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
-          <span className="capitalize">{p.dataKey}</span>
+          <span>{labels?.[p.dataKey] ?? (p.dataKey.charAt(0).toUpperCase() + p.dataKey.slice(1))}</span>
           <span className="ml-auto font-semibold text-foreground">
             {p.dataKey === "spend" ? `€${p.value}` : p.value}
           </span>
@@ -36,9 +36,14 @@ function ChartTooltip({ active, payload, label }: any) {
 export function PerfArea({
   data,
   keys = ["spend"],
+  labels,
 }: {
   data: SeriesPoint[];
   keys?: ("spend" | "leads" | "roas")[];
+  /** Override the display name per key (defaults to the raw key, e.g. "spend") — use
+   * when a source repurposes the shared spend/leads/roas shape for its own metric,
+   * e.g. Search Console's "leads" column actually holds daily clicks. */
+  labels?: Partial<Record<"spend" | "leads" | "roas", string>>;
 }) {
   const colorFor = (k: string) =>
     k === "spend" ? "rgb(var(--brand))" : k === "leads" ? "rgb(var(--info))" : "rgb(var(--success))";
@@ -64,7 +69,7 @@ export function PerfArea({
           tick={{ fontSize: 11 }}
         />
         <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} width={48} />
-        <Tooltip content={<ChartTooltip />} />
+        <Tooltip content={<ChartTooltip labels={labels} />} />
         {keys.map((k) => (
           <Area
             key={k}

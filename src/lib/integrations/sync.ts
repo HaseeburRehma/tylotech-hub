@@ -43,7 +43,10 @@ export async function syncClient(
   const nowIso = new Date().toISOString();
   const now = Date.now();
   const results: SyncResult[] = [];
-  const pointsByDate: Record<string, { spend: number; leads: number; roas: number }> = {};
+  // Keyed by provider so each source's daily numbers land in their own
+  // metric_points rows instead of clobbering another source's row for the
+  // same date (metric_points is unique on client_id, date, provider).
+  const pointsByProviderDate: Record<string, Record<string, { spend: number; leads: number; roas: number }>> = {};
   let populated = false;
 
   for (const row of rows) {
@@ -81,8 +84,9 @@ export async function syncClient(
       await admin.from("kpis").delete().eq("client_id", clientId).eq("source", source);
       if (data.kpis.length) await admin.from("kpis").insert(data.kpis.map((k) => ({ ...k, client_id: clientId })));
     }
+    const byDate = (pointsByProviderDate[row.provider] = pointsByProviderDate[row.provider] || {});
     for (const p of data.series) {
-      const cur = (pointsByDate[p.date] = pointsByDate[p.date] || { spend: 0, leads: 0, roas: 0 });
+      const cur = (byDate[p.date] = byDate[p.date] || { spend: 0, leads: 0, roas: 0 });
       cur.spend += p.spend;
       cur.leads += p.leads;
       if (p.roas) cur.roas = p.roas;
@@ -92,8 +96,10 @@ export async function syncClient(
     populated = true;
   }
 
-  const points = Object.entries(pointsByDate).map(([date, v]) => ({ client_id: clientId, date, ...v }));
-  if (points.length) await admin.from("metric_points").upsert(points, { onConflict: "client_id,date" });
+  const points = Object.entries(pointsByProviderDate).flatMap(([provider, byDate]) =>
+    Object.entries(byDate).map(([date, v]) => ({ client_id: clientId, date, provider, ...v })),
+  );
+  if (points.length) await admin.from("metric_points").upsert(points, { onConflict: "client_id,date,provider" });
 
   if (populated && opts.notify !== false) {
     await notifyClientUsers(clientId, {

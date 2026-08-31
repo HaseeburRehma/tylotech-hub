@@ -108,8 +108,17 @@ export async function fetchGa4(
   const conversions = rows.reduce((a, r) => a + Number(r.metricValues?.[2]?.value ?? 0), 0);
   const convRate = sessions ? Number(((conversions / sessions) * 100).toFixed(2)) : 0;
 
+  // GA4's own daily trend — reuses the shared {spend,leads,roas} series shape
+  // with `leads` holding daily active users (spend/roas don't apply to GA4).
+  const series = rows.map((r) => ({
+    date: (r.dimensionValues?.[0]?.value ?? "").replace(/^(\d{4})(\d{2})(\d{2})$/, "$1-$2-$3"),
+    spend: 0,
+    leads: Number(r.metricValues?.[0]?.value ?? 0),
+    roas: 0,
+  })).filter((p) => p.date);
+
   return {
-    series: [], // GA4 headline KPIs only — the chart is driven by Ads/GSC series.
+    series,
     kpis: [
       { metric_name: "users", label: "Users", value: Math.round(users), unit: "number", delta: 0, period: "Last 30d", source: "GA4" },
       { metric_name: "sessions", label: "Sessions", value: Math.round(sessions), unit: "number", delta: 0, period: "Last 30d", source: "GA4" },

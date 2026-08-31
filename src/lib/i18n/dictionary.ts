@@ -169,6 +169,9 @@ const en: Dict = {
   "perf.stale": "Stale",
   "perf.staleSince": "Integration disconnected — data last synced {date}",
   "perf.staleNoSync": "Integration disconnected — never synced",
+  "perf.allSources": "All sources",
+  "perf.noSourceData": "No {source} data yet",
+  "perf.noSourceDataBody": "This source isn't synced yet — connect it (or paste a live token) on the Integrations page, or pick another source above.",
 
   // documents
   "docs.title": "Documents",
@@ -457,6 +460,9 @@ const de: Dict = {
   "perf.stale": "Veraltet",
   "perf.staleSince": "Integration getrennt — zuletzt synchronisiert am {date}",
   "perf.staleNoSync": "Integration getrennt — nie synchronisiert",
+  "perf.allSources": "Alle Quellen",
+  "perf.noSourceData": "Noch keine Daten für {source}",
+  "perf.noSourceDataBody": "Diese Quelle wurde noch nicht synchronisiert — verbinden Sie sie (oder fügen Sie ein echtes Token ein) auf der Integrationen-Seite, oder wählen Sie oben eine andere Quelle.",
 
   "docs.title": "Dokumente",
   "docs.subtitle": "Verträge, Berichte, Rechnungen und Markenassets — alles an einem Ort.",

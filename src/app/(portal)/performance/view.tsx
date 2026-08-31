@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, Download } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PerfArea } from "@/components/charts/perf-area";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
+import type { IntegrationProvider } from "@/lib/integrations/providers";
+import type { ProviderSeriesPoint } from "@/lib/data";
 import type { Kpi, SeriesPoint } from "@/types";
 
 export interface SourceStatus {
@@ -16,8 +18,33 @@ export interface SourceStatus {
   lastSyncedAt: string | null;
 }
 
+type MetricKey = "spend" | "leads" | "roas";
+
 const RANGES = ["7D", "30D", "90D", "YTD"];
-const METRIC_KEYS: ("spend" | "leads" | "roas")[] = ["spend", "leads", "roas"];
+
+// What each source's own trend chart is actually plotting — the shared
+// {spend,leads,roas} shape is repurposed per source (e.g. Search Console's
+// "leads" column holds daily organic clicks, not sales leads), so the
+// available metrics and their display labels vary by source.
+const SOURCE_METRICS: Record<string, { key: MetricKey; label: string }[]> = {
+  all: [
+    { key: "spend", label: "Ad Spend" },
+    { key: "leads", label: "Leads" },
+    { key: "roas", label: "ROAS" },
+  ],
+  meta_ads: [
+    { key: "spend", label: "Ad Spend" },
+    { key: "leads", label: "Leads" },
+    { key: "roas", label: "ROAS" },
+  ],
+  google_ads: [
+    { key: "spend", label: "Ad Spend" },
+    { key: "leads", label: "Conversions" },
+    { key: "roas", label: "ROAS" },
+  ],
+  search_console: [{ key: "leads", label: "Clicks" }],
+  ga4: [{ key: "leads", label: "Users" }],
+};
 
 function kpiValue(k: Kpi) {
   if (k.unit === "currency") return formatCurrency(k.value);
@@ -25,6 +52,28 @@ function kpiValue(k: Kpi) {
   if (k.unit === "percent") return `${k.value}%`;
   if (k.unit === "rank") return `#${k.value}`;
   return new Intl.NumberFormat("en").format(k.value);
+}
+
+function combineSeries(points: ProviderSeriesPoint[]): SeriesPoint[] {
+  const byDate = new Map<string, { spend: number; leads: number; roasTotal: number; roasCount: number }>();
+  for (const p of points) {
+    const cur = byDate.get(p.date) ?? { spend: 0, leads: 0, roasTotal: 0, roasCount: 0 };
+    cur.spend += p.spend;
+    cur.leads += p.leads;
+    if (p.roas) {
+      cur.roasTotal += p.roas;
+      cur.roasCount += 1;
+    }
+    byDate.set(p.date, cur);
+  }
+  return Array.from(byDate.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, v]) => ({
+      date,
+      spend: v.spend,
+      leads: v.leads,
+      roas: v.roasCount ? Number((v.roasTotal / v.roasCount).toFixed(2)) : 0,
+    }));
 }
 
 function StaleBadge({ status, t }: { status: SourceStatus | undefined; t: (k: string, v?: Record<string, string | number>) => string }) {
@@ -49,20 +98,47 @@ export function PerformanceView({
   selectedClientId = null,
   isStaff = false,
   sourceStatus = {},
+  providers = [],
 }: {
   kpis: Kpi[];
-  series: SeriesPoint[];
+  series: ProviderSeriesPoint[];
   clients?: { id: string; company: string }[];
   selectedClientId?: string | null;
   isStaff?: boolean;
   sourceStatus?: Record<string, SourceStatus>;
+  providers?: IntegrationProvider[];
 }) {
   const t = useT();
   const [range, setRange] = useState("30D");
-  const [metric, setMetric] = useState<"spend" | "leads" | "roas">("spend");
-  const hasData = kpis.length > 0 || series.length > 0;
-  const metricLabel = (k: "spend" | "leads" | "roas") => (k === "spend" ? t("perf.adSpend") : k === "leads" ? "Leads" : "ROAS");
+  const [source, setSource] = useState("all");
+  const [metric, setMetric] = useState<MetricKey>("spend");
+
+  const hasAnyData = kpis.length > 0 || series.length > 0;
   const exportHref = selectedClientId ? `/api/reports/performance?client=${selectedClientId}` : "/api/reports/performance";
+
+  const sourceOptions = useMemo(
+    () => [{ id: "all", name: t("perf.allSources") }, ...providers.map((p) => ({ id: p.id, name: p.name }))],
+    [providers, t],
+  );
+
+  const filteredKpis = useMemo(() => {
+    if (source === "all") return kpis;
+    const provider = providers.find((p) => p.id === source);
+    if (!provider) return kpis;
+    return kpis.filter((k) => k.source === provider.name);
+  }, [kpis, providers, source]);
+
+  const chartSeries = useMemo(() => {
+    if (source === "all") return combineSeries(series);
+    return series.filter((p) => p.provider === source).map(({ provider: _provider, ...rest }) => rest);
+  }, [series, source]);
+
+  const metricOptions = SOURCE_METRICS[source] ?? SOURCE_METRICS.all;
+  const activeMetric: MetricKey = metricOptions.some((m) => m.key === metric) ? metric : metricOptions[0].key;
+  const metricLabel = (k: MetricKey) => metricOptions.find((m) => m.key === k)?.label ?? k;
+  const chartLabels = Object.fromEntries(metricOptions.map((m) => [m.key, m.label])) as Partial<Record<MetricKey, string>>;
+
+  const sourceHasData = filteredKpis.length > 0 || chartSeries.length > 0;
 
   return (
     <div className="space-y-6">
@@ -107,16 +183,43 @@ export function PerformanceView({
         </div>
       )}
 
-      {!hasData ? (
+      {hasAnyData && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted">{t("perf.source")}:</span>
+          {sourceOptions.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setSource(s.id)}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                s.id === source
+                  ? "border-brand/40 bg-brand/10 text-brand"
+                  : "border-border text-muted hover:text-foreground",
+              )}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!hasAnyData ? (
         <Card className="flex flex-col items-center justify-center py-16 text-center">
           <p className="text-sm font-medium text-foreground">{t("perf.noData")}</p>
           <p className="mt-1 max-w-sm text-sm text-muted">{t("perf.noDataBody")}</p>
         </Card>
+      ) : !sourceHasData ? (
+        <Card className="flex flex-col items-center justify-center py-16 text-center">
+          <p className="text-sm font-medium text-foreground">
+            {t("perf.noSourceData", { source: sourceOptions.find((s) => s.id === source)?.name ?? source })}
+          </p>
+          <p className="mt-1 max-w-sm text-sm text-muted">{t("perf.noSourceDataBody")}</p>
+        </Card>
       ) : (
         <>
-          {kpis.length > 0 && (
+          {filteredKpis.length > 0 && (
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-              {kpis.slice(0, 4).map((k) => (
+              {filteredKpis.slice(0, 4).map((k) => (
                 <Card key={k.id} className="p-4">
                   <p className="text-xs text-muted">{k.label}</p>
                   <p className="mt-1.5 font-display text-xl font-semibold">{kpiValue(k)}</p>
@@ -135,23 +238,25 @@ export function PerformanceView({
                 <CardTitle>{t("perf.trend")}</CardTitle>
                 <p className="mt-0.5 text-xs text-muted">{range} · {t("perf.byDay")}</p>
               </div>
-              <div className="flex rounded-xl border border-border bg-surface-2 p-1">
-                {METRIC_KEYS.map((k) => (
-                  <button
-                    key={k}
-                    onClick={() => setMetric(k)}
-                    className={cn(
-                      "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                      metric === k ? "bg-brand text-brand-foreground" : "text-muted hover:text-foreground",
-                    )}
-                  >
-                    {metricLabel(k)}
-                  </button>
-                ))}
-              </div>
+              {metricOptions.length > 1 && (
+                <div className="flex rounded-xl border border-border bg-surface-2 p-1">
+                  {metricOptions.map(({ key }) => (
+                    <button
+                      key={key}
+                      onClick={() => setMetric(key)}
+                      className={cn(
+                        "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                        activeMetric === key ? "bg-brand text-brand-foreground" : "text-muted hover:text-foreground",
+                      )}
+                    >
+                      {metricLabel(key)}
+                    </button>
+                  ))}
+                </div>
+              )}
             </CardHeader>
-            {series.length > 0 ? (
-              <PerfArea data={series} keys={[metric]} />
+            {chartSeries.length > 0 ? (
+              <PerfArea data={chartSeries} keys={[activeMetric]} labels={chartLabels} />
             ) : (
               <div className="flex h-[220px] items-center justify-center text-sm text-muted">
                 {t("perf.noSeries")}
@@ -159,11 +264,11 @@ export function PerformanceView({
             )}
           </Card>
 
-          {kpis.length > 0 && (
+          {filteredKpis.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle>{t("perf.metricsDetail")}</CardTitle>
-                <Badge variant="outline">{t("perf.metricsCount", { n: kpis.length })}</Badge>
+                <Badge variant="outline">{t("perf.metricsCount", { n: filteredKpis.length })}</Badge>
               </CardHeader>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -176,7 +281,7 @@ export function PerformanceView({
                     </tr>
                   </thead>
                   <tbody>
-                    {kpis.map((k) => (
+                    {filteredKpis.map((k) => (
                       <tr key={k.id} className="border-b border-border/50 last:border-0">
                         <td className="py-3 font-medium text-foreground">{k.label}</td>
                         <td className="py-3 text-muted">

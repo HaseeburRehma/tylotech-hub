@@ -38,7 +38,7 @@ export const PROVIDERS: IntegrationProvider[] = [
   },
   {
     id: "ga4",
-    name: "Google Analytics 4",
+    name: "GA4",
     description: "Sessions, users and conversion tracking.",
     category: "Analytics",
     liveEnv: "GOOGLE_CLIENT_ID",

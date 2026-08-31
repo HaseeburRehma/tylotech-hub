@@ -1,5 +1,5 @@
 import { getAuthUser } from "@/lib/auth";
-import { getKpis, getSeries } from "@/lib/data";
+import { getKpis, getSeriesByProvider } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PROVIDERS } from "@/lib/integrations/providers";
@@ -24,7 +24,7 @@ export default async function PerformancePage({
 
   const clientId = isStaff ? (searchParams.client ?? clients[0]?.id ?? null) : (user?.client_id ?? null);
 
-  const [kpis, series] = await Promise.all([getKpis(clientId), getSeries(clientId)]);
+  const [kpis, series] = await Promise.all([getKpis(clientId), getSeriesByProvider(clientId)]);
 
   // A metric's `source` (e.g. "Search Console") stays on a KPI/chart row after the
   // integration behind it goes stale — revoked token, manual disconnect, or simply
@@ -53,6 +53,7 @@ export default async function PerformancePage({
       selectedClientId={clientId}
       isStaff={isStaff}
       sourceStatus={sourceStatus}
+      providers={PROVIDERS}
     />
   );
 }
