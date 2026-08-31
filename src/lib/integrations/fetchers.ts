@@ -92,7 +92,10 @@ export async function fetchGa4(
       body: JSON.stringify({
         dateRanges: [{ startDate: start, endDate: end }],
         dimensions: [{ name: "date" }],
-        metrics: [{ name: "activeUsers" }, { name: "sessions" }, { name: "conversions" }],
+        // sessionConversionRate (fraction of sessions with a conversion) instead of
+        // raw conversions/sessions — GA4 sessions can log multiple conversion events
+        // each, so that ratio can exceed 100% and isn't a real "rate".
+        metrics: [{ name: "activeUsers" }, { name: "sessions" }, { name: "sessionConversionRate" }],
         orderBys: [{ dimension: { dimensionName: "date" } }],
       }),
       cache: "no-store",
@@ -105,8 +108,14 @@ export async function fetchGa4(
 
   const users = rows.reduce((a, r) => a + Number(r.metricValues?.[0]?.value ?? 0), 0);
   const sessions = rows.reduce((a, r) => a + Number(r.metricValues?.[1]?.value ?? 0), 0);
-  const conversions = rows.reduce((a, r) => a + Number(r.metricValues?.[2]?.value ?? 0), 0);
-  const convRate = sessions ? Number(((conversions / sessions) * 100).toFixed(2)) : 0;
+  // Weighted average across days so a low-traffic day's rate doesn't count as
+  // much as a high-traffic one.
+  const weightedRate = rows.reduce((a, r) => {
+    const s = Number(r.metricValues?.[1]?.value ?? 0);
+    const rate = Number(r.metricValues?.[2]?.value ?? 0);
+    return a + rate * s;
+  }, 0);
+  const convRate = sessions ? Number(((weightedRate / sessions) * 100).toFixed(2)) : 0;
 
   // GA4's own daily trend — reuses the shared {spend,leads,roas} series shape
   // with `leads` holding daily active users (spend/roas don't apply to GA4).
