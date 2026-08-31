@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { getAuthUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getClientByRef } from "@/lib/data";
 import { PROVIDERS, isProviderLive } from "@/lib/integrations/providers";
 import { translate, LOCALE_COOKIE, DEFAULT_LOCALE, LOCALES, type Locale } from "@/lib/i18n/dictionary";
 import { IntegrationsBoard } from "./board";
@@ -18,13 +19,17 @@ export default async function IntegrationsPage({
   const cookieLocale = cookies().get(LOCALE_COOKIE)?.value as Locale | undefined;
   const locale: Locale = cookieLocale && LOCALES.includes(cookieLocale) ? cookieLocale : DEFAULT_LOCALE;
 
-  let clients: { id: string; company: string }[] = [];
+  let clients: { id: string; company: string; slug: string | null }[] = [];
   if (supabase && isStaff) {
-    const { data } = await supabase.from("clients").select("id,company").order("company");
+    const { data } = await supabase.from("clients").select("id,company,slug").order("company");
     clients = data ?? [];
   }
 
-  const clientId = user?.role === "client" ? user.client_id : searchParams.client ?? clients[0]?.id ?? null;
+  // searchParams.client may be a slug (clean links) or a legacy UUID — resolve
+  // it the same way the rest of the app does, so both keep working.
+  const requestedClient = isStaff && searchParams.client ? await getClientByRef(searchParams.client) : null;
+  const clientId =
+    user?.role === "client" ? user.client_id : requestedClient?.id ?? clients[0]?.id ?? null;
 
   let rows: any[] = [];
   const admin = createAdminClient();

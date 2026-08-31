@@ -45,7 +45,7 @@ export function IntegrationsBoard({
   providers: IntegrationProvider[];
   rows: Row[];
   clientId: string | null;
-  clients: { id: string; company: string }[];
+  clients: { id: string; company: string; slug: string | null }[];
   isStaff: boolean;
   liveProviders: string[];
 }) {
@@ -103,7 +103,7 @@ export function IntegrationsBoard({
           {clients.map((c) => (
             <a
               key={c.id}
-              href={`/integrations?client=${c.id}`}
+              href={`/integrations?client=${c.slug ?? c.id}`}
               className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                 c.id === clientId
                   ? "border-brand/40 bg-brand/10 text-brand"
