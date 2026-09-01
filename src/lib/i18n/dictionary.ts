@@ -172,6 +172,9 @@ const en: Dict = {
   "perf.allSources": "All sources",
   "perf.noSourceData": "No {source} data yet",
   "perf.noSourceDataBody": "This source isn't synced yet — connect it (or paste a live token) on the Integrations page, or pick another source above.",
+  "perf.snapshotLabel": "As of last sync — no daily history yet for these",
+  "perf.dailyAvg": "Daily avg",
+  "perf.peakDay": "Peak day",
 
   // documents
   "docs.title": "Documents",
@@ -463,6 +466,9 @@ const de: Dict = {
   "perf.allSources": "Alle Quellen",
   "perf.noSourceData": "Noch keine Daten für {source}",
   "perf.noSourceDataBody": "Diese Quelle wurde noch nicht synchronisiert — verbinden Sie sie (oder fügen Sie ein echtes Token ein) auf der Integrationen-Seite, oder wählen Sie oben eine andere Quelle.",
+  "perf.snapshotLabel": "Stand der letzten Synchronisierung — noch kein Tagesverlauf für diese Werte",
+  "perf.dailyAvg": "Ø pro Tag",
+  "perf.peakDay": "Spitzentag",
 
   "docs.title": "Dokumente",
   "docs.subtitle": "Verträge, Berichte, Rechnungen und Markenassets — alles an einem Ort.",

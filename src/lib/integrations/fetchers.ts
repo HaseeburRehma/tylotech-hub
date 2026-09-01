@@ -133,13 +133,15 @@ export async function fetchGa4(
   }, 0);
   const convRate = sessions ? Number(((weightedRate / sessions) * 100).toFixed(2)) : 0;
 
-  // GA4's own daily trend — reuses the shared {spend,leads,roas} series shape
-  // with `leads` holding daily active users (spend/roas don't apply to GA4).
+  // GA4's own daily trend — reuses the shared {spend,leads,roas} series shape:
+  // `leads` holds daily active users, `roas` holds daily sessions (spend
+  // doesn't apply to GA4). Two real metrics instead of one lets the Performance
+  // page give GA4 its own Users/Sessions toggle instead of a single flat line.
   const series = rows.map((r) => ({
     date: (r.dimensionValues?.[0]?.value ?? "").replace(/^(\d{4})(\d{2})(\d{2})$/, "$1-$2-$3"),
     spend: 0,
     leads: Number(r.metricValues?.[0]?.value ?? 0),
-    roas: 0,
+    roas: Number(r.metricValues?.[1]?.value ?? 0),
   })).filter((p) => p.date);
 
   // AI answer-engine referral traffic — a separate request (own dimension
@@ -283,12 +285,13 @@ export async function fetchSearchConsole(
   }
   if (rows == null) return null;
 
-  // Map GSC clicks→leads proxy so the shared series shape stays consistent.
+  // Daily clicks and impressions, both real — reuses the shared series shape:
+  // `leads` holds clicks, `roas` holds impressions (spend doesn't apply here).
   const series = rows.map((r) => ({
     date: r.keys?.[0],
     spend: 0,
     leads: Math.round(Number(r.clicks ?? 0)),
-    roas: 0,
+    roas: Math.round(Number(r.impressions ?? 0)),
   }));
   const totalClicks = rows.reduce((a, r) => a + Number(r.clicks ?? 0), 0);
   const totalImpr = rows.reduce((a, r) => a + Number(r.impressions ?? 0), 0);
