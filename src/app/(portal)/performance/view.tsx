@@ -219,7 +219,10 @@ export function PerformanceView({
         <>
           {filteredKpis.length > 0 && (
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-              {filteredKpis.slice(0, 4).map((k) => (
+              {/* "All sources" caps at a top-4 blended summary; a single selected
+                  source has no cross-source competition for the slots, so show
+                  everything it reports instead of silently hiding metrics. */}
+              {(source === "all" ? filteredKpis.slice(0, 4) : filteredKpis).map((k) => (
                 <Card key={k.id} className="p-4">
                   <p className="text-xs text-muted">{k.label}</p>
                   <p className="mt-1.5 font-display text-xl font-semibold">{kpiValue(k)}</p>

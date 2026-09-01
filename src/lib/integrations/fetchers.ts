@@ -19,6 +19,22 @@ export interface FetchedData {
   }[];
 }
 
+// Unambiguous AI-answer-engine referrer hostnames, as GA4's sessionSource
+// reports them. Deliberately excludes bing.com/google.com — those serve both
+// regular search and AI answers indistinguishably in GA4's source field, so
+// including them would overcount and misrepresent this as more precise than
+// it is.
+const AI_REFERRAL_SOURCES = [
+  "chatgpt.com",
+  "chat.openai.com",
+  "perplexity.ai",
+  "gemini.google.com",
+  "claude.ai",
+  "copilot.microsoft.com",
+  "you.com",
+  "phind.com",
+];
+
 function dateRange(days: number) {
   const end = new Date();
   const start = new Date();
@@ -126,12 +142,45 @@ export async function fetchGa4(
     roas: 0,
   })).filter((p) => p.date);
 
+  // AI answer-engine referral traffic — a separate request (own dimension
+  // breakdown) so it can't skew the activeUsers/sessions totals above.
+  // Zero external cost: this is traffic GA4 already recorded, just grouped by
+  // source. Returns 0 (not null) on failure so a transient error here never
+  // blanks out the real users/sessions/convRate KPIs already computed.
+  let aiSessions = 0;
+  const sourceRes = await fetch(
+    `https://analyticsdata.googleapis.com/v1beta/properties/${id}:runReport`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        dateRanges: [{ startDate: start, endDate: end }],
+        dimensions: [{ name: "sessionSource" }],
+        metrics: [{ name: "sessions" }],
+      }),
+      cache: "no-store",
+    },
+  ).catch(() => null);
+  if (sourceRes?.ok) {
+    const sourceJson: any = await sourceRes.json().catch(() => null);
+    const sourceRows: any[] = sourceJson?.rows ?? [];
+    for (const r of sourceRows) {
+      const src = String(r.dimensionValues?.[0]?.value ?? "").toLowerCase();
+      if (AI_REFERRAL_SOURCES.some((known) => src.includes(known))) {
+        aiSessions += Number(r.metricValues?.[0]?.value ?? 0);
+      }
+    }
+  }
+  const aiReferralShare = sessions ? Number(((aiSessions / sessions) * 100).toFixed(2)) : 0;
+
   return {
     series,
     kpis: [
       { metric_name: "users", label: "Users", value: Math.round(users), unit: "number", delta: 0, period: "Last 30d", source: "GA4" },
       { metric_name: "sessions", label: "Sessions", value: Math.round(sessions), unit: "number", delta: 0, period: "Last 30d", source: "GA4" },
       { metric_name: "conv_rate", label: "Conversion Rate", value: convRate, unit: "percent", delta: 0, period: "Last 30d", source: "GA4" },
+      { metric_name: "ai_referral_sessions", label: "AI Referral Sessions", value: Math.round(aiSessions), unit: "number", delta: 0, period: "Last 30d", source: "GA4" },
+      { metric_name: "ai_referral_share", label: "AI Referral Share", value: aiReferralShare, unit: "percent", delta: 0, period: "Last 30d", source: "GA4" },
     ],
   };
 }
