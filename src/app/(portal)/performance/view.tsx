@@ -66,12 +66,16 @@ const SOURCE_METRICS: Record<string, MetricDef[]> = {
   ],
 };
 
-// Only meta_ads/google_ads use the "roas" column for its real meaning (return
-// on ad spend) — GA4 and Search Console repurpose that same column for daily
-// sessions/impressions. Averaging those into a combined "ROAS" would produce
-// a meaningless blended number, so the combined view only draws roas from ad
-// sources.
-const ROAS_PROVIDERS = new Set(["meta_ads", "google_ads"]);
+// Only meta_ads/google_ads use the shared spend/leads/roas columns for their
+// real meaning (ad spend, sales leads, return on ad spend) — GA4 and Search
+// Console repurpose those same columns for daily users/sessions/clicks/
+// impressions. Blending those into the "All sources" ad totals produces a
+// meaningless number (this exact bug: GA4's daily user counts and GSC's daily
+// clicks were getting summed straight into the combined "Leads" card, turning
+// real leads like 0-2/day into a fake "17,091 leads" spike) — so the combined
+// view only draws spend/leads/roas from actual ad platforms. GA4 and Search
+// Console's own numbers stay fully visible via their own source filter tab.
+const AD_PROVIDERS = new Set(["meta_ads", "google_ads"]);
 
 function fmtNumber(n: number) {
   return new Intl.NumberFormat("en").format(Math.round(n));
@@ -94,10 +98,11 @@ function kpiValue(k: Kpi) {
 function combineSeries(points: ProviderSeriesPoint[]): (SeriesPoint & { provider?: string })[] {
   const byDate = new Map<string, { spend: number; leads: number; roasTotal: number; roasCount: number }>();
   for (const p of points) {
+    if (!AD_PROVIDERS.has(p.provider)) continue;
     const cur = byDate.get(p.date) ?? { spend: 0, leads: 0, roasTotal: 0, roasCount: 0 };
     cur.spend += p.spend;
     cur.leads += p.leads;
-    if (p.roas && ROAS_PROVIDERS.has(p.provider)) {
+    if (p.roas) {
       cur.roasTotal += p.roas;
       cur.roasCount += 1;
     }
