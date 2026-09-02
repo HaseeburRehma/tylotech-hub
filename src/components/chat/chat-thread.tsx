@@ -906,21 +906,71 @@ export function ChatThread({
   const headerTitle = selected === GROUP ? title : activePeer?.name ?? title;
   const headerSubtitle = selected === GROUP ? subtitle ?? t("chat.groupEveryone") : activePeer?.title ?? t("chat.directMessage");
 
-  const threads: { key: string; name: string; sub: string; icon?: boolean }[] = [
+  const channelList: { key: string; name: string; sub: string; icon?: boolean }[] = [
     { key: GROUP, name: title, sub: t("chat.groupThread"), icon: true },
     ...peers.map((p) => ({ key: p.id, name: p.name, sub: p.title ?? t("chat.directMessage") })),
   ];
 
+  // Sidebar tab: "channels" (default) | "threads" | "mentions"
+  const [sidebarTab, setSidebarTab] = useState<"channels" | "threads" | "mentions">("channels");
+
+  // Messages that have replies (threads the user can navigate to)
+  const threadedMessages = useMemo(
+    () => messages.filter((m) => (m.reply_count ?? 0) > 0 && !m.parent_id).sort((a, b) => {
+      const aTime = a.last_reply_at ?? a.created_at;
+      const bTime = b.last_reply_at ?? b.created_at;
+      return bTime.localeCompare(aTime); // most recent first
+    }),
+    [messages],
+  );
+
+  // Messages where the current user is @mentioned (search in content for @Name)
+  const mentionedMessages = useMemo(
+    () => messages.filter((m) => {
+      if (m.sender_id === currentUserId) return false;
+      const content = m.content?.toLowerCase() ?? "";
+      return content.includes(`@${currentName.toLowerCase()}`);
+    }).sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    [messages, currentUserId, currentName],
+  );
+
   return (
-    <div className={cn("flex h-full overflow-hidden rounded-2xl border border-border bg-bg", className)}>
-      {/* ── Channel rail ─────────────────────────────────────────────── */}
+    <div className={cn("flex h-full min-h-0 overflow-hidden rounded-2xl border border-border bg-bg", className)}>
+      {/* ── Sidebar with tabs ────────────────────────────────────────── */}
       {peers.length > 0 && (
         <div className="flex w-60 shrink-0 flex-col border-r border-border bg-surface/50">
-          <div className="border-b border-border px-4 py-3.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">{t("chat.conversations")}</p>
+          {/* Sidebar tab bar */}
+          <div className="flex border-b border-border">
+            {([
+              { key: "channels" as const, icon: Hash, label: t("chat.conversations") },
+              { key: "threads" as const, icon: MessageCircle, label: t("chat.thread") },
+              { key: "mentions" as const, icon: AtSign, label: t("chat.mention") },
+            ]).map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setSidebarTab(tab.key)}
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-1.5 py-3 text-[11px] font-semibold uppercase tracking-wider transition-colors",
+                  sidebarTab === tab.key
+                    ? "border-b-2 border-brand text-brand"
+                    : "text-muted hover:text-foreground",
+                )}
+              >
+                <tab.icon className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{tab.label}</span>
+                {tab.key === "mentions" && mentionedMessages.length > 0 && (
+                  <span className="flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-brand-foreground">
+                    {mentionedMessages.length > 9 ? "9+" : mentionedMessages.length}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
+
+          {/* Tab content */}
           <div className="flex-1 overflow-y-auto p-2">
-            {threads.map((th) => {
+            {/* Channels tab */}
+            {sidebarTab === "channels" && channelList.map((th) => {
               const last = lastByThread[th.key];
               const isActive = selected === th.key;
               const count = unread[th.key] ?? 0;
@@ -957,14 +1007,75 @@ export function ChatThread({
                 </button>
               );
             })}
+
+            {/* Threads tab */}
+            {sidebarTab === "threads" && (
+              threadedMessages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <MessageCircle className="mb-2 h-8 w-8 text-muted/30" />
+                  <p className="text-xs text-muted">{t("chat.noMessages")}</p>
+                  <p className="mt-1 text-[10px] text-muted/50">Threads will appear here</p>
+                </div>
+              ) : threadedMessages.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => { setThreadParentId(m.id); setSidebarTab("channels"); }}
+                  className={cn(
+                    "mb-1 flex w-full flex-col gap-1 rounded-lg px-3 py-2.5 text-left transition-all",
+                    threadParentId === m.id ? "bg-brand/10 text-foreground" : "text-muted hover:bg-surface-2 hover:text-foreground",
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <Avatar name={m.sender_name} size={20} />
+                    <span className="truncate text-[12px] font-semibold text-foreground">{m.sender_name}</span>
+                    <span className="ml-auto text-[10px] text-muted/50">{formatRelativeTime(m.last_reply_at ?? m.created_at)}</span>
+                  </div>
+                  <p className="line-clamp-2 text-[11px] leading-snug text-muted">{m.content?.slice(0, 80) || "📎 Attachment"}</p>
+                  <div className="flex items-center gap-1 text-[10px] text-brand">
+                    <MessageCircle className="h-3 w-3" />
+                    <span className="font-medium">{m.reply_count} {(m.reply_count ?? 0) === 1 ? "reply" : "replies"}</span>
+                  </div>
+                </button>
+              ))
+            )}
+
+            {/* Mentions tab */}
+            {sidebarTab === "mentions" && (
+              mentionedMessages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <AtSign className="mb-2 h-8 w-8 text-muted/30" />
+                  <p className="text-xs text-muted">No mentions yet</p>
+                  <p className="mt-1 text-[10px] text-muted/50">When someone @mentions you, it shows here</p>
+                </div>
+              ) : mentionedMessages.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => {
+                    // Navigate to the message — if it's a thread reply, open the thread
+                    if (m.parent_id) {
+                      setThreadParentId(m.parent_id);
+                    }
+                    setSidebarTab("channels");
+                  }}
+                  className="mb-1 flex w-full flex-col gap-1 rounded-lg px-3 py-2.5 text-left transition-all text-muted hover:bg-surface-2 hover:text-foreground"
+                >
+                  <div className="flex items-center gap-2">
+                    <Avatar name={m.sender_name} size={20} />
+                    <span className="truncate text-[12px] font-semibold text-foreground">{m.sender_name}</span>
+                    <span className="ml-auto text-[10px] text-muted/50">{formatRelativeTime(m.created_at)}</span>
+                  </div>
+                  <p className="line-clamp-2 text-[11px] leading-snug text-muted">{m.content?.slice(0, 80)}</p>
+                </button>
+              ))
+            )}
           </div>
         </div>
       )}
 
       {/* ── Main chat area ───────────────────────────────────────────── */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {/* Header — sticky, never scrolls */}
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
           <div className="flex items-center gap-3">
             {selected === GROUP ? (
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand/15 text-brand">
@@ -1000,10 +1111,10 @@ export function ChatThread({
           {huddleActive && <HuddleBar active={huddleActive} onToggle={() => setHuddleActive(false)} />}
         </AnimatePresence>
 
-        {/* Messages */}
-        <div className="flex flex-1 overflow-hidden">
-          <div className="flex flex-1 flex-col">
-            <div className="flex-1 overflow-y-auto px-5 py-3">
+        {/* Messages + thread panel — fills remaining height */}
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
               {visible.length === 0 && (
                 <div className="flex h-full flex-col items-center justify-center text-center">
                   <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10">
@@ -1218,14 +1329,14 @@ export function ChatThread({
               <div ref={endRef} />
             </div>
 
-            {/* Composer */}
-            {uploadError && <p className="border-t border-border px-4 pt-2 text-xs text-danger">{uploadError}</p>}
+            {/* Composer — sticky at bottom, never scrolls away */}
+            {uploadError && <p className="shrink-0 border-t border-border px-4 pt-2 text-xs text-danger">{uploadError}</p>}
             <form
               onSubmit={submit}
               onDrop={onDrop}
               onDragOver={(e) => { if (e.dataTransfer?.types?.includes("Files")) { e.preventDefault(); setDragOver(true); } }}
               onDragLeave={() => setDragOver(false)}
-              className="relative border-t border-border px-4 py-3"
+              className="relative shrink-0 border-t border-border px-4 py-3"
             >
               <input ref={fileRef} type="file" multiple className="hidden"
                 accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.csv,.txt"
