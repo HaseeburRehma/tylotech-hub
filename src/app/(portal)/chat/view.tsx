@@ -49,16 +49,18 @@ export function ChatView({
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={t("chat.title")} subtitle={t("chat.subtitle")}>
-        <Button size="sm" variant="outline" onClick={requestTask} loading={requesting}>
-          {requested ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {requested ? t("chat.requestSent") : t("chat.requestTask")}
-        </Button>
-      </PageHeader>
+    <div className="flex h-[calc(100vh-7rem)] flex-col">
+      <div className="mb-3 flex items-center justify-between">
+        <PageHeader title={t("chat.title")} subtitle={t("chat.subtitle")}>
+          <Button size="sm" variant="outline" onClick={requestTask} loading={requesting}>
+            {requested ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {requested ? t("chat.requestSent") : t("chat.requestTask")}
+          </Button>
+        </PageHeader>
+      </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-4">
+        <div className="lg:col-span-3 min-h-0">
           <ChatThread
             initialMessages={initialMessages}
             currentUserId={currentUserId}
@@ -68,10 +70,11 @@ export function ChatView({
             peers={peers}
             title={t("chat.team")}
             subtitle={t("chat.groupEveryone")}
+            className="h-full"
           />
         </div>
 
-        <Card>
+        <Card className="overflow-y-auto">
           <CardHeader>
             <CardTitle>{t("chat.thisMonthAt")}</CardTitle>
             <Badge variant="brand">{updates.length}</Badge>

@@ -177,21 +177,17 @@ export async function listDocuments(clientId: string | null): Promise<DocItem[]>
   return (data ?? []) as DocItem[];
 }
 
-export async function listMessages(clientId: string | null): Promise<Message[]> {
-  const sb = createClient();
-  if (!sb || !clientId) return [];
-  const { data } = await sb
-    .from("messages")
-    .select("*")
-    .eq("client_id", clientId)
-    .order("created_at", { ascending: true });
-  return (data ?? []).map((m: any) => ({
+function mapMsg(m: any): Message {
+  return {
     id: m.id,
     client_id: m.client_id,
     sender_id: m.sender_id,
     sender_name: m.sender_name ?? "TyloTech",
     sender_role: (m.sender_role ?? "team") as Role,
     recipient_id: m.recipient_id ?? null,
+    parent_id: m.parent_id ?? null,
+    reply_count: m.reply_count ?? 0,
+    last_reply_at: m.last_reply_at ?? null,
     content: m.content ?? "",
     content_translated: m.content_translated ?? null,
     translated_to: m.translated_to ?? null,
@@ -200,7 +196,18 @@ export async function listMessages(clientId: string | null): Promise<Message[]> 
     attachment_size: m.attachment_size ?? null,
     edited_at: m.edited_at ?? null,
     created_at: m.created_at,
-  }));
+  };
+}
+
+export async function listMessages(clientId: string | null): Promise<Message[]> {
+  const sb = createClient();
+  if (!sb || !clientId) return [];
+  const { data } = await sb
+    .from("messages")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: true });
+  return (data ?? []).map(mapMsg);
 }
 
 /**
@@ -215,22 +222,7 @@ export async function listInternalMessages(): Promise<Message[]> {
     .select("*")
     .is("client_id", null)
     .order("created_at", { ascending: true });
-  return (data ?? []).map((m: any) => ({
-    id: m.id,
-    client_id: m.client_id,
-    sender_id: m.sender_id,
-    sender_name: m.sender_name ?? "TyloTech",
-    sender_role: (m.sender_role ?? "team") as Role,
-    recipient_id: m.recipient_id ?? null,
-    content: m.content ?? "",
-    content_translated: m.content_translated ?? null,
-    translated_to: m.translated_to ?? null,
-    attachment_name: m.attachment_name ?? null,
-    attachment_mime: m.attachment_mime ?? null,
-    attachment_size: m.attachment_size ?? null,
-    edited_at: m.edited_at ?? null,
-    created_at: m.created_at,
-  }));
+  return (data ?? []).map(mapMsg);
 }
 
 /** Client-side users of a tenant — the staff-facing DM peer list. */

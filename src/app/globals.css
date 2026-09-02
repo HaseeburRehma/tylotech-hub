@@ -95,6 +95,11 @@ body {
   }
 }
 
+/* @mention tags in chat */
+.mention-tag {
+  @apply rounded bg-brand/15 px-1 py-0.5 text-brand font-medium;
+}
+
 /* Recharts theming hooks */
 .recharts-cartesian-grid line {
   stroke: rgb(var(--border) / 0.5);

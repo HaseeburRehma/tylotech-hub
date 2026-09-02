@@ -23,6 +23,8 @@ export async function POST(req: Request) {
     clientId?: string | null;
     recipientId?: string | null;
     internal?: boolean;
+    parentId?: string | null;
+    mentions?: string[];
   };
   const content = body.content?.trim();
   if (!content) return NextResponse.json({ error: "Message is empty." }, { status: 400 });
@@ -70,6 +72,13 @@ export async function POST(req: Request) {
   const target = isClient ? "en" : "de";
   const contentTranslated = internal ? null : await translateMessage(content, target);
 
+  // Thread support: validate parentId if provided.
+  const parentId: string | null = body.parentId ?? null;
+  if (parentId) {
+    const { data: parent } = await sb.from("messages").select("id").eq("id", parentId).single();
+    if (!parent) return NextResponse.json({ error: "Parent message not found." }, { status: 400 });
+  }
+
   const { data, error } = await sb
     .from("messages")
     .insert({
@@ -78,6 +87,7 @@ export async function POST(req: Request) {
       sender_name: user.name,
       sender_role: user.role,
       recipient_id: recipientId,
+      parent_id: parentId,
       content,
       content_translated: contentTranslated,
       translated_to: internal ? null : target,
@@ -86,6 +96,42 @@ export async function POST(req: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // Update parent's reply count + last_reply_at.
+  if (parentId) {
+    const admin = createAdminClient();
+    if (admin) {
+      try {
+        // Direct update for reply_count and last_reply_at
+        const { data: parentMsg } = await admin.from("messages").select("reply_count").eq("id", parentId).single();
+        await admin.from("messages").update({
+          reply_count: (parentMsg?.reply_count ?? 0) + 1,
+          last_reply_at: new Date().toISOString(),
+        }).eq("id", parentId);
+      } catch { /* tolerate missing column during migration window */ }
+    }
+  }
+
+  // Record @mentions and notify mentioned users.
+  const mentionIds: string[] = body.mentions ?? [];
+  if (mentionIds.length > 0 && data?.id) {
+    const mentionRows = mentionIds.map((uid) => ({ message_id: data.id, user_id: uid }));
+    try { await sb.from("mentions").insert(mentionRows); } catch { /* tolerate missing table */ }
+    // Notify each mentioned user
+    for (const uid of mentionIds) {
+      if (uid !== user.id) {
+        const href = internal ? "/internal/team" : isClient ? `/internal/clients/${clientId}` : "/chat";
+        try {
+          await notifyUser(uid, {
+            title: `${user.name} mentioned you`,
+            body: content.slice(0, 120),
+            href,
+            type: "message",
+          });
+        } catch { /* best-effort */ }
+      }
+    }
+  }
 
   // Notify the other side of the conversation (in-app + bilingual email).
   const preview = content.slice(0, 120);

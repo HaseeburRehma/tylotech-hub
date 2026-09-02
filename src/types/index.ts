@@ -38,6 +38,14 @@ export interface Project {
   due: string;
 }
 
+export interface Reaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+  created_at: string;
+}
+
 export interface Message {
   id: string;
   client_id: string;
@@ -46,6 +54,10 @@ export interface Message {
   sender_role: Role;
   /** null = tenant group thread; otherwise the direct-message recipient. */
   recipient_id?: string | null;
+  /** null = top-level message; otherwise a reply in the parent's thread. */
+  parent_id?: string | null;
+  reply_count?: number;
+  last_reply_at?: string | null;
   content: string;
   content_translated?: string | null;
   translated_to?: string | null;
@@ -55,6 +67,8 @@ export interface Message {
   attachment_size?: number | null;
   edited_at?: string | null;
   created_at: string;
+  /** Client-side only: reactions grouped by emoji. */
+  reactions?: { emoji: string; count: number; users: string[]; reacted: boolean }[];
 }
 
 /** A person you can start a direct thread with (team member or client user). */
