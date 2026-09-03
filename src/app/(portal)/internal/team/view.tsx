@@ -20,9 +20,11 @@ export function TeamChatView({
 }) {
   const t = useT();
   return (
-    <div className="space-y-6">
-      <PageHeader title={t("team.title")} subtitle={t("team.subtitle")} />
-      <div className="max-w-4xl">
+    <div className="flex h-[calc(100vh-7rem)] flex-col">
+      <div className="shrink-0 pb-4">
+        <PageHeader title={t("team.title")} subtitle={t("team.subtitle")} />
+      </div>
+      <div className="min-h-0 flex-1 max-w-4xl">
         <ChatThread
           internal
           clientId={null}
@@ -33,6 +35,7 @@ export function TeamChatView({
           peers={peers}
           title={t("chat.team")}
           subtitle={t("chat.groupEveryone")}
+          className="h-full"
         />
       </div>
     </div>

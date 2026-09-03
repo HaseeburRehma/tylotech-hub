@@ -50,7 +50,7 @@ export function ChatView({
 
   return (
     <div className="flex h-[calc(100vh-7rem)] flex-col">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 shrink-0 flex items-center justify-between">
         <PageHeader title={t("chat.title")} subtitle={t("chat.subtitle")}>
           <Button size="sm" variant="outline" onClick={requestTask} loading={requesting}>
             {requested ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}

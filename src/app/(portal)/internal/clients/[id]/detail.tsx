@@ -51,55 +51,59 @@ export function ClientDetail({
 }) {
   const [tab, setTab] = useState<TabKey>("overview");
 
-  return (
-    <div className="space-y-6">
-      <Link href="/internal" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Internal Hub
-      </Link>
+  const isChat = tab === "chat";
 
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl ring-1 ring-border" style={{ background: `${client.primary_color}26` }}>
-            {client.logo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={client.logo_url} alt={client.company} className="h-9 w-9 rounded-lg object-contain" />
-            ) : (
-              <span className="text-sm font-semibold" style={{ color: client.primary_color }}>
-                {client.company.slice(0, 2).toUpperCase()}
-              </span>
-            )}
-          </span>
-          <div>
-            <h1 className="font-display text-2xl font-semibold tracking-tight">{client.company}</h1>
-            <p className="text-sm text-muted">
-              {client.plan} · {formatCurrency(client.mrr)}/mo
-            </p>
+  return (
+    <div className={cn(isChat ? "flex h-[calc(100vh-7rem)] flex-col" : "space-y-6")}>
+      <div className={cn(isChat && "shrink-0 space-y-6 pb-4")}>
+        <Link href="/internal" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" /> Internal Hub
+        </Link>
+
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl ring-1 ring-border" style={{ background: `${client.primary_color}26` }}>
+              {client.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={client.logo_url} alt={client.company} className="h-9 w-9 rounded-lg object-contain" />
+              ) : (
+                <span className="text-sm font-semibold" style={{ color: client.primary_color }}>
+                  {client.company.slice(0, 2).toUpperCase()}
+                </span>
+              )}
+            </span>
+            <div>
+              <h1 className="font-display text-2xl font-semibold tracking-tight">{client.company}</h1>
+              <p className="text-sm text-muted">
+                {client.plan} · {formatCurrency(client.mrr)}/mo
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-1.5">
+            <span className="h-6 w-6 rounded-full ring-1 ring-border" style={{ background: client.primary_color }} />
+            <span className="h-6 w-6 rounded-full ring-1 ring-border" style={{ background: client.secondary_color }} />
           </div>
         </div>
-        <div className="flex gap-1.5">
-          <span className="h-6 w-6 rounded-full ring-1 ring-border" style={{ background: client.primary_color }} />
-          <span className="h-6 w-6 rounded-full ring-1 ring-border" style={{ background: client.secondary_color }} />
-        </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 rounded-xl border border-border bg-surface-2 p-1">
-        {TABS.map((t) => {
-          const Icon = t.icon;
-          return (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                tab === t.key ? "bg-brand text-brand-foreground" : "text-muted hover:text-foreground",
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              <span className="hidden sm:inline">{t.label}</span>
-            </button>
-          );
-        })}
+        {/* Tabs */}
+        <div className="flex gap-1 rounded-xl border border-border bg-surface-2 p-1">
+          {TABS.map((t) => {
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  tab === t.key ? "bg-brand text-brand-foreground" : "text-muted hover:text-foreground",
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                <span className="hidden sm:inline">{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {tab === "overview" && (
@@ -172,16 +176,19 @@ export function ClientDetail({
       )}
 
       {tab === "chat" && (
-        <ChatThread
-          initialMessages={messages}
-          currentUserId={staff.id}
-          currentName={staff.name}
-          currentRole={staff.role}
-          clientId={client.id}
-          peers={peers}
-          title={`${client.company} · team`}
-          subtitle="Group · everyone"
-        />
+        <div className="min-h-0 flex-1">
+          <ChatThread
+            initialMessages={messages}
+            currentUserId={staff.id}
+            currentName={staff.name}
+            currentRole={staff.role}
+            clientId={client.id}
+            peers={peers}
+            title={`${client.company} · team`}
+            subtitle="Group · everyone"
+            className="h-full"
+          />
+        </div>
       )}
 
       {tab === "updates" && <UpdatesManager updates={updates} clientId={client.id} canPost />}
