@@ -3,22 +3,20 @@
 import { AlertCircle, ArrowRight, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { PasswordInput } from "@/components/auth/password-input";
-import { AuthShell } from "@/components/auth/auth-shell";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { useT } from "@/lib/i18n/provider";
 
-/** Only allow same-origin relative paths — blocks open redirects (//evil.com, https://…, /\evil). */
 function safeRedirect(raw: string | null): string {
   if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return "/dashboard";
   return raw;
 }
 
-function LoginForm() {
+export function ClientLoginForm({ slug }: { slug: string }) {
   const router = useRouter();
   const params = useSearchParams();
   const t = useT();
@@ -74,7 +72,7 @@ function LoginForm() {
         <div>
           <div className="flex items-center justify-between">
             <Label htmlFor="password">{t("auth.password")}</Label>
-            <Link href="/reset" className="mb-1.5 text-xs font-medium text-brand hover:underline">
+            <Link href={`/${slug}/reset`} className="mb-1.5 text-xs font-medium text-brand hover:underline">
               {t("auth.forgot")}
             </Link>
           </div>
@@ -94,15 +92,5 @@ function LoginForm() {
         </Link>
       </p>
     </>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <AuthShell hideThemeSwitcher>
-      <Suspense>
-        <LoginForm />
-      </Suspense>
-    </AuthShell>
   );
 }

@@ -72,6 +72,23 @@ export async function getClientByRef(ref: string): Promise<Client | null> {
   return data ? mapClient(data) : null;
 }
 
+/**
+ * Look up a client by slug using the admin client (no auth required).
+ * Returns only the fields needed for branding — safe for public login pages.
+ */
+export async function getClientBySlugPublic(
+  slug: string,
+): Promise<{ id: string; company: string; slug: string; logo_url: string | null; primary_color: string; secondary_color: string; tagline?: string } | null> {
+  const admin = createAdminClient();
+  if (!admin || !slug) return null;
+  const { data } = await admin
+    .from("clients")
+    .select("id,company,slug,logo_url,primary_color,secondary_color")
+    .eq("slug", slug)
+    .maybeSingle();
+  return data ?? null;
+}
+
 export interface ProviderSeriesPoint extends SeriesPoint {
   provider: string;
 }

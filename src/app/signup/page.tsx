@@ -1,11 +1,12 @@
 "use client";
 
-import { AlertCircle, ArrowRight, CheckCircle2, KeyRound, Lock, Mail, User } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, KeyRound, Mail, User } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { PasswordInput } from "@/components/auth/password-input";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { useT } from "@/lib/i18n/provider";
 
@@ -45,7 +46,7 @@ export default function SignupPage() {
   }
 
   return (
-    <AuthShell>
+    <AuthShell hideThemeSwitcher>
       {done ? (
         <div className="flex flex-col items-center gap-3 py-10 text-center">
           <CheckCircle2 className="h-14 w-14 text-success" />
@@ -83,10 +84,7 @@ export default function SignupPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="password">{t("auth.password")}</Label>
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                  <Input id="password" type="password" required minLength={8} value={form.password} onChange={set("password")} placeholder="8+ characters" className="h-12 pl-10" />
-                </div>
+                <PasswordInput id="password" value={form.password} onChange={set("password")} placeholder="8+ characters" />
               </div>
               <div>
                 <Label htmlFor="code">{t("auth.inviteCode")}</Label>

@@ -1,11 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { CheckCircle2, Lock } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Label } from "@/components/ui/input";
+import { PasswordInput } from "@/components/auth/password-input";
 import { Logo } from "@/components/ui/logo";
 import { createClient } from "@/lib/supabase/client";
 
@@ -57,17 +58,11 @@ export default function UpdatePasswordPage() {
               {error && <p className="text-sm text-danger">{error}</p>}
               <div>
                 <Label htmlFor="pw">New password</Label>
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                  <Input id="pw" type="password" required value={pw} onChange={(e) => setPw(e.target.value)} placeholder="At least 8 characters" className="pl-10" />
-                </div>
+                <PasswordInput id="pw" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="At least 8 characters" />
               </div>
               <div>
                 <Label htmlFor="pw2">Confirm password</Label>
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                  <Input id="pw2" type="password" required value={pw2} onChange={(e) => setPw2(e.target.value)} className="pl-10" />
-                </div>
+                <PasswordInput id="pw2" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Re-enter password" />
               </div>
               <Button type="submit" loading={loading} className="w-full" size="lg">Update password</Button>
             </form>

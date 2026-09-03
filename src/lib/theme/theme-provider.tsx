@@ -19,6 +19,8 @@ interface ThemeContextValue {
   theme: BrandTheme;
   themes: BrandTheme[];
   setThemeById: (id: string) => void;
+  /** Apply an arbitrary brand theme (doesn't need to be in the list). */
+  setThemeOverride: (theme: BrandTheme) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -74,9 +76,14 @@ export function ThemeProvider({
     [allThemes],
   );
 
+  const setThemeOverride = useCallback((override: BrandTheme) => {
+    setTheme(override);
+    applyVars(override);
+  }, []);
+
   const value = useMemo(
-    () => ({ theme, themes: allThemes, setThemeById }),
-    [theme, allThemes, setThemeById],
+    () => ({ theme, themes: allThemes, setThemeById, setThemeOverride }),
+    [theme, allThemes, setThemeById, setThemeOverride],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

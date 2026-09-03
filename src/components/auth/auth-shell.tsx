@@ -15,7 +15,6 @@ const FEATURES = [
 ];
 
 function PreviewCard() {
-  // A small, on-brand product peek — hints at the dashboard behind the login.
   const bars = [42, 58, 50, 71, 64, 83, 76];
   return (
     <motion.div
@@ -49,10 +48,42 @@ function PreviewCard() {
   );
 }
 
-export function AuthShell({ children }: { children: React.ReactNode }) {
+/** Brand mark that can be overridden by a direct logo URL / company name. */
+function BrandMark({ size = 34, showName = true, logoUrl, company }: { size?: number; showName?: boolean; logoUrl?: string | null; company?: string }) {
+  if (logoUrl) {
+    return (
+      <div className="flex items-center gap-2.5">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logoUrl} alt={company ?? ""} width={size} height={size} className="rounded-lg" />
+        {showName && company && (
+          <span className="text-[15px] font-semibold tracking-tight text-foreground">{company}</span>
+        )}
+      </div>
+    );
+  }
+  return <Logo size={size} showName={showName} />;
+}
+
+export interface AuthShellBrand {
+  company: string;
+  logoUrl?: string | null;
+  tagline?: string;
+}
+
+export function AuthShell({
+  children,
+  hideThemeSwitcher,
+  brand,
+}: {
+  children: React.ReactNode;
+  hideThemeSwitcher?: boolean;
+  /** Override the brand display (for client-specific login pages). */
+  brand?: AuthShellBrand;
+}) {
   const { theme } = useTheme();
   const t = useT();
   const [headA, headB] = t("auth.headline").split("\n");
+  const displayTagline = brand?.tagline ?? theme.tagline ?? t("dash.subtitle");
 
   return (
     <div className="grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
@@ -67,7 +98,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
         <div className="absolute -left-24 top-1/4 -z-10 h-80 w-80 rounded-full bg-brand/30 blur-[110px]" />
         <div className="absolute bottom-0 right-0 -z-10 h-72 w-72 rounded-full bg-brand/15 blur-[120px]" />
 
-        <Logo size={34} />
+        <BrandMark size={34} logoUrl={brand?.logoUrl} company={brand?.company} />
 
         <div className="max-w-md">
           <motion.h1
@@ -86,7 +117,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
             transition={{ delay: 0.1, duration: 0.6 }}
             className="mt-4 max-w-sm text-[15px] leading-relaxed text-white/65"
           >
-            {theme.tagline ?? t("dash.subtitle")}
+            {displayTagline}
           </motion.p>
 
           <div className="mt-7 space-y-3.5">
@@ -130,7 +161,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
         </div>
         <div className="absolute right-5 top-5 flex items-center gap-2">
           <LanguageSwitcher />
-          <ThemeSwitcher />
+          {!hideThemeSwitcher && <ThemeSwitcher />}
         </div>
 
         <motion.div
@@ -141,7 +172,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
         >
           {/* Mobile brand mark */}
           <div className="mb-8 flex justify-center lg:hidden">
-            <Logo size={40} showName={false} />
+            <BrandMark size={40} showName={false} logoUrl={brand?.logoUrl} company={brand?.company} />
           </div>
           {children}
           <div className="mt-8 flex items-center justify-center gap-1.5 text-xs text-muted/60">
