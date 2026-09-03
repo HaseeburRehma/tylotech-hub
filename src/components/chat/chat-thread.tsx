@@ -949,17 +949,18 @@ export function ChatThread({
               <button
                 key={tab.key}
                 onClick={() => setSidebarTab(tab.key)}
+                title={tab.label}
                 className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 py-3 text-[11px] font-semibold uppercase tracking-wider transition-colors",
+                  "flex min-w-0 flex-1 items-center justify-center gap-1 px-1 py-3 text-[11px] font-semibold transition-colors",
                   sidebarTab === tab.key
                     ? "border-b-2 border-brand text-brand"
                     : "text-muted hover:text-foreground",
                 )}
               >
-                <tab.icon className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{tab.label}</span>
+                <tab.icon className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{tab.label}</span>
                 {tab.key === "mentions" && mentionedMessages.length > 0 && (
-                  <span className="flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-brand-foreground">
+                  <span className="flex h-[16px] min-w-[16px] shrink-0 items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-brand-foreground">
                     {mentionedMessages.length > 9 ? "9+" : mentionedMessages.length}
                   </span>
                 )}

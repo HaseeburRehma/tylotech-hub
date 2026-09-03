@@ -163,6 +163,137 @@ export async function getSeries(clientId: string | null, provider?: string): Pro
     }));
 }
 
+// Only Meta/Google Ads write real spend into the shared `spend`/`leads` columns —
+// GA4 and Search Console repurpose those columns for their own daily metrics (see
+// fetchers.ts). Agency-wide "ad spend under management" must stay scoped to these
+// two providers, same guard as performance/view.tsx's combineSeries().
+const AD_PROVIDERS = new Set(["meta_ads", "google_ads"]);
+
+export interface PortfolioSummary {
+  spend30d: number;
+  spendPrev30d: number;
+  leads30d: number;
+  leadsPrev30d: number;
+  series: SeriesPoint[];
+}
+
+/**
+ * Staff-only aggregate: real ad spend/leads across every client's Meta/Google Ads
+ * accounts, last 30 days vs the 30 before that, plus a combined daily series for
+ * the trend chart. Relies on RLS (`is_staff()`) to read across all tenants.
+ */
+export async function getPortfolioSummary(): Promise<PortfolioSummary> {
+  const empty: PortfolioSummary = { spend30d: 0, spendPrev30d: 0, leads30d: 0, leadsPrev30d: 0, series: [] };
+  const sb = createClient();
+  if (!sb) return empty;
+
+  const since = new Date();
+  since.setDate(since.getDate() - 60);
+  const sinceStr = since.toISOString().slice(0, 10);
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 30);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+  const { data } = await sb
+    .from("metric_points")
+    .select("date,spend,leads,provider")
+    .in("provider", Array.from(AD_PROVIDERS))
+    .gte("date", sinceStr)
+    .order("date", { ascending: true });
+  const rows = data ?? [];
+  if (!rows.length) return empty;
+
+  const byDate = new Map<string, { spend: number; leads: number }>();
+  let spend30d = 0, spendPrev30d = 0, leads30d = 0, leadsPrev30d = 0;
+  for (const r of rows) {
+    const spend = Number(r.spend);
+    const leads = Number(r.leads);
+    const cur = byDate.get(r.date) ?? { spend: 0, leads: 0 };
+    cur.spend += spend;
+    cur.leads += leads;
+    byDate.set(r.date, cur);
+    if (r.date >= cutoffStr) {
+      spend30d += spend;
+      leads30d += leads;
+    } else {
+      spendPrev30d += spend;
+      leadsPrev30d += leads;
+    }
+  }
+
+  const series = Array.from(byDate.entries())
+    .filter(([date]) => date >= cutoffStr)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, v]) => ({ date, spend: Number(v.spend.toFixed(2)), leads: v.leads, roas: 0 }));
+
+  return {
+    spend30d: Number(spend30d.toFixed(2)),
+    spendPrev30d: Number(spendPrev30d.toFixed(2)),
+    leads30d,
+    leadsPrev30d,
+    series,
+  };
+}
+
+export interface IntegrationHealthRow {
+  clientId: string;
+  clientName: string;
+  clientSlug: string | null;
+  provider: string;
+  status: string;
+  lastSyncedAt: string | null;
+}
+
+/**
+ * Staff-only: integrations that were connected and synced at least once but are
+ * now disconnected/erroring — i.e. real regressions worth a look, not the noise
+ * of providers a client simply never set up.
+ */
+export async function listIntegrationHealth(): Promise<IntegrationHealthRow[]> {
+  const admin = createAdminClient();
+  if (!admin) return [];
+  const { data: rows } = await admin
+    .from("integrations")
+    .select("client_id,provider,status,last_synced_at")
+    .neq("status", "connected");
+  const actionable = (rows ?? []).filter((r: any) => r.status === "error" || r.last_synced_at);
+  if (!actionable.length) return [];
+
+  const clients = await listClients();
+  const byId = new Map(clients.map((c) => [c.id, c]));
+  return actionable
+    .map((r: any) => {
+      const c = byId.get(r.client_id);
+      return {
+        clientId: r.client_id,
+        clientName: c?.company ?? "—",
+        clientSlug: c?.slug ?? null,
+        provider: r.provider as string,
+        status: r.status as string,
+        lastSyncedAt: r.last_synced_at as string | null,
+      };
+    })
+    .sort((a, b) => a.clientName.localeCompare(b.clientName));
+}
+
+/** Staff-only cross-tenant updates feed, newest first, with the client name attached. */
+export async function listUpdatesAll(limit = 8): Promise<(Update & { clientName: string })[]> {
+  const sb = createClient();
+  if (!sb) return [];
+  const { data } = await sb
+    .from("updates")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  const rows = data ?? [];
+  if (!rows.length) return [];
+
+  const clientIds = Array.from(new Set(rows.map((u: any) => u.client_id)));
+  const { data: clients } = await sb.from("clients").select("id,company").in("id", clientIds);
+  const nameById = new Map((clients ?? []).map((c: any) => [c.id, c.company]));
+  return (rows as Update[]).map((u) => ({ ...u, clientName: nameById.get(u.client_id) ?? "—" }));
+}
+
 export async function listProjects(clientId?: string | null): Promise<Project[]> {
   const sb = createClient();
   if (!sb) return [];
