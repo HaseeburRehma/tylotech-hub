@@ -1,9 +1,12 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { oauthConfig } from "@/lib/integrations/oauth";
 
 export const runtime = "nodejs";
+
+const NONCE_COOKIE = "oauth_nonce";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -18,12 +21,21 @@ export async function GET(req: Request) {
   if (url.searchParams.get("error")) return done(`error=${url.searchParams.get("error")}`);
   if (!code || !state) return done("error=oauth_failed");
 
-  let provider = "", clientId = "";
+  let provider = "", clientId = "", nonce = "";
   try {
-    ({ provider, clientId } = JSON.parse(Buffer.from(state, "base64url").toString()));
+    ({ provider, clientId, nonce } = JSON.parse(Buffer.from(state, "base64url").toString()));
   } catch {
     return done("error=bad_state");
   }
+
+  // `state` is otherwise attacker-constructible base64 JSON — require it to
+  // carry the exact nonce this server issued to THIS browser at /oauth/start,
+  // so a forged callback link (attacker's own code + a hand-picked clientId)
+  // can't be replayed under someone else's authenticated session.
+  const cookieStore = cookies();
+  const expectedNonce = cookieStore.get(NONCE_COOKIE)?.value;
+  cookieStore.delete(NONCE_COOKIE);
+  if (!nonce || !expectedNonce || nonce !== expectedNonce) return done("error=bad_state");
 
   // Clients can only complete OAuth for their own tenant.
   if (user.role === "client" && clientId !== user.client_id) return done("error=forbidden");
@@ -49,7 +61,7 @@ export async function GET(req: Request) {
   const token = tokenRes ? await tokenRes.json().catch(() => null) : null;
   if (!token?.access_token) return done("error=token_exchange");
 
-  await admin.from("integrations").upsert(
+  const { error: upsertError } = await admin.from("integrations").upsert(
     {
       client_id: clientId,
       provider,
@@ -60,6 +72,7 @@ export async function GET(req: Request) {
     },
     { onConflict: "client_id,provider" },
   );
+  if (upsertError) return done("error=save_failed");
 
   return done(`connected=${provider}`);
 }

@@ -6,9 +6,15 @@ import { getRateLimiter, ipKey, rateLimitHeaders } from "@/lib/rate-limit";
 export const runtime = "nodejs";
 
 // Team registration is invite-gated so it can't be self-served by the public.
-const SIGNUP_CODE = process.env.TEAM_SIGNUP_CODE ?? "TYLOTECH-TEAM";
+// No fallback value: a missing env var must reject every signup, never fall
+// back to a value that would then be sitting in this public source tree.
+const SIGNUP_CODE = process.env.TEAM_SIGNUP_CODE;
 
 export async function POST(req: Request) {
+  if (!SIGNUP_CODE) {
+    return NextResponse.json({ error: "Team signup is not configured." }, { status: 503 });
+  }
+
   const rl = await getRateLimiter().limit(`signup:${ipKey(req)}`, config.rateLimit.auth);
   if (!rl.success) {
     return NextResponse.json(

@@ -67,7 +67,8 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
 });
 
 export function isStaff(user: AuthUser | null): boolean {
-  // In demo mode (no backend) everything is visible.
-  if (!isSupabaseConfigured) return true;
+  // Pure role check — no demo-mode bypass. DEMO_USER is role "client", so
+  // staff-gated actions correctly stay unavailable when the backend isn't
+  // configured, instead of trusting every caller as staff.
   return user?.role === "admin" || user?.role === "team";
 }

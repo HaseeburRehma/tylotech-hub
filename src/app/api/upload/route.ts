@@ -5,6 +5,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const runtime = "nodejs";
 
 const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+// SVG can carry <script>; block it (and html) from a public storage bucket
+// the same way /api/messages/attachment already does.
+const BLOCKED = /(svg|html)/i;
 
 export async function POST(req: Request) {
   const user = await getAuthUser();
@@ -21,7 +24,7 @@ export async function POST(req: Request) {
   if (file.size > MAX_BYTES) {
     return NextResponse.json({ error: "File too large (max 2 MB)." }, { status: 413 });
   }
-  if (!file.type.startsWith("image/")) {
+  if (!file.type.startsWith("image/") || BLOCKED.test(file.type)) {
     return NextResponse.json({ error: "Only image files are allowed." }, { status: 415 });
   }
 

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
+import { MfaSetup } from "@/components/settings/mfa-setup";
 import { createClient } from "@/lib/supabase/client";
 import { useT } from "@/lib/i18n/provider";
 
@@ -113,6 +114,9 @@ export function SettingsView({ name, email }: { name: string; email: string }) {
           </form>
         </Card>
       </div>
+
+      {/* Two-Factor Authentication */}
+      <MfaSetup />
     </div>
   );
 }

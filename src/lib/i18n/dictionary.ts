@@ -222,6 +222,22 @@ const en: Dict = {
   "settings.backendError": "Backend not configured.",
   "settings.pwTooShort": "Password must be at least 8 characters.",
 
+  // mfa
+  "mfa.title": "Two-Factor Authentication",
+  "mfa.setup": "Set up 2FA",
+  "mfa.setupDesc": "Add an extra layer of security to your account with a time-based one-time password (TOTP) from an authenticator app.",
+  "mfa.scanQr": "Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password, etc.).",
+  "mfa.manualEntry": "Can't scan? Enter this key manually:",
+  "mfa.codeLabel": "Verification code",
+  "mfa.activateBtn": "Activate 2FA",
+  "mfa.enabled": "Two-factor authentication is active",
+  "mfa.enabledDesc": "Your account is protected with TOTP-based 2FA.",
+  "mfa.disable": "Disable 2FA",
+  "mfa.invalidCode": "Invalid code. Please try again.",
+  "mfa.verifyTitle": "Two-factor verification",
+  "mfa.verifySubtitle": "Enter the 6-digit code from your authenticator app.",
+  "mfa.verify": "Verify",
+
   // ai tools
   "ai.title": "AI Tools",
   "ai.subtitle": "Claude-powered tools tuned to your brand. Unlock more as add-ons.",
@@ -539,6 +555,22 @@ const de: Dict = {
   "settings.saveFailed": "Konnte nicht gespeichert werden.",
   "settings.backendError": "Backend nicht konfiguriert.",
   "settings.pwTooShort": "Passwort muss mindestens 8 Zeichen lang sein.",
+
+  // mfa
+  "mfa.title": "Zwei-Faktor-Authentifizierung",
+  "mfa.setup": "2FA einrichten",
+  "mfa.setupDesc": "Schützen Sie Ihr Konto zusätzlich mit einem zeitbasierten Einmalpasswort (TOTP) über eine Authenticator-App.",
+  "mfa.scanQr": "Scannen Sie diesen QR-Code mit Ihrer Authenticator-App (Google Authenticator, Authy, 1Password usw.).",
+  "mfa.manualEntry": "Können Sie nicht scannen? Geben Sie diesen Schlüssel manuell ein:",
+  "mfa.codeLabel": "Bestätigungscode",
+  "mfa.activateBtn": "2FA aktivieren",
+  "mfa.enabled": "Zwei-Faktor-Authentifizierung ist aktiv",
+  "mfa.enabledDesc": "Ihr Konto ist mit TOTP-basierter 2FA geschützt.",
+  "mfa.disable": "2FA deaktivieren",
+  "mfa.invalidCode": "Ungültiger Code. Bitte versuchen Sie es erneut.",
+  "mfa.verifyTitle": "Zwei-Faktor-Verifizierung",
+  "mfa.verifySubtitle": "Geben Sie den 6-stelligen Code aus Ihrer Authenticator-App ein.",
+  "mfa.verify": "Bestätigen",
 
   "ai.title": "KI-Tools",
   "ai.subtitle": "Claude-gestützte Tools, abgestimmt auf Ihre Marke. Mehr als Add-ons freischaltbar.",

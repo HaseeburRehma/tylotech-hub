@@ -51,6 +51,17 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // MFA enforcement: if user has TOTP enrolled but session is only AAL1, redirect to verify
+  if (isPortal && user) {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/mfa-verify";
+      url.searchParams.set("redirect", path);
+      return NextResponse.redirect(url);
+    }
+  }
+
   if ((path === "/login" || path === "/") && user) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";

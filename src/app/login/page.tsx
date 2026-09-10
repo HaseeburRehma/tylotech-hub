@@ -40,12 +40,22 @@ function LoginForm() {
     }
 
     const supabase = createClient();
-    const { error } = await supabase!.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase!.auth.signInWithPassword({ email, password });
     if (error) {
       setError(error.message);
       setLoading(false);
       return;
     }
+
+    // Check if user has MFA enrolled — redirect to verify page
+    const { data: aal } = await supabase!.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+      const params = new URLSearchParams();
+      if (redirectTo !== "/dashboard") params.set("redirect", redirectTo);
+      router.push(`/mfa-verify${params.toString() ? "?" + params.toString() : ""}`);
+      return;
+    }
+
     router.push(redirectTo);
     router.refresh();
   }

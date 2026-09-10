@@ -23,7 +23,9 @@ export async function POST(req: Request) {
   const email = body.email?.trim().toLowerCase();
   const password = body.password;
   const title = body.title?.trim() || null;
-  const role = body.role === "admin" ? "admin" : "team";
+  // Only an existing admin can mint another admin — a "team" account (also
+  // staff-gated above) must not be able to self-escalate the roster.
+  const role = body.role === "admin" && user?.role === "admin" ? "admin" : "team";
 
   if (!name || !email || !password) {
     return NextResponse.json({ error: "Name, email and password are required." }, { status: 400 });

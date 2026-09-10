@@ -24,6 +24,11 @@ export async function GET(req: Request) {
   if (!path || path.startsWith("#")) {
     return NextResponse.json({ error: "No file attached." }, { status: 404 });
   }
+  // Safe only because `documents` writes are staff-only at the DB level
+  // (see supabase/migrations/0024_security_hardening_3.sql) — a client-role
+  // user can no longer set an arbitrary file_url on their own document row
+  // and turn this into an open redirect off a trusted domain. Apply that
+  // migration before relying on this branch.
   if (path.startsWith("http")) return NextResponse.redirect(path);
 
   // Defense-in-depth: a client can control file_url on rows in their own tenant,

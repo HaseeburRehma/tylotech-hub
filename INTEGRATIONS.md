@@ -3,6 +3,12 @@
 The adapters (`src/lib/integrations/fetchers.ts`) and sync (`/api/integrations/sync`) are
 wired. There are **two ways** to feed a real access token per client — pick either.
 
+## Where GA4 / GSC / GTM live
+- **GA4 admin** (property `552734285`, account `320582996`):
+  https://analytics.google.com/analytics/web/#/a320582996p552734285/admin
+- **Google Search Console**: TBD — add the property URL / Search Console admin link here.
+- **Google Tag Manager**: TBD — add the container ID / GTM admin link here.
+
 ## Where the admin manages this
 Internal Hub → open a client → **Metrics & APIs** tab → *Connected data sources*.
 For each provider: **Connect** → set the **account/site** → paste an **API access token** →
