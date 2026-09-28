@@ -1,0 +1,155 @@
+"use client";
+
+import { AnimatePresence, motion } from "framer-motion";
+import { Sparkles, X } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/provider";
+
+export function RequestToolModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const t = useT();
+  const [what, setWhat] = useState("");
+  const [forClients, setForClients] = useState("all");
+  const [frequency, setFrequency] = useState("weekly");
+  const [manual, setManual] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  async function submit() {
+    if (!what.trim()) return;
+    setSending(true);
+    await fetch("/api/notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: t("reqTool.title"),
+        body: what.slice(0, 500),
+        href: "/ai-tools",
+      }),
+    }).catch(() => null);
+    setSending(false);
+    setSent(true);
+    setTimeout(() => {
+      setSent(false);
+      setWhat("");
+      setManual("");
+      onClose();
+    }, 1500);
+  }
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 z-[60] bg-foreground/25 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 20 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="fixed inset-0 z-[61] flex items-center justify-center p-4"
+          >
+            <div className="w-full max-w-lg rounded-2xl border border-border bg-bg shadow-float" onClick={(e) => e.stopPropagation()}>
+              {/* Header */}
+              <div className="flex items-start gap-4 px-6 pt-6 pb-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/15">
+                  <Sparkles className="h-5 w-5 text-brand" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold text-foreground">{t("reqTool.title")}</h2>
+                  <p className="mt-0.5 text-sm text-muted">{t("reqTool.desc")}</p>
+                </div>
+                <button onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground transition-colors">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Form */}
+              <div className="space-y-4 px-6 pb-2">
+                {/* What */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-foreground">{t("reqTool.whatLabel")}</label>
+                  <textarea
+                    value={what}
+                    onChange={(e) => setWhat(e.target.value)}
+                    rows={3}
+                    className="w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 focus:border-brand/50 resize-none"
+                  />
+                </div>
+
+                {/* Two selects */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-foreground">{t("reqTool.forClients")}</label>
+                    <select
+                      value={forClients}
+                      onChange={(e) => setForClients(e.target.value)}
+                      className="h-11 w-full appearance-none rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none focus:border-brand/50"
+                    >
+                      <option value="all" className="bg-surface">{t("reqTool.allAccounts")}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-foreground">{t("reqTool.frequency")}</label>
+                    <select
+                      value={frequency}
+                      onChange={(e) => setFrequency(e.target.value)}
+                      className="h-11 w-full appearance-none rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none focus:border-brand/50"
+                    >
+                      <option value="weekly" className="bg-surface">{t("reqTool.freqWeekly")}</option>
+                      <option value="daily" className="bg-surface">{t("reqTool.freqDaily")}</option>
+                      <option value="monthly" className="bg-surface">{t("reqTool.freqMonthly")}</option>
+                      <option value="rarely" className="bg-surface">{t("reqTool.freqRarely")}</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Manual work */}
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <label className="text-sm font-medium text-foreground">{t("reqTool.manualLabel")}</label>
+                    <span className="text-xs text-muted">{t("reqTool.optional")}</span>
+                  </div>
+                  <textarea
+                    value={manual}
+                    onChange={(e) => setManual(e.target.value)}
+                    rows={2}
+                    className="w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 focus:border-brand/50 resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-between gap-4 border-t border-border px-6 py-4 mt-2">
+                <p className="text-xs text-muted leading-relaxed max-w-[260px]">{t("reqTool.footer")}</p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={onClose}
+                    className="inline-flex h-10 items-center rounded-xl border border-border px-4 text-sm font-medium text-foreground transition-colors hover:bg-surface-2"
+                  >
+                    {t("common.cancel")}
+                  </button>
+                  <Button onClick={submit} loading={sending} disabled={!what.trim() || sent}>
+                    {sent ? "✓" : t("reqTool.send")}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}

@@ -3,28 +3,18 @@
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AtSign,
-  Bold,
   Check,
-  ChevronRight,
   Download,
   FileText,
-  Hash,
-  Headphones,
-  Highlighter,
-  Languages,
   Loader2,
   MessageCircle,
-  Mic,
-  MicOff,
   MoreHorizontal,
-  Paperclip,
   Pencil,
-  Phone,
+  Search,
   Send,
-  Smile,
+  Sparkles,
   Trash2,
-  Users,
-  Video,
+  Upload,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
@@ -36,9 +26,6 @@ import { cn, formatRelativeTime } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
 
 const GROUP = "group";
-
-// Quick-reaction emoji palette
-const QUICK_EMOJI = ["👍", "❤️", "😂", "🎉", "🔥", "👀", "✅", "💯"];
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -54,31 +41,27 @@ function formatTime(iso: string): string {
   }
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, t: (k: string) => string): string {
   try {
     const d = new Date(iso);
     const now = new Date();
     const diff = now.getTime() - d.getTime();
-    if (diff < 86400000 && d.getDate() === now.getDate()) return "Today";
-    if (diff < 172800000) return "Yesterday";
-    return d.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
+    if (diff < 86400000 && d.getDate() === now.getDate()) return t("chat.today");
+    if (diff < 172800000) return t("chat.yesterday");
+    return d.toLocaleDateString("de-DE", { weekday: "long", month: "short", day: "numeric" });
   } catch {
     return "";
   }
 }
 
-/**
- * Render lightweight markdown (bold **…**, highlight ==…==) as safe HTML.
- */
 function renderRich(text: string): string {
   const esc = text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
   return esc
     .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
     .replace(/==([^=\n]+)==/g, '<mark style="background:rgba(201,168,76,.38);color:inherit;border-radius:3px;padding:0 2px">$1</mark>')
-    .replace(/@([A-Za-zÀ-ÿ][\w\s]{0,30}[\w])/g, '<span class="mention-tag">@$1</span>');
+    .replace(/@([A-Za-zÀ-ÿ][\w\s]{0,30}[\w])/g, '<span class="text-brand font-semibold">@$1</span>');
 }
 
-// ─── Mention autocomplete popup ─────────────────────────────────────────────
 function MentionPopup({
   peers,
   query,
@@ -119,90 +102,6 @@ function MentionPopup({
   );
 }
 
-// ─── Emoji picker popup ─────────────────────────────────────────────────────
-function EmojiPicker({ onSelect, onClose }: { onSelect: (emoji: string) => void; onClose: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [onClose]);
-
-  const MORE_EMOJI = ["😊", "😍", "🤔", "😢", "😎", "🙏", "👏", "💪", "🚀", "⭐", "💡", "📌", "🎯", "❌", "⚡", "🔒"];
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      className="absolute bottom-full right-0 z-50 mb-1 grid w-[280px] grid-cols-8 gap-0.5 rounded-xl border border-border bg-surface p-2 shadow-xl"
-    >
-      {[...QUICK_EMOJI, ...MORE_EMOJI].map((e) => (
-        <button
-          key={e}
-          onClick={() => { onSelect(e); onClose(); }}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-lg transition-colors hover:bg-surface-2"
-        >
-          {e}
-        </button>
-      ))}
-    </motion.div>
-  );
-}
-
-// ─── Hover action bar ─────────────────────────────────────────────────────────
-function HoverActions({
-  mine,
-  onReply,
-  onReact,
-  onEdit,
-  onDelete,
-  hasText,
-}: {
-  mine: boolean;
-  onReply: () => void;
-  onReact: (emoji: string) => void;
-  onEdit?: () => void;
-  onDelete?: () => void;
-  hasText: boolean;
-}) {
-  const [showEmoji, setShowEmoji] = useState(false);
-  return (
-    <div className={cn("absolute -top-4 z-30 flex items-center gap-0.5 rounded-lg border border-border bg-surface px-1 py-0.5 shadow-md", mine ? "right-0" : "left-10")}>
-      {QUICK_EMOJI.slice(0, 4).map((e) => (
-        <button key={e} onClick={() => onReact(e)} className="flex h-7 w-7 items-center justify-center rounded-md text-sm transition-colors hover:bg-surface-2">
-          {e}
-        </button>
-      ))}
-      <div className="relative">
-        <button onClick={() => setShowEmoji(!showEmoji)} className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-foreground">
-          <Smile className="h-3.5 w-3.5" />
-        </button>
-        <AnimatePresence>
-          {showEmoji && <EmojiPicker onSelect={onReact} onClose={() => setShowEmoji(false)} />}
-        </AnimatePresence>
-      </div>
-      <div className="mx-0.5 h-4 w-px bg-border" />
-      <button onClick={onReply} title="Reply in thread" className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-foreground">
-        <MessageCircle className="h-3.5 w-3.5" />
-      </button>
-      {mine && hasText && onEdit && (
-        <button onClick={onEdit} className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-foreground">
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
-      )}
-      {mine && onDelete && (
-        <button onClick={onDelete} className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-danger">
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-      )}
-    </div>
-  );
-}
-
-// ─── Thread panel (sidebar) ─────────────────────────────────────────────────
 function ThreadPanel({
   parent,
   replies,
@@ -236,7 +135,6 @@ function ThreadPanel({
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [replies]);
 
-  // Auto-grow
   useEffect(() => {
     const el = composerRef.current;
     if (!el) return;
@@ -250,7 +148,6 @@ function ThreadPanel({
     if (!content || sending) return;
     setSending(true);
     setVal("");
-    // Extract mentions
     const mentionIds = extractMentions(content, peers);
     await onSend(content, parent.id, mentionIds);
     setSending(false);
@@ -269,7 +166,7 @@ function ThreadPanel({
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div>
           <p className="text-sm font-semibold">{t("chat.thread")}</p>
-          <p className="text-[11px] text-muted">{parent.sender_name} · {replies.length} {replies.length === 1 ? "reply" : "replies"}</p>
+          <p className="text-[11px] text-muted">{parent.sender_name} · {replies.length} {t("chat.replies")}</p>
         </div>
         <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground">
           <X className="h-4 w-4" />
@@ -278,7 +175,6 @@ function ThreadPanel({
 
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1">
         {allMsgs.map((m, i) => {
-          const mine = m.sender_id === currentUserId;
           const prevSame = i > 0 && allMsgs[i - 1].sender_id === m.sender_id;
           return (
             <div key={m.id} className={cn("group relative", prevSame ? "mt-0.5" : "mt-3")}>
@@ -291,7 +187,6 @@ function ThreadPanel({
               )}
               <div className={cn("pl-8 text-sm leading-relaxed text-foreground", i === 0 && "border-b border-border pb-3 mb-3")}>
                 {m.content && <span dangerouslySetInnerHTML={{ __html: renderRich(m.content) }} />}
-                {m.edited_at && <span className="ml-1 text-[10px] text-muted/50">({t("chat.edited")})</span>}
               </div>
             </div>
           );
@@ -300,7 +195,7 @@ function ThreadPanel({
       </div>
 
       <form onSubmit={submit} className="border-t border-border p-3">
-        <div className="rounded-xl border border-border bg-bg/60 focus-within:border-brand/50 focus-within:ring-2 focus-within:ring-brand/15">
+        <div className="rounded-xl border border-border bg-bg/60 focus-within:border-brand/50">
           <div className="flex items-end gap-1.5 px-2 py-1.5">
             <textarea
               ref={composerRef}
@@ -310,7 +205,7 @@ function ThreadPanel({
                 if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submit(); }
               }}
               rows={1}
-              placeholder={`Reply to ${parent.sender_name}…`}
+              placeholder={`${t("chat.reply")}…`}
               className="max-h-[160px] min-h-[36px] flex-1 resize-none bg-transparent px-1 py-2 text-sm leading-relaxed outline-none placeholder:text-muted/60"
             />
             <Button type="submit" size="icon" disabled={!val.trim() || sending} className="mb-0.5 h-8 w-8 shrink-0 disabled:opacity-40">
@@ -323,58 +218,6 @@ function ThreadPanel({
   );
 }
 
-// ─── Huddle bar ─────────────────────────────────────────────────────────────
-function HuddleBar({ active, onToggle }: { active: boolean; onToggle: () => void }) {
-  const [muted, setMuted] = useState(false);
-  const [seconds, setSeconds] = useState(0);
-
-  useEffect(() => {
-    if (!active) { setSeconds(0); return; }
-    const i = setInterval(() => setSeconds((s) => s + 1), 1000);
-    return () => clearInterval(i);
-  }, [active]);
-
-  const fmt = `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
-
-  if (!active) return null;
-
-  return (
-    <motion.div
-      initial={{ height: 0, opacity: 0 }}
-      animate={{ height: "auto", opacity: 1 }}
-      exit={{ height: 0, opacity: 0 }}
-      className="border-t border-border bg-surface-2"
-    >
-      <div className="flex items-center gap-3 px-4 py-2.5">
-        <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-        </span>
-        <span className="text-xs font-medium text-success">Huddle</span>
-        <span className="text-[11px] font-mono text-muted">{fmt}</span>
-        <div className="ml-auto flex items-center gap-1.5">
-          <button
-            onClick={() => setMuted(!muted)}
-            className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
-              muted ? "bg-danger/15 text-danger" : "bg-surface text-foreground hover:bg-surface-2",
-            )}
-          >
-            {muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-          </button>
-          <button
-            onClick={onToggle}
-            className="flex h-8 items-center gap-1.5 rounded-full bg-danger/15 px-3 text-xs font-medium text-danger transition-colors hover:bg-danger/25"
-          >
-            <Phone className="h-3.5 w-3.5" /> Leave
-          </button>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-// Extract @mentions from text, matching against known peers
 function extractMentions(text: string, peers: ChatPeer[]): string[] {
   const mentions: string[] = [];
   const re = /@([A-Za-zÀ-ÿ][\w\s]{0,30}[\w])/g;
@@ -387,7 +230,6 @@ function extractMentions(text: string, peers: ChatPeer[]): string[] {
   return mentions;
 }
 
-// ─── Main export ────────────────────────────────────────────────────────────
 export function ChatThread({
   initialMessages,
   currentUserId,
@@ -431,34 +273,22 @@ export function ChatThread({
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
 
-  // Thread panel state
   const [threadParentId, setThreadParentId] = useState<string | null>(null);
-
-  // Huddle state
-  const [huddleActive, setHuddleActive] = useState(false);
-
-  // Hover state per message
   const [hoveredMsg, setHoveredMsg] = useState<string | null>(null);
-
-  // Mention autocomplete
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionPos, setMentionPos] = useState({ left: 0, bottom: 0 });
-
-  // Reactions local state (keyed by msgId → array of {emoji, count, users, reacted})
-  const [reactionsMap, setReactionsMap] = useState<Record<string, { emoji: string; count: number; users: string[]; reacted: boolean }[]>>({});
+  const [sidebarTab, setSidebarTab] = useState<"channels" | "threads" | "mentions">("channels");
 
   const threadKeyOf = (m: Message): string => {
     if (!m.recipient_id) return GROUP;
     return m.sender_id === currentUserId ? m.recipient_id : m.sender_id;
   };
 
-  // Only top-level messages in the main view (not thread replies).
   const visible = useMemo(
     () => messages.filter((m) => threadKeyOf(m) === selected && !m.parent_id),
     [messages, selected],
   );
 
-  // Thread replies for the open thread
   const threadReplies = useMemo(
     () => threadParentId ? messages.filter((m) => m.parent_id === threadParentId) : [],
     [messages, threadParentId],
@@ -473,78 +303,37 @@ export function ChatThread({
     return map;
   }, [messages]);
 
-  // Date dividers
   const dateDividers = useMemo(() => {
-    const seen = new Set<string>();
+    const s = new Set<string>();
     const result: Record<string, string> = {};
     for (const m of visible) {
       const d = m.created_at.slice(0, 10);
-      if (!seen.has(d)) {
-        seen.add(d);
-        result[m.id] = formatDate(m.created_at);
+      if (!s.has(d)) {
+        s.add(d);
+        result[m.id] = formatDate(m.created_at, t);
       }
     }
     return result;
-  }, [visible]);
+  }, [visible, t]);
 
-  // Translation
-  type Lang = "en" | "de";
-  const viewerLang: Lang = currentRole === "client" ? "de" : "en";
-  const [langByMsg, setLangByMsg] = useState<Record<string, Lang>>({});
-  const [cache, setCache] = useState<Record<string, Partial<Record<Lang, string>>>>({});
-  const [pending, setPending] = useState<Record<string, boolean>>({});
-  const [transErr, setTransErr] = useState<Record<string, boolean>>({});
+  const threadedMessages = useMemo(
+    () => messages.filter((m) => (m.reply_count ?? 0) > 0 && !m.parent_id).sort((a, b) => {
+      const aTime = a.last_reply_at ?? a.created_at;
+      const bTime = b.last_reply_at ?? b.created_at;
+      return bTime.localeCompare(aTime);
+    }),
+    [messages],
+  );
 
-  const versionsOf = (m: Message): Partial<Record<Lang, string>> => {
-    const v: Partial<Record<Lang, string>> = {};
-    if (m.content_translated && m.content_translated !== m.content && (m.translated_to === "en" || m.translated_to === "de")) {
-      v[m.translated_to as Lang] = m.content_translated;
-    }
-    return { ...v, ...(cache[m.id] ?? {}) };
-  };
+  const mentionedMessages = useMemo(
+    () => messages.filter((m) => {
+      if (m.sender_id === currentUserId) return false;
+      const content = m.content?.toLowerCase() ?? "";
+      return content.includes(`@${currentName.toLowerCase()}`);
+    }).sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    [messages, currentUserId, currentName],
+  );
 
-  async function browserTranslate(text: string, target: Lang): Promise<string | null> {
-    const chunks = text.length <= 1200 ? [text] : text.match(/[\s\S]{1,1200}/g) ?? [text];
-    try {
-      const parts: string[] = [];
-      for (const piece of chunks) {
-        const r = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${target}&dt=t&q=${encodeURIComponent(piece)}`).catch(() => null);
-        if (!r?.ok) return null;
-        const data = await r.json().catch(() => null);
-        if (!Array.isArray(data?.[0])) return null;
-        parts.push((data[0] as any[]).map((s) => (s && s[0]) || "").join(""));
-      }
-      return parts.join("").trim() || null;
-    } catch {
-      return null;
-    }
-  }
-
-  async function ensureLang(m: Message, target: Lang) {
-    if (versionsOf(m)[target]) return;
-    setPending((p) => ({ ...p, [m.id]: true }));
-    setTransErr((e) => (e[m.id] ? { ...e, [m.id]: false } : e));
-    let translation: string | null = null;
-    const res = await fetch("/api/translate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: m.content, target }) }).catch(() => null);
-    if (res?.ok) {
-      translation = (await res.json().catch(() => null))?.translation ?? null;
-    } else {
-      translation = await browserTranslate(m.content, target);
-    }
-    if (translation) {
-      setCache((c) => ({ ...c, [m.id]: { ...(c[m.id] ?? {}), [target]: translation! } }));
-    } else {
-      setTransErr((e) => ({ ...e, [m.id]: true }));
-    }
-    setPending((p) => ({ ...p, [m.id]: false }));
-  }
-
-  function pickLang(m: Message, target: Lang) {
-    setLangByMsg((l) => ({ ...l, [m.id]: target }));
-    void ensureLang(m, target);
-  }
-
-  // Scroll to bottom
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [visible]);
@@ -553,61 +342,24 @@ export function ChatThread({
     setUnread((u) => (u[selected] ? { ...u, [selected]: 0 } : u));
   }, [selected]);
 
-  // Load reactions for visible messages
-  useEffect(() => {
-    async function loadReactions() {
-      const sb = createClient();
-      if (!sb || !visible.length) return;
-      const ids = visible.map((m) => m.id).filter((id) => !id.startsWith("temp-"));
-      if (!ids.length) return;
-      const { data } = await sb.from("reactions").select("*").in("message_id", ids);
-      if (!data) return;
-      const map: Record<string, { emoji: string; count: number; users: string[]; reacted: boolean }[]> = {};
-      for (const r of data) {
-        if (!map[r.message_id]) map[r.message_id] = [];
-        const existing = map[r.message_id].find((x) => x.emoji === r.emoji);
-        if (existing) {
-          existing.count++;
-          existing.users.push(r.user_id);
-          if (r.user_id === currentUserId) existing.reacted = true;
-        } else {
-          map[r.message_id].push({ emoji: r.emoji, count: 1, users: [r.user_id], reacted: r.user_id === currentUserId });
-        }
-      }
-      setReactionsMap(map);
-    }
-    void loadReactions();
-  }, [visible, currentUserId]);
-
   // Realtime subscription
   useEffect(() => {
     if (!clientId && !internal) return;
     const supabase = createClient();
     if (!supabase) return;
     const base = internal
-      ? { schema: "public", table: "messages" }
-      : { schema: "public", table: "messages", filter: `client_id=eq.${clientId}` };
+      ? { schema: "public" as const, table: "messages" as const }
+      : { schema: "public" as const, table: "messages" as const, filter: `client_id=eq.${clientId}` };
     const mine = (m: any) => (internal ? m.client_id == null : m.client_id === clientId);
     const participant = (m: any) => !m.recipient_id || m.sender_id === currentUserId || m.recipient_id === currentUserId;
     const SELECT = "id,client_id,sender_id,sender_name,sender_role,recipient_id,parent_id,reply_count,last_reply_at,content,content_translated,translated_to,attachment_name,attachment_mime,attachment_size,edited_at,created_at";
     const toMsg = (m: any): Message => ({
-      id: m.id,
-      client_id: m.client_id,
-      sender_id: m.sender_id,
-      sender_name: m.sender_name ?? "TyloTech",
-      sender_role: (m.sender_role ?? "team") as Role,
-      recipient_id: m.recipient_id ?? null,
-      parent_id: m.parent_id ?? null,
-      reply_count: m.reply_count ?? 0,
-      last_reply_at: m.last_reply_at ?? null,
-      content: m.content ?? "",
-      content_translated: m.content_translated ?? null,
-      translated_to: m.translated_to ?? null,
-      attachment_name: m.attachment_name ?? null,
-      attachment_mime: m.attachment_mime ?? null,
-      attachment_size: m.attachment_size ?? null,
-      edited_at: m.edited_at ?? null,
-      created_at: m.created_at,
+      id: m.id, client_id: m.client_id, sender_id: m.sender_id, sender_name: m.sender_name ?? "TyloTech",
+      sender_role: (m.sender_role ?? "team") as Role, recipient_id: m.recipient_id ?? null,
+      parent_id: m.parent_id ?? null, reply_count: m.reply_count ?? 0, last_reply_at: m.last_reply_at ?? null,
+      content: m.content ?? "", content_translated: m.content_translated ?? null, translated_to: m.translated_to ?? null,
+      attachment_name: m.attachment_name ?? null, attachment_mime: m.attachment_mime ?? null,
+      attachment_size: m.attachment_size ?? null, edited_at: m.edited_at ?? null, created_at: m.created_at,
     });
     const channel = supabase
       .channel(internal ? "messages:internal" : `messages:${clientId}`)
@@ -617,7 +369,6 @@ export function ChatThread({
         seen.current.add(m.id);
         const msg = toMsg(m);
         setMessages((prev) => [...prev, msg]);
-        // Update parent reply_count if it's a thread reply
         if (msg.parent_id) {
           setMessages((prev) => prev.map((x) => x.id === msg.parent_id ? { ...x, reply_count: (x.reply_count ?? 0) + 1, last_reply_at: msg.created_at } : x));
         }
@@ -629,7 +380,6 @@ export function ChatThread({
       .on("postgres_changes", { event: "UPDATE", ...base }, (payload) => {
         const m = payload.new as any;
         if (!mine(m)) return;
-        setCache((c) => { const n = { ...c }; delete n[m.id]; return n; });
         setMessages((prev) => prev.map((x) => (x.id === m.id ? toMsg(m) : x)));
       })
       .on("postgres_changes", { event: "DELETE", ...base }, (payload) => {
@@ -657,8 +407,7 @@ export function ChatThread({
     return () => { supabase.removeChannel(channel); };
   }, [clientId, currentUserId, internal]);
 
-  // ── Actions ───────────────────────────────────────────────────────────────
-
+  // Actions
   async function send(e?: React.FormEvent) {
     e?.preventDefault();
     const content = val.trim();
@@ -694,7 +443,6 @@ export function ChatThread({
       id: tempId, client_id: clientId ?? "", sender_id: currentUserId, sender_name: currentName, sender_role: currentRole,
       recipient_id: recipientId, parent_id: parentId, content, created_at: new Date().toISOString(),
     }]);
-    // Optimistically update parent reply count
     setMessages((m) => m.map((x) => x.id === parentId ? { ...x, reply_count: (x.reply_count ?? 0) + 1, last_reply_at: new Date().toISOString() } : x));
     const res = await fetch("/api/messages", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -709,44 +457,12 @@ export function ChatThread({
     }
   }
 
-  async function toggleReaction(messageId: string, emoji: string) {
-    // Optimistic update
-    setReactionsMap((prev) => {
-      const arr = [...(prev[messageId] ?? [])];
-      const existing = arr.find((x) => x.emoji === emoji);
-      if (existing?.reacted) {
-        existing.count--;
-        existing.users = existing.users.filter((u) => u !== currentUserId);
-        existing.reacted = false;
-        if (existing.count <= 0) return { ...prev, [messageId]: arr.filter((x) => x.emoji !== emoji) };
-      } else if (existing) {
-        existing.count++;
-        existing.users.push(currentUserId);
-        existing.reacted = true;
-      } else {
-        arr.push({ emoji, count: 1, users: [currentUserId], reacted: true });
-      }
-      return { ...prev, [messageId]: arr };
-    });
-    await fetch("/api/reactions", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messageId, emoji }),
-    }).catch(() => null);
-  }
-
   useEffect(() => {
     const el = composerRef.current;
     if (!el) return;
     el.style.height = "0px";
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [val]);
-
-  function onComposerKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
-      e.preventDefault();
-      void submit();
-    }
-  }
 
   function named(f: File): File {
     if (f.name) return f;
@@ -757,22 +473,9 @@ export function ChatThread({
   function stageFiles(files: File[]) {
     const staged = files.map((raw) => {
       const file = named(raw);
-      return {
-        id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        file,
-        url: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
-      };
+      return { id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, file, url: file.type.startsWith("image/") ? URL.createObjectURL(file) : null };
     });
     setPendingAtt((p) => [...p, ...staged]);
-  }
-
-  function wrapSelection(marker: string, placeholder: string) {
-    const el = composerRef.current;
-    const start = el?.selectionStart ?? val.length;
-    const end = el?.selectionEnd ?? val.length;
-    const sel = val.slice(start, end) || placeholder;
-    setVal(val.slice(0, start) + marker + sel + marker + val.slice(end));
-    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(start + marker.length, start + marker.length + sel.length); });
   }
 
   function removePending(id: string) {
@@ -781,60 +484,6 @@ export function ChatThread({
       if (gone?.url) URL.revokeObjectURL(gone.url);
       return p.filter((x) => x.id !== id);
     });
-  }
-
-  function onComposerPaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
-    const files = Array.from(e.clipboardData?.items ?? []).filter((it) => it.kind === "file").map((it) => it.getAsFile()).filter((f): f is File => !!f);
-    if (files.length) { e.preventDefault(); stageFiles(files); }
-  }
-
-  function onDrop(e: React.DragEvent) {
-    const files = Array.from(e.dataTransfer?.files ?? []);
-    if (files.length) { e.preventDefault(); setDragOver(false); stageFiles(files); }
-  }
-
-  async function submit(e?: React.FormEvent) {
-    e?.preventDefault();
-    if (pendingAtt.length) {
-      const caption = val.trim();
-      const files = pendingAtt;
-      setPendingAtt([]);
-      setVal("");
-      for (let i = 0; i < files.length; i++) {
-        await uploadFile(files[i].file, i === 0 ? caption : undefined);
-        if (files[i].url) URL.revokeObjectURL(files[i].url!);
-      }
-      return;
-    }
-    await send();
-  }
-
-  function startEdit(m: Message) { setEditingId(m.id); setEditVal(m.content); }
-
-  async function saveEdit(id: string) {
-    const content = editVal.trim();
-    if (!content) return;
-    const prev = messages.find((x) => x.id === id);
-    setEditingId(null);
-    setCache((c) => { const n = { ...c }; delete n[id]; return n; });
-    setMessages((ms) => ms.map((x) => (x.id === id ? { ...x, content, edited_at: new Date().toISOString() } : x)));
-    const res = await fetch("/api/messages", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, content }) }).catch(() => null);
-    if (res?.ok) {
-      const { message } = await res.json();
-      if (message?.id) setMessages((ms) => ms.map((x) => (x.id === id ? { ...x, ...message } : x)));
-    } else if (prev) {
-      setMessages((ms) => ms.map((x) => (x.id === id ? prev : x)));
-      setUploadError(t("chat.editFailed"));
-      setTimeout(() => setUploadError(null), 4000);
-    }
-  }
-
-  async function deleteMsg(id: string) {
-    if (!window.confirm(t("chat.deleteConfirm"))) return;
-    const snapshot = messages;
-    setMessages((ms) => ms.filter((x) => x.id !== id));
-    const res = await fetch(`/api/messages?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null);
-    if (!res?.ok) { setMessages(snapshot); setUploadError(t("chat.deleteFailed")); setTimeout(() => setUploadError(null), 4000); }
   }
 
   async function uploadFile(file: File, caption?: string) {
@@ -870,11 +519,50 @@ export function ChatThread({
     }
   }
 
-  // Mention handler
+  async function submit(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (pendingAtt.length) {
+      const caption = val.trim();
+      const files = pendingAtt;
+      setPendingAtt([]);
+      setVal("");
+      for (let i = 0; i < files.length; i++) {
+        await uploadFile(files[i].file, i === 0 ? caption : undefined);
+        if (files[i].url) URL.revokeObjectURL(files[i].url!);
+      }
+      return;
+    }
+    await send();
+  }
+
+  function startEdit(m: Message) { setEditingId(m.id); setEditVal(m.content); }
+
+  async function saveEdit(id: string) {
+    const content = editVal.trim();
+    if (!content) return;
+    const prev = messages.find((x) => x.id === id);
+    setEditingId(null);
+    setMessages((ms) => ms.map((x) => (x.id === id ? { ...x, content, edited_at: new Date().toISOString() } : x)));
+    const res = await fetch("/api/messages", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, content }) }).catch(() => null);
+    if (res?.ok) {
+      const { message } = await res.json();
+      if (message?.id) setMessages((ms) => ms.map((x) => (x.id === id ? { ...x, ...message } : x)));
+    } else if (prev) {
+      setMessages((ms) => ms.map((x) => (x.id === id ? prev : x)));
+    }
+  }
+
+  async function deleteMsg(id: string) {
+    if (!window.confirm(t("chat.deleteConfirm"))) return;
+    const snapshot = messages;
+    setMessages((ms) => ms.filter((x) => x.id !== id));
+    const res = await fetch(`/api/messages?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null);
+    if (!res?.ok) { setMessages(snapshot); }
+  }
+
   function onComposerInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const newVal = e.target.value;
     setVal(newVal);
-    // Check for @mention trigger
     const pos = e.target.selectionStart ?? 0;
     const before = newVal.slice(0, pos);
     const atMatch = before.match(/@(\w*)$/);
@@ -904,107 +592,86 @@ export function ChatThread({
 
   const activePeer = peers.find((p) => p.id === selected);
   const headerTitle = selected === GROUP ? title : activePeer?.name ?? title;
-  const headerSubtitle = selected === GROUP ? subtitle ?? t("chat.groupEveryone") : activePeer?.title ?? t("chat.directMessage");
+  const headerSubtitle = selected === GROUP
+    ? (subtitle ?? t("chat.groupEveryone"))
+    : activePeer?.title ?? t("chat.directMessage");
 
-  const channelList: { key: string; name: string; sub: string; icon?: boolean }[] = [
-    { key: GROUP, name: title, sub: t("chat.groupThread"), icon: true },
-    ...peers.map((p) => ({ key: p.id, name: p.name, sub: p.title ?? t("chat.directMessage") })),
+  const channelList: { key: string; name: string; sub: string; isGroup?: boolean }[] = [
+    { key: GROUP, name: title, sub: internal ? t("chat.groupIntern") : t("chat.groupEveryone"), isGroup: true },
+    ...peers.map((p) => ({ key: p.id, name: p.name, sub: p.title ?? p.role })),
   ];
 
-  // Sidebar tab: "channels" (default) | "threads" | "mentions"
-  const [sidebarTab, setSidebarTab] = useState<"channels" | "threads" | "mentions">("channels");
-
-  // Messages that have replies (threads the user can navigate to)
-  const threadedMessages = useMemo(
-    () => messages.filter((m) => (m.reply_count ?? 0) > 0 && !m.parent_id).sort((a, b) => {
-      const aTime = a.last_reply_at ?? a.created_at;
-      const bTime = b.last_reply_at ?? b.created_at;
-      return bTime.localeCompare(aTime); // most recent first
-    }),
-    [messages],
-  );
-
-  // Messages where the current user is @mentioned (search in content for @Name)
-  const mentionedMessages = useMemo(
-    () => messages.filter((m) => {
-      if (m.sender_id === currentUserId) return false;
-      const content = m.content?.toLowerCase() ?? "";
-      return content.includes(`@${currentName.toLowerCase()}`);
-    }).sort((a, b) => b.created_at.localeCompare(a.created_at)),
-    [messages, currentUserId, currentName],
-  );
+  const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
 
   return (
     <div className={cn("flex h-full min-h-0 overflow-hidden rounded-2xl border border-border bg-bg", className)}>
-      {/* ── Sidebar with tabs ────────────────────────────────────────── */}
+      {/* ── Chat sidebar ─────────────────────────────────────────── */}
       {peers.length > 0 && (
-        <div className="flex w-60 shrink-0 flex-col border-r border-border bg-surface/50">
-          {/* Sidebar tab bar */}
-          <div className="flex border-b border-border">
+        <div className="hidden w-[260px] shrink-0 flex-col border-r border-border bg-surface/50 md:flex">
+          {/* Tabs: Chats · Threads · Erwähnungen */}
+          <div className="flex items-center gap-1 border-b border-border px-3 py-2.5">
             {([
-              { key: "channels" as const, icon: Hash, label: t("chat.conversations") },
-              { key: "threads" as const, icon: MessageCircle, label: t("chat.thread") },
-              { key: "mentions" as const, icon: AtSign, label: t("chat.mention") },
+              { key: "channels" as const, label: t("chat.conversations") },
+              { key: "threads" as const, label: t("chat.thread") },
+              { key: "mentions" as const, label: t("chat.mention") },
             ]).map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setSidebarTab(tab.key)}
-                title={tab.label}
                 className={cn(
-                  "flex min-w-0 flex-1 items-center justify-center gap-1 px-1 py-3 text-[11px] font-semibold transition-colors",
+                  "rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors",
                   sidebarTab === tab.key
-                    ? "border-b-2 border-brand text-brand"
+                    ? "bg-bg text-foreground shadow-sm border border-border"
                     : "text-muted hover:text-foreground",
                 )}
               >
-                <tab.icon className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{tab.label}</span>
-                {tab.key === "mentions" && mentionedMessages.length > 0 && (
-                  <span className="flex h-[16px] min-w-[16px] shrink-0 items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-brand-foreground">
-                    {mentionedMessages.length > 9 ? "9+" : mentionedMessages.length}
-                  </span>
-                )}
+                {tab.label}
               </button>
             ))}
           </div>
 
           {/* Tab content */}
-          <div className="flex-1 overflow-y-auto p-2">
-            {/* Channels tab */}
-            {sidebarTab === "channels" && channelList.map((th) => {
-              const last = lastByThread[th.key];
-              const isActive = selected === th.key;
-              const count = unread[th.key] ?? 0;
+          <div className="flex-1 overflow-y-auto">
+            {/* Chats tab */}
+            {sidebarTab === "channels" && channelList.map((ch) => {
+              const last = lastByThread[ch.key];
+              const isActive = selected === ch.key;
+              const count = unread[ch.key] ?? 0;
               return (
                 <button
-                  key={th.key}
-                  onClick={() => { setSelected(th.key); setThreadParentId(null); }}
+                  key={ch.key}
+                  onClick={() => { setSelected(ch.key); setThreadParentId(null); }}
                   className={cn(
-                    "mb-0.5 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-all",
-                    isActive ? "bg-brand/10 text-foreground" : "text-muted hover:bg-surface-2 hover:text-foreground",
+                    "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors border-l-2",
+                    isActive
+                      ? "bg-brand/[0.06] border-l-brand"
+                      : "border-l-transparent hover:bg-surface-2",
                   )}
                 >
-                  {th.icon ? (
-                    <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", isActive ? "bg-brand/20 text-brand" : "bg-surface-2 text-muted")}>
-                      {th.key === GROUP ? <Hash className="h-4 w-4" /> : <Users className="h-4 w-4" />}
-                    </span>
+                  {ch.isGroup ? (
+                    <div className="relative flex shrink-0">
+                      <Avatar name="A" size={32} className="ring-2 ring-surface" />
+                      <Avatar name="B" size={32} className="-ml-2 ring-2 ring-surface" />
+                    </div>
                   ) : (
-                    <span className="relative">
-                      <Avatar name={th.name} size={32} />
-                      <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-success ring-2 ring-surface" />
-                    </span>
+                    <Avatar name={ch.name} size={36} />
                   )}
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center justify-between gap-1">
-                      <span className={cn("truncate text-[13px]", isActive ? "font-semibold" : "font-medium")}>{th.name}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className={cn("truncate text-sm", isActive ? "font-semibold text-foreground" : "font-medium text-foreground")}>{ch.name}</span>
+                      <span className="shrink-0 text-[11px] text-muted">
+                        {last ? formatTime(last.created_at) : ""}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-1 mt-0.5">
+                      <span className="truncate text-xs text-muted">
+                        {ch.sub}
+                      </span>
                       {count > 0 && (
-                        <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold text-brand-foreground">{count > 9 ? "9+" : count}</span>
+                        <span className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold text-brand-foreground">{count}</span>
                       )}
-                    </span>
-                    <span className="block truncate text-[11px] text-muted/70">
-                      {last ? last.content?.slice(0, 40) || (last.attachment_name ? `📎 ${last.attachment_name}` : th.sub) : th.sub}
-                    </span>
-                  </span>
+                    </div>
+                  </div>
                 </button>
               );
             })}
@@ -1012,29 +679,31 @@ export function ChatThread({
             {/* Threads tab */}
             {sidebarTab === "threads" && (
               threadedMessages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="flex flex-col items-center justify-center py-16 text-center px-4">
                   <MessageCircle className="mb-2 h-8 w-8 text-muted/30" />
-                  <p className="text-xs text-muted">{t("chat.noMessages")}</p>
-                  <p className="mt-1 text-[10px] text-muted/50">Threads will appear here</p>
+                  <p className="text-sm text-muted">{t("chat.noMessages")}</p>
                 </div>
               ) : threadedMessages.map((m) => (
                 <button
                   key={m.id}
                   onClick={() => { setThreadParentId(m.id); setSidebarTab("channels"); }}
                   className={cn(
-                    "mb-1 flex w-full flex-col gap-1 rounded-lg px-3 py-2.5 text-left transition-all",
-                    threadParentId === m.id ? "bg-brand/10 text-foreground" : "text-muted hover:bg-surface-2 hover:text-foreground",
+                    "flex w-full flex-col gap-1.5 px-4 py-3 text-left transition-colors border-l-2",
+                    threadParentId === m.id ? "bg-brand/[0.06] border-l-brand" : "border-l-transparent hover:bg-surface-2",
                   )}
                 >
                   <div className="flex items-center gap-2">
-                    <Avatar name={m.sender_name} size={20} />
-                    <span className="truncate text-[12px] font-semibold text-foreground">{m.sender_name}</span>
-                    <span className="ml-auto text-[10px] text-muted/50">{formatRelativeTime(m.last_reply_at ?? m.created_at)}</span>
+                    <MessageCircle className="h-3.5 w-3.5 shrink-0 text-brand" />
+                    <span className="truncate text-sm font-semibold text-foreground">{m.content?.slice(0, 50) || "Thread"}</span>
                   </div>
-                  <p className="line-clamp-2 text-[11px] leading-snug text-muted">{m.content?.slice(0, 80) || "📎 Attachment"}</p>
-                  <div className="flex items-center gap-1 text-[10px] text-brand">
-                    <MessageCircle className="h-3 w-3" />
-                    <span className="font-medium">{m.reply_count} {(m.reply_count ?? 0) === 1 ? "reply" : "replies"}</span>
+                  <div className="flex items-center gap-2 pl-5">
+                    <div className="flex -space-x-1">
+                      <Avatar name={m.sender_name} size={18} className="ring-1 ring-surface" />
+                    </div>
+                    <span className="text-xs text-muted">{m.reply_count} {t("chat.replies")} · {formatRelativeTime(m.last_reply_at ?? m.created_at)}</span>
+                    {(unread[m.id] ?? 0) > 0 && (
+                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-brand-foreground">{unread[m.id]}</span>
+                    )}
                   </div>
                 </button>
               ))
@@ -1043,29 +712,29 @@ export function ChatThread({
             {/* Mentions tab */}
             {sidebarTab === "mentions" && (
               mentionedMessages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="flex flex-col items-center justify-center py-16 text-center px-4">
                   <AtSign className="mb-2 h-8 w-8 text-muted/30" />
-                  <p className="text-xs text-muted">No mentions yet</p>
-                  <p className="mt-1 text-[10px] text-muted/50">When someone @mentions you, it shows here</p>
+                  <p className="text-sm text-muted">{t("chat.noMessages")}</p>
                 </div>
               ) : mentionedMessages.map((m) => (
                 <button
                   key={m.id}
                   onClick={() => {
-                    // Navigate to the message — if it's a thread reply, open the thread
-                    if (m.parent_id) {
-                      setThreadParentId(m.parent_id);
-                    }
+                    if (m.parent_id) setThreadParentId(m.parent_id);
                     setSidebarTab("channels");
                   }}
-                  className="mb-1 flex w-full flex-col gap-1 rounded-lg px-3 py-2.5 text-left transition-all text-muted hover:bg-surface-2 hover:text-foreground"
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors border-l-2 border-l-transparent hover:bg-surface-2"
                 >
-                  <div className="flex items-center gap-2">
-                    <Avatar name={m.sender_name} size={20} />
-                    <span className="truncate text-[12px] font-semibold text-foreground">{m.sender_name}</span>
-                    <span className="ml-auto text-[10px] text-muted/50">{formatRelativeTime(m.created_at)}</span>
+                  <Avatar name={m.sender_name} size={36} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="truncate text-sm font-semibold text-foreground">{m.sender_name}</span>
+                    </div>
+                    <p className="truncate text-xs text-muted mt-0.5">
+                      {t("chat.mentionedYouIn", { where: title })}
+                    </p>
+                    <p className="text-[11px] text-muted/60 mt-0.5">{formatRelativeTime(m.created_at)}</p>
                   </div>
-                  <p className="line-clamp-2 text-[11px] leading-snug text-muted">{m.content?.slice(0, 80)}</p>
                 </button>
               ))
             )}
@@ -1073,56 +742,44 @@ export function ChatThread({
         </div>
       )}
 
-      {/* ── Main chat area ───────────────────────────────────────────── */}
+      {/* ── Main chat area ───────────────────────────────────────── */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {/* Header — sticky, never scrolls */}
+        {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
           <div className="flex items-center gap-3">
             {selected === GROUP ? (
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand/15 text-brand">
-                <Hash className="h-[18px] w-[18px]" />
-              </span>
+              <div className="relative flex shrink-0">
+                {peers.slice(0, 3).map((p, i) => (
+                  <Avatar key={p.id} name={p.name} size={32} className={cn("ring-2 ring-bg", i > 0 && "-ml-2")} />
+                ))}
+              </div>
             ) : (
-              <span className="relative">
-                <Avatar name={headerTitle} size={36} />
-                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-success ring-2 ring-surface" />
-              </span>
+              <Avatar name={headerTitle} size={36} />
             )}
             <div>
-              <p className="text-sm font-semibold">{headerTitle}</p>
+              <p className="text-sm font-semibold text-foreground">{headerTitle}</p>
               <p className="text-[11px] text-muted">{headerSubtitle}</p>
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => setHuddleActive(!huddleActive)}
-              title="Start a huddle"
-              className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
-                huddleActive ? "bg-success/15 text-success" : "text-muted hover:bg-surface-2 hover:text-foreground",
-              )}
-            >
-              <Headphones className="h-4 w-4" />
+            <button className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground">
+              <Search className="h-4 w-4" />
+            </button>
+            <button className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground">
+              <MoreHorizontal className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        {/* Huddle bar */}
-        <AnimatePresence>
-          {huddleActive && <HuddleBar active={huddleActive} onToggle={() => setHuddleActive(false)} />}
-        </AnimatePresence>
-
-        {/* Messages + thread panel — fills remaining height */}
+        {/* Messages + thread panel */}
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
               {visible.length === 0 && (
                 <div className="flex h-full flex-col items-center justify-center text-center">
-                  <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10">
-                    <Hash className="h-7 w-7 text-brand" />
-                  </div>
+                  <MessageCircle className="mb-3 h-10 w-10 text-muted/20" />
                   <p className="text-sm font-medium text-foreground">{t("chat.noMessages")}</p>
-                  <p className="mt-1 text-xs text-muted">{selected === GROUP ? t("chat.sayHello") : t("chat.startPrivate", { name: headerTitle })}</p>
+                  <p className="mt-1 text-xs text-muted">{t("chat.sayHello")}</p>
                 </div>
               )}
               {visible.map((m, idx) => {
@@ -1131,195 +788,115 @@ export function ChatThread({
                 const sameSender = prevMsg?.sender_id === m.sender_id && !dateDividers[m.id];
                 const withinWindow = prevMsg && new Date(m.created_at).getTime() - new Date(prevMsg.created_at).getTime() < 300000;
                 const grouped = sameSender && withinWindow;
-                const selectedLang: Lang = langByMsg[m.id] ?? viewerLang;
-                const versions = versionsOf(m);
-                const displayText = versions[selectedLang] ?? m.content;
-                const isTranslated = versions[selectedLang] != null && versions[selectedLang] !== m.content;
-                const loading = pending[m.id] && versions[selectedLang] == null;
-                const hasText = !!(displayText && displayText.trim());
+                const hasText = !!(m.content && m.content.trim());
                 const mime = m.attachment_mime || "";
                 const hasAttachment = !!mime;
                 const isTemp = m.id.startsWith("temp-");
                 const attUrl = `/api/messages/attachment?id=${m.id}`;
-                const msgReactions = reactionsMap[m.id] ?? [];
                 const divider = dateDividers[m.id];
                 const replyCount = m.reply_count ?? 0;
 
                 return (
                   <div key={m.id}>
-                    {/* Date divider */}
                     {divider && (
-                      <div className="my-4 flex items-center gap-3">
+                      <div className="my-5 flex items-center gap-3">
                         <div className="h-px flex-1 bg-border" />
-                        <span className="rounded-full border border-border bg-surface px-3 py-1 text-[11px] font-semibold text-muted">{divider}</span>
+                        <span className="text-[12px] font-medium text-muted">{divider}</span>
                         <div className="h-px flex-1 bg-border" />
                       </div>
                     )}
 
                     <div
-                      className={cn("group relative rounded-lg px-3 py-0.5 transition-colors hover:bg-surface-2/50", grouped ? "mt-0" : "mt-3")}
+                      className={cn("group relative", grouped ? "mt-0.5" : "mt-5")}
                       onMouseEnter={() => setHoveredMsg(m.id)}
                       onMouseLeave={() => setHoveredMsg(null)}
                     >
                       {/* Hover actions */}
-                      <AnimatePresence>
-                        {hoveredMsg === m.id && !isTemp && editingId !== m.id && (
-                          <HoverActions
-                            mine={mine}
-                            onReply={() => setThreadParentId(m.id)}
-                            onReact={(emoji) => toggleReaction(m.id, emoji)}
-                            onEdit={mine && hasText ? () => startEdit(m) : undefined}
-                            onDelete={mine ? () => deleteMsg(m.id) : undefined}
-                            hasText={hasText}
-                          />
-                        )}
-                      </AnimatePresence>
+                      {hoveredMsg === m.id && !isTemp && editingId !== m.id && (
+                        <div className={cn("absolute -top-3 z-30 flex items-center gap-0.5 rounded-lg border border-border bg-surface px-1 py-0.5 shadow-sm", mine ? "right-0" : "left-10")}>
+                          <button onClick={() => setThreadParentId(m.id)} className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-2 hover:text-foreground">
+                            <MessageCircle className="h-3.5 w-3.5" />
+                          </button>
+                          {mine && hasText && (
+                            <button onClick={() => startEdit(m)} className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-2 hover:text-foreground">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {mine && (
+                            <button onClick={() => deleteMsg(m.id)} className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-2 hover:text-danger">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      )}
 
                       {!grouped ? (
-                        <div className="flex gap-2.5">
+                        <div className="flex gap-3">
                           <Avatar name={m.sender_name} size={36} className="mt-0.5 shrink-0" />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-baseline gap-2">
-                              <span className="text-[13px] font-semibold text-foreground">{m.sender_name}</span>
-                              <span
-                                className={cn(
-                                  "rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide",
-                                  m.sender_role === "client" ? "bg-info/15 text-info" : "bg-brand/15 text-brand",
-                                )}
-                              >
-                                {m.sender_role === "client" ? t("chat.roleClient") : t("chat.roleTeam")}
-                              </span>
-                              <span className="text-[11px] text-muted/50">{formatTime(m.created_at)}</span>
-                              {m.edited_at && <span className="text-[10px] italic text-muted/40">({t("chat.edited")})</span>}
+                              <span className="text-sm font-semibold text-foreground">{m.sender_name}</span>
+                              <span className="text-[11px] text-muted">{formatTime(m.created_at)}</span>
                             </div>
 
-                            {/* Attachment */}
-                            {hasAttachment && renderAttachment(m, isTemp, attUrl, mine)}
+                            {hasAttachment && renderAttachment(m, isTemp, attUrl)}
 
-                            {/* Edit mode */}
                             {editingId === m.id ? (
                               <div className="mt-1 flex flex-col gap-1.5">
-                                <textarea
-                                  autoFocus
-                                  value={editVal}
-                                  onChange={(e) => setEditVal(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveEdit(m.id); }
-                                    if (e.key === "Escape") setEditingId(null);
-                                  }}
-                                  rows={Math.min(10, Math.max(2, editVal.split("\n").length))}
-                                  className="w-full resize-y rounded-lg border border-brand/50 bg-bg/60 px-3 py-2 text-sm leading-relaxed text-foreground outline-none focus:ring-2 focus:ring-brand/15"
+                                <textarea autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)}
+                                  onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveEdit(m.id); } if (e.key === "Escape") setEditingId(null); }}
+                                  rows={Math.min(6, Math.max(2, editVal.split("\n").length))}
+                                  className="w-full resize-y rounded-xl border border-brand/50 bg-bg/60 px-3 py-2 text-sm leading-relaxed text-foreground outline-none"
                                 />
                                 <div className="flex items-center gap-2">
-                                  <button onClick={() => saveEdit(m.id)} className="inline-flex items-center gap-1 rounded-lg bg-brand px-2.5 py-1 text-xs font-medium text-brand-foreground transition-opacity hover:opacity-90">
-                                    <Check className="h-3.5 w-3.5" /> {t("chat.save")}
-                                  </button>
-                                  <button onClick={() => setEditingId(null)} className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs text-muted transition-colors hover:text-foreground">
-                                    <X className="h-3.5 w-3.5" /> {t("chat.cancel")}
-                                  </button>
-                                  <span className="text-[10px] text-muted/50">⌘/Ctrl + ↵</span>
+                                  <button onClick={() => saveEdit(m.id)} className="inline-flex items-center gap-1 rounded-lg bg-brand px-2.5 py-1 text-xs font-medium text-brand-foreground"><Check className="h-3.5 w-3.5" /> {t("chat.save")}</button>
+                                  <button onClick={() => setEditingId(null)} className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs text-muted hover:text-foreground">{t("chat.cancel")}</button>
                                 </div>
                               </div>
                             ) : hasText ? (
-                              <div className="mt-0.5 text-[14px] leading-relaxed text-foreground">
-                                {loading ? <span className="text-muted">…</span> : <span dangerouslySetInnerHTML={{ __html: renderRich(displayText) }} />}
+                              <div className="mt-1 rounded-xl border-l-2 border-brand/30 pl-3 py-1 text-sm leading-relaxed text-foreground">
+                                <span dangerouslySetInnerHTML={{ __html: renderRich(m.content) }} />
+                                {m.edited_at && <span className="ml-1 text-[10px] text-muted/40">({t("chat.edited")})</span>}
                               </div>
                             ) : null}
 
-                            {/* Translation toggle + reactions + thread */}
-                            <div className="mt-1 flex flex-wrap items-center gap-2">
-                              {hasText && (
-                                <span className="inline-flex overflow-hidden rounded-full border border-border">
-                                  {(["en", "de"] as const).map((l) => (
-                                    <button key={l} onClick={() => pickLang(m, l)} className={cn("px-1.5 py-0.5 text-[9px] font-semibold uppercase transition-colors", selectedLang === l ? "bg-brand text-brand-foreground" : "text-muted hover:text-foreground")}>
-                                      {l}
-                                    </button>
-                                  ))}
-                                </span>
-                              )}
-                              {isTranslated && (
-                                <span className="inline-flex items-center gap-1 text-[10px] text-brand">
-                                  <Languages className="h-2.5 w-2.5" /> {selectedLang === "de" ? "Übersetzt" : "Translated"}
-                                </span>
-                              )}
-                              {transErr[m.id] && !isTranslated && !loading && (
-                                <span className="text-[10px] text-warning/80">{t("chat.translateUnavailable")}</span>
-                              )}
-                              {/* Reactions */}
-                              {msgReactions.length > 0 && (
-                                <div className="flex flex-wrap gap-1">
-                                  {msgReactions.map((r) => (
-                                    <button
-                                      key={r.emoji}
-                                      onClick={() => toggleReaction(m.id, r.emoji)}
-                                      className={cn(
-                                        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors",
-                                        r.reacted ? "border-brand/40 bg-brand/10 text-foreground" : "border-border bg-surface hover:bg-surface-2",
-                                      )}
-                                    >
-                                      <span>{r.emoji}</span>
-                                      <span className="text-[10px] font-medium">{r.count}</span>
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                              {/* Thread reply count */}
-                              {replyCount > 0 && (
-                                <button
-                                  onClick={() => setThreadParentId(m.id)}
-                                  className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[12px] font-medium text-brand transition-colors hover:bg-brand/10"
-                                >
-                                  <MessageCircle className="h-3.5 w-3.5" />
-                                  {replyCount} {replyCount === 1 ? "reply" : "replies"}
-                                  {m.last_reply_at && (
-                                    <span className="text-[10px] text-muted"> · {formatRelativeTime(m.last_reply_at)}</span>
-                                  )}
-                                </button>
-                              )}
-                            </div>
+                            {replyCount > 0 && (
+                              <button
+                                onClick={() => setThreadParentId(m.id)}
+                                className="mt-1.5 inline-flex items-center gap-1.5 text-[12px] font-medium text-brand transition-colors hover:underline"
+                              >
+                                <MessageCircle className="h-3.5 w-3.5" />
+                                {replyCount} {t("chat.replies")}
+                              </button>
+                            )}
                           </div>
                         </div>
                       ) : (
-                        /* Grouped (same sender, within 5 min) — just the content, no avatar */
-                        <div className="pl-[46px]">
+                        <div className="pl-[48px]">
                           <span className="invisible absolute left-3 top-1.5 text-[10px] text-muted/40 group-hover:visible">{formatTime(m.created_at)}</span>
-
-                          {hasAttachment && renderAttachment(m, isTemp, attUrl, mine)}
-
+                          {hasAttachment && renderAttachment(m, isTemp, attUrl)}
                           {editingId === m.id ? (
                             <div className="flex flex-col gap-1.5">
                               <textarea autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveEdit(m.id); } if (e.key === "Escape") setEditingId(null); }}
-                                rows={Math.min(10, Math.max(2, editVal.split("\n").length))}
-                                className="w-full resize-y rounded-lg border border-brand/50 bg-bg/60 px-3 py-2 text-sm leading-relaxed text-foreground outline-none focus:ring-2 focus:ring-brand/15"
+                                rows={Math.min(6, Math.max(2, editVal.split("\n").length))}
+                                className="w-full resize-y rounded-xl border border-brand/50 bg-bg/60 px-3 py-2 text-sm leading-relaxed text-foreground outline-none"
                               />
                               <div className="flex items-center gap-2">
                                 <button onClick={() => saveEdit(m.id)} className="inline-flex items-center gap-1 rounded-lg bg-brand px-2.5 py-1 text-xs font-medium text-brand-foreground"><Check className="h-3.5 w-3.5" /> {t("chat.save")}</button>
-                                <button onClick={() => setEditingId(null)} className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs text-muted hover:text-foreground"><X className="h-3.5 w-3.5" /> {t("chat.cancel")}</button>
+                                <button onClick={() => setEditingId(null)} className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs text-muted hover:text-foreground">{t("chat.cancel")}</button>
                               </div>
                             </div>
                           ) : hasText ? (
-                            <div className="text-[14px] leading-relaxed text-foreground">
-                              {loading ? <span className="text-muted">…</span> : <span dangerouslySetInnerHTML={{ __html: renderRich(displayText) }} />}
+                            <div className="rounded-xl border-l-2 border-brand/30 pl-3 py-1 text-sm leading-relaxed text-foreground">
+                              <span dangerouslySetInnerHTML={{ __html: renderRich(m.content) }} />
+                              {m.edited_at && <span className="ml-1 text-[10px] text-muted/40">({t("chat.edited")})</span>}
                             </div>
                           ) : null}
-
-                          {/* Reactions + thread for grouped messages */}
-                          {(msgReactions.length > 0 || replyCount > 0) && (
-                            <div className="mt-1 flex flex-wrap items-center gap-2">
-                              {msgReactions.map((r) => (
-                                <button key={r.emoji} onClick={() => toggleReaction(m.id, r.emoji)}
-                                  className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors",
-                                    r.reacted ? "border-brand/40 bg-brand/10 text-foreground" : "border-border bg-surface hover:bg-surface-2")}>
-                                  <span>{r.emoji}</span><span className="text-[10px] font-medium">{r.count}</span>
-                                </button>
-                              ))}
-                              {replyCount > 0 && (
-                                <button onClick={() => setThreadParentId(m.id)} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[12px] font-medium text-brand hover:bg-brand/10">
-                                  <MessageCircle className="h-3.5 w-3.5" /> {replyCount} {replyCount === 1 ? "reply" : "replies"}
-                                </button>
-                              )}
-                            </div>
+                          {replyCount > 0 && (
+                            <button onClick={() => setThreadParentId(m.id)} className="mt-1.5 inline-flex items-center gap-1.5 text-[12px] font-medium text-brand hover:underline">
+                              <MessageCircle className="h-3.5 w-3.5" /> {replyCount} {t("chat.replies")}
+                            </button>
                           )}
                         </div>
                       )}
@@ -1330,32 +907,30 @@ export function ChatThread({
               <div ref={endRef} />
             </div>
 
-            {/* Composer — sticky at bottom, never scrolls away */}
+            {/* Composer */}
             {uploadError && <p className="shrink-0 border-t border-border px-4 pt-2 text-xs text-danger">{uploadError}</p>}
             <form
               onSubmit={submit}
-              onDrop={onDrop}
+              onDrop={(e) => { const files = Array.from(e.dataTransfer?.files ?? []); if (files.length) { e.preventDefault(); setDragOver(false); stageFiles(files); } }}
               onDragOver={(e) => { if (e.dataTransfer?.types?.includes("Files")) { e.preventDefault(); setDragOver(true); } }}
               onDragLeave={() => setDragOver(false)}
-              className="relative shrink-0 border-t border-border px-4 py-3"
+              className="relative shrink-0 border-t border-border px-5 py-3"
             >
               <input ref={fileRef} type="file" multiple className="hidden"
                 accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.csv,.txt"
                 onChange={(e) => { stageFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }}
               />
-              {/* Mention autocomplete */}
               <AnimatePresence>
                 {mentionQuery !== null && peers.length > 0 && (
                   <MentionPopup peers={peers} query={mentionQuery} onSelect={insertMention} position={mentionPos} />
                 )}
               </AnimatePresence>
 
-              <div className={cn("rounded-xl border bg-bg/60 transition-colors", dragOver ? "border-brand bg-brand/[0.06]" : "border-border focus-within:border-brand/50 focus-within:ring-2 focus-within:ring-brand/15")}>
-                {/* Pending attachments */}
+              <div className={cn("rounded-2xl border bg-bg transition-colors", dragOver ? "border-brand bg-brand/[0.04]" : "border-border focus-within:border-brand/40")}>
                 {pendingAtt.length > 0 && (
                   <div className="flex flex-wrap gap-2 border-b border-border/60 p-2">
                     {pendingAtt.map((a) => (
-                      <div key={a.id} className="group relative">
+                      <div key={a.id} className="group/att relative">
                         {a.url ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={a.url} alt={a.file.name} className="h-16 w-16 rounded-lg border border-border object-cover" />
@@ -1365,38 +940,52 @@ export function ChatThread({
                             <span className="min-w-0"><span className="block truncate text-[11px] font-medium">{a.file.name}</span><span className="block text-[10px] text-muted">{formatBytes(a.file.size)}</span></span>
                           </div>
                         )}
-                        <button type="button" onClick={() => removePending(a.id)} className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-danger text-white shadow ring-2 ring-bg"><X className="h-3 w-3" /></button>
+                        <button type="button" onClick={() => removePending(a.id)} className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-danger text-white shadow"><X className="h-3 w-3" /></button>
                       </div>
                     ))}
                   </div>
                 )}
-                {/* Toolbar */}
-                <div className="flex items-center gap-0.5 border-b border-border/40 px-2 py-1">
-                  <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => wrapSelection("**", "text")} title={t("chat.bold")} className="flex h-7 w-7 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground"><Bold className="h-3.5 w-3.5" /></button>
-                  <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => wrapSelection("==", "highlight")} title={t("chat.highlight")} className="flex h-7 w-7 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground"><Highlighter className="h-3.5 w-3.5" /></button>
-                  <div className="mx-1 h-4 w-px bg-border" />
-                  <button type="button" onClick={() => { const el = composerRef.current; if (el) { const p = el.selectionStart ?? val.length; setVal(val.slice(0, p) + "@" + val.slice(p)); requestAnimationFrame(() => { el.focus(); el.setSelectionRange(p + 1, p + 1); }); setMentionQuery(""); } }} title="Mention someone" className="flex h-7 w-7 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground"><AtSign className="h-3.5 w-3.5" /></button>
-                </div>
-                <div className="flex items-end gap-1.5 px-2 py-1.5">
-                  <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} title={t("chat.attach")} className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted hover:bg-surface-2 hover:text-foreground disabled:opacity-50">
-                    {uploading ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <Paperclip className="h-[18px] w-[18px]" />}
-                  </button>
-                  <textarea
-                    ref={composerRef}
-                    value={val}
-                    onChange={onComposerInput}
-                    onKeyDown={onComposerKeyDown}
-                    onPaste={onComposerPaste}
-                    rows={1}
-                    placeholder={dragOver ? t("chat.dropHere") : pendingAtt.length ? t("chat.captionPlaceholder") : selected === GROUP ? t("chat.messageTeam") : t("chat.messagePerson", { name: headerTitle })}
-                    className="max-h-[200px] min-h-[36px] flex-1 resize-none self-center bg-transparent px-1 py-2 text-sm leading-relaxed outline-none placeholder:text-muted/60"
-                  />
-                  <Button type="submit" size="icon" disabled={!val.trim() && !pendingAtt.length} className="mb-0.5 h-9 w-9 shrink-0 disabled:opacity-40">
-                    <Send className="h-[18px] w-[18px]" />
-                  </Button>
+
+                <textarea
+                  ref={composerRef}
+                  value={val}
+                  onChange={onComposerInput}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+                      e.preventDefault();
+                      void submit();
+                    }
+                  }}
+                  onPaste={(e) => {
+                    const files = Array.from(e.clipboardData?.items ?? []).filter((it) => it.kind === "file").map((it) => it.getAsFile()).filter((f): f is File => !!f);
+                    if (files.length) { e.preventDefault(); stageFiles(files); }
+                  }}
+                  rows={1}
+                  placeholder={selected === GROUP ? t("chat.writeTeam") : t("chat.messagePerson", { name: headerTitle })}
+                  className="max-h-[160px] min-h-[44px] w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm leading-relaxed outline-none placeholder:text-muted/50"
+                />
+
+                <div className="flex items-center justify-between px-3 pb-2">
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50">
+                      {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    </button>
+                    <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground">
+                      <Sparkles className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="hidden text-[11px] text-muted/50 sm:block">{t("chat.composerHintFigma")}</span>
+                    <button
+                      type="submit"
+                      disabled={!val.trim() && !pendingAtt.length}
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-brand-foreground transition-opacity hover:opacity-90 disabled:opacity-30"
+                    >
+                      <Send className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
-              <p className="mt-1 px-1 text-[10px] text-muted/40">{t("chat.composerHint")} · @ to mention</p>
             </form>
           </div>
 
@@ -1423,8 +1012,7 @@ export function ChatThread({
   );
 }
 
-// ─── Attachment renderer ────────────────────────────────────────────────────
-function renderAttachment(m: Message, isTemp: boolean, attUrl: string, mine: boolean) {
+function renderAttachment(m: Message, isTemp: boolean, attUrl: string) {
   const mime = m.attachment_mime || "";
   return (
     <div className="mt-1 mb-1">
@@ -1448,9 +1036,8 @@ function renderAttachment(m: Message, isTemp: boolean, attUrl: string, mine: boo
           <FileText className="h-5 w-5 shrink-0 text-brand" />
           <span className="min-w-0">
             <span className="block max-w-[200px] truncate font-medium text-foreground">{m.attachment_name}</span>
-            {m.attachment_size ? <span className="block text-[10px] text-muted">{formatBytes(m.attachment_size)}</span> : null}
+            {m.attachment_size ? <span className="block text-[10px] text-muted">{mime.split("/")[0].toUpperCase()} · {formatBytes(m.attachment_size)}</span> : null}
           </span>
-          <Download className="h-4 w-4 shrink-0 text-muted" />
         </a>
       )}
     </div>

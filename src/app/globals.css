@@ -3,20 +3,20 @@
 @tailwind utilities;
 
 :root {
-  /* Default TyloTech Gold & Black — overridden at runtime by ThemeProvider */
-  --bg: 8 8 9;
-  --surface: 18 18 20;
-  --surface-2: 26 26 29;
-  --border: 38 38 42;
-  --foreground: 237 237 240;
-  --muted: 148 148 156;
-  --brand: 201 168 76;
-  --brand-foreground: 12 12 14;
-  --accent: 24 22 18;
-  --success: 52 199 123;
-  --warning: 240 185 66;
-  --danger: 244 87 87;
-  --info: 96 165 250;
+  /* Default TyloTech — Light theme — overridden at runtime by ThemeProvider */
+  --bg: 252 252 251;
+  --surface: 255 255 255;
+  --surface-2: 245 245 243;
+  --border: 230 230 228;
+  --foreground: 23 23 23;
+  --muted: 120 120 126;
+  --brand: 194 158 72;
+  --brand-foreground: 255 255 255;
+  --accent: 248 244 236;
+  --success: 34 170 90;
+  --warning: 228 176 52;
+  --danger: 220 60 60;
+  --info: 59 130 246;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: var(--font-sans);
 }
@@ -26,7 +26,7 @@
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
@@ -48,14 +48,14 @@ body {
 }
 
 ::selection {
-  background: rgb(var(--brand) / 0.3);
+  background: rgb(var(--brand) / 0.2);
   color: rgb(var(--foreground));
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -66,12 +66,12 @@ body {
   border: 2px solid rgb(var(--bg));
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgb(var(--muted) / 0.5);
+  background: rgb(var(--muted) / 0.4);
 }
 
 @layer components {
   .glass {
-    background: rgb(var(--surface) / 0.7);
+    background: rgb(var(--surface) / 0.85);
     backdrop-filter: blur(16px) saturate(140%);
     -webkit-backdrop-filter: blur(16px) saturate(140%);
   }
@@ -81,28 +81,28 @@ body {
   }
 
   .card-hover {
-    @apply transition-all duration-300 hover:border-brand/40 hover:shadow-glow;
+    @apply transition-all duration-300 hover:border-brand/30 hover:shadow-glow;
   }
 
   .input-base {
-    @apply w-full rounded-xl border border-border bg-bg/60 px-4 py-3 text-sm text-foreground
+    @apply w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground
       placeholder:text-muted/60 outline-none transition-all
-      focus:border-brand/60 focus:ring-2 focus:ring-brand/20;
+      focus:border-brand/50 focus:ring-2 focus:ring-brand/15;
   }
 
   .ring-focus {
-    @apply outline-none focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg;
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-bg;
   }
 }
 
 /* @mention tags in chat */
 .mention-tag {
-  @apply rounded bg-brand/15 px-1 py-0.5 text-brand font-medium;
+  @apply rounded bg-brand/10 px-1 py-0.5 text-brand font-medium;
 }
 
 /* Recharts theming hooks */
 .recharts-cartesian-grid line {
-  stroke: rgb(var(--border) / 0.5);
+  stroke: rgb(var(--border) / 0.6);
 }
 .recharts-text {
   fill: rgb(var(--muted));

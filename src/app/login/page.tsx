@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, ArrowRight, Mail } from "lucide-react";
+import { AlertCircle, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -91,9 +91,13 @@ function LoginForm() {
           <PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
         </div>
 
-        <Button type="submit" loading={loading} className="mt-2 w-full" size="lg">
+        <label className="mt-1 flex items-center gap-2 text-sm text-muted cursor-pointer select-none">
+          <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-border accent-brand" />
+          {t("auth.rememberMe")}
+        </label>
+
+        <Button type="submit" loading={loading} className="mt-4 w-full" size="lg">
           {t("auth.signIn")}
-          {!loading && <ArrowRight className="h-4 w-4" />}
         </Button>
       </form>
 

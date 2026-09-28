@@ -464,6 +464,73 @@ export async function listTeamPeers(): Promise<ChatPeer[]> {
   }));
 }
 
+export interface ClientListRow extends Client {
+  spend30d: number;
+  leads30d: number;
+  series30d: { date: string; spend: number }[];
+  assignedTeam: { id: string; name: string }[];
+}
+
+/**
+ * Staff-only: every client enriched with 30-day ad spend / leads, a daily
+ * spend series for sparklines, and the team members assigned via projects.
+ */
+export async function listClientsEnriched(): Promise<ClientListRow[]> {
+  const sb = createClient();
+  if (!sb) return [];
+
+  const since = new Date();
+  since.setDate(since.getDate() - 30);
+  const sinceStr = since.toISOString().slice(0, 10);
+
+  const [{ data: clientRows }, { data: metricRows }, { data: projectRows }, staff] = await Promise.all([
+    sb.from("clients").select("*").order("created_at", { ascending: true }),
+    sb.from("metric_points").select("client_id,date,spend,leads,provider").in("provider", ["meta_ads", "google_ads"]).gte("date", sinceStr),
+    sb.from("projects").select("client_id,assigned_to_id"),
+    fetchStaff(sb),
+  ]);
+
+  const clients = (clientRows ?? []).map(mapClient);
+  const staffById = new Map(staff.map((u: any) => [u.id, u.name as string]));
+
+  const spendByClient = new Map<string, number>();
+  const leadsByClient = new Map<string, number>();
+  const seriesByClient = new Map<string, Map<string, number>>();
+
+  for (const r of metricRows ?? []) {
+    const cid = r.client_id as string;
+    spendByClient.set(cid, (spendByClient.get(cid) ?? 0) + Number(r.spend));
+    leadsByClient.set(cid, (leadsByClient.get(cid) ?? 0) + Number(r.leads));
+    if (!seriesByClient.has(cid)) seriesByClient.set(cid, new Map());
+    const dayMap = seriesByClient.get(cid)!;
+    dayMap.set(r.date as string, (dayMap.get(r.date as string) ?? 0) + Number(r.spend));
+  }
+
+  const teamByClient = new Map<string, Map<string, string>>();
+  for (const p of projectRows ?? []) {
+    if (!p.assigned_to_id) continue;
+    const cid = p.client_id as string;
+    if (!teamByClient.has(cid)) teamByClient.set(cid, new Map());
+    const name = staffById.get(p.assigned_to_id as string);
+    if (name) teamByClient.get(cid)!.set(p.assigned_to_id as string, name);
+  }
+
+  return clients.map((c) => {
+    const dayMap = seriesByClient.get(c.id);
+    const series30d = dayMap
+      ? Array.from(dayMap.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([date, spend]) => ({ date, spend: Number(spend.toFixed(2)) }))
+      : [];
+    const tm = teamByClient.get(c.id);
+    return {
+      ...c,
+      spend30d: Number((spendByClient.get(c.id) ?? 0).toFixed(2)),
+      leads30d: leadsByClient.get(c.id) ?? 0,
+      series30d,
+      assignedTeam: tm ? Array.from(tm.entries()).map(([id, name]) => ({ id, name })) : [],
+    };
+  });
+}
+
 export async function listTeamLoad(): Promise<TeamLoad[]> {
   const sb = createClient();
   if (!sb) return [];

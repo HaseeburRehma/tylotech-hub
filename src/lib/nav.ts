@@ -9,6 +9,7 @@ import {
   FolderKanban,
   SlidersHorizontal,
   Users,
+  Contact,
   type LucideIcon,
 } from "lucide-react";
 
@@ -18,7 +19,6 @@ export interface NavItem {
   icon: LucideIcon;
 }
 
-// `label` is an i18n key (see src/lib/i18n/dictionary.ts); the sidebar translates it.
 export const CLIENT_NAV: NavItem[] = [
   { href: "/dashboard", label: "nav.dashboard", icon: LayoutDashboard },
   { href: "/performance", label: "nav.performance", icon: LineChart },
@@ -30,6 +30,7 @@ export const CLIENT_NAV: NavItem[] = [
 
 export const INTERNAL_NAV: NavItem[] = [
   { href: "/internal", label: "nav.internalHub", icon: Building2 },
+  { href: "/internal/clients", label: "nav.clients", icon: Contact },
   { href: "/internal/team", label: "nav.team", icon: Users },
   { href: "/internal/projects", label: "nav.projects", icon: FolderKanban },
   { href: "/internal/ai-tools", label: "nav.aiPrompts", icon: SlidersHorizontal },

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, ArrowRight, CheckCircle2, KeyRound, Mail, User } from "lucide-react";
+import { AlertCircle, CheckCircle2, KeyRound, Mail, User } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -9,6 +9,41 @@ import { Input, Label } from "@/components/ui/input";
 import { PasswordInput } from "@/components/auth/password-input";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { useT } from "@/lib/i18n/provider";
+
+function PasswordStrength({ password }: { password: string }) {
+  const t = useT();
+  let score = 0;
+  if (password.length >= 8) score++;
+  if (password.length >= 12) score++;
+  if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score++;
+  if (/[0-9]/.test(password) || /[^A-Za-z0-9]/.test(password)) score++;
+
+  const labels = [
+    t("auth.strengthWeak"),
+    t("auth.strengthFair"),
+    t("auth.strengthStrong"),
+    t("auth.strengthVeryStrong"),
+  ];
+  const colors = ["bg-danger", "bg-warning", "bg-brand", "bg-success"];
+
+  if (!password) return null;
+
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <div className="flex flex-1 gap-1">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className={`h-1 flex-1 rounded-full transition-colors ${
+              i < score ? colors[score - 1] : "bg-border"
+            }`}
+          />
+        ))}
+      </div>
+      <span className="text-xs text-muted">{labels[Math.max(0, score - 1)]}</span>
+    </div>
+  );
+}
 
 export default function SignupPage() {
   const router = useRouter();
@@ -46,7 +81,11 @@ export default function SignupPage() {
   }
 
   return (
-    <AuthShell hideThemeSwitcher>
+    <AuthShell
+      hideThemeSwitcher
+      panelHeadline={t("auth.signupHeadline")}
+      panelTagline={t("auth.signupTagline")}
+    >
       {done ? (
         <div className="flex flex-col items-center gap-3 py-10 text-center">
           <CheckCircle2 className="h-14 w-14 text-success" />
@@ -71,7 +110,7 @@ export default function SignupPage() {
               <Label htmlFor="name">{t("auth.fullName")}</Label>
               <div className="relative">
                 <User className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                <Input id="name" required value={form.name} onChange={set("name")} placeholder="Jane Doe" className="h-12 pl-10" />
+                <Input id="name" required value={form.name} onChange={set("name")} placeholder="Dawood Suleman" className="h-12 pl-10" />
               </div>
             </div>
             <div>
@@ -81,27 +120,29 @@ export default function SignupPage() {
                 <Input id="email" type="email" required value={form.email} onChange={set("email")} placeholder="you@tylotech.de" className="h-12 pl-10" />
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <Label htmlFor="password">{t("auth.password")}</Label>
-                <PasswordInput id="password" value={form.password} onChange={set("password")} placeholder="8+ characters" />
-              </div>
-              <div>
-                <Label htmlFor="code">{t("auth.inviteCode")}</Label>
-                <div className="relative">
-                  <KeyRound className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                  <Input id="code" required value={form.code} onChange={set("code")} placeholder="Team code" className="h-12 pl-10" />
-                </div>
+            <div>
+              <Label htmlFor="password">{t("auth.password")}</Label>
+              <PasswordInput id="password" value={form.password} onChange={set("password")} placeholder="8+ characters" />
+              <PasswordStrength password={form.password} />
+            </div>
+            <div>
+              <Label htmlFor="code">{t("auth.inviteCode")}</Label>
+              <div className="relative">
+                <KeyRound className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                <Input id="code" required value={form.code} onChange={set("code")} placeholder="TT-2026-4K9P" className="h-12 pl-10" />
               </div>
             </div>
 
             <Button type="submit" loading={loading} className="mt-2 w-full" size="lg">
               {t("auth.createBtn")}
-              {!loading && <ArrowRight className="h-4 w-4" />}
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-muted">
+          <p className="mt-4 text-center text-xs text-muted/60">
+            {t("auth.inviteNote")}
+          </p>
+
+          <p className="mt-4 text-center text-sm text-muted">
             {t("auth.alreadyQ")}{" "}
             <Link href="/login" className="font-semibold text-brand hover:underline">
               {t("auth.signInLink")}

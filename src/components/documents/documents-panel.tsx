@@ -6,6 +6,7 @@ import {
   FileArchive,
   FileText,
   Loader2,
+  MessageCircle,
   Receipt,
   ScrollText,
   Trash2,
@@ -138,7 +139,29 @@ export function DocumentsPanel({
 
       <Card className="p-2">
         {docs.length === 0 ? (
-          <p className="py-10 text-center text-sm text-muted">{t("documents.noDocs")}</p>
+          <div className="flex flex-col items-center gap-4 py-14 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-surface">
+              <FileText className="h-7 w-7 text-muted" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-base font-semibold">{t("empty.docsTitle")}</h3>
+              <p className="mx-auto max-w-sm text-sm text-muted">{t("empty.docsBody")}</p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading || !clientId}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-medium text-brand-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                <Upload className="h-4 w-4" />
+                {t("empty.uploadDoc")}
+              </button>
+              <button className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-bg px-4 text-sm font-medium text-foreground transition-colors hover:bg-surface">
+                <MessageCircle className="h-4 w-4" />
+                {t("empty.requestReport")}
+              </button>
+            </div>
+          </div>
         ) : (
           <ul className="divide-y divide-border">
             {docs.map((d, i) => {

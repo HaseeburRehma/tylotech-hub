@@ -41,9 +41,9 @@ const config: Config = {
         "3xl": "1.75rem",
       },
       boxShadow: {
-        glow: "0 0 0 1px rgb(var(--brand) / 0.25), 0 8px 40px -8px rgb(var(--brand) / 0.35)",
-        card: "0 1px 0 0 rgb(255 255 255 / 0.03) inset, 0 12px 40px -16px rgb(0 0 0 / 0.6)",
-        float: "0 24px 70px -24px rgb(0 0 0 / 0.7)",
+        glow: "0 0 0 1px rgb(var(--brand) / 0.15), 0 4px 24px -4px rgb(var(--brand) / 0.12)",
+        card: "0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.03)",
+        float: "0 12px 40px -12px rgb(0 0 0 / 0.15)",
       },
       backgroundImage: {
         "brand-gradient":

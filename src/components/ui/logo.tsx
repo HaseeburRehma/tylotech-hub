@@ -5,7 +5,6 @@ import { BrandTheme } from "@/lib/theme/themes";
 import { cn } from "@/lib/utils";
 
 function Mark({ theme, size = 32 }: { theme: BrandTheme; size?: number }) {
-  // If a real logo url is uploaded, use it; otherwise render a generated brand mark.
   if (theme.logo.type === "url") {
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={theme.logo.value} alt={theme.company} width={size} height={size} className="rounded-lg" />;
@@ -34,12 +33,14 @@ function Mark({ theme, size = 32 }: { theme: BrandTheme; size?: number }) {
           <path d="M11 14l9 14 9-14M16 20h8" stroke="rgb(var(--brand))" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
-    default: // tylotech
+    default:
       return (
         <svg {...common}>
-          <rect width="40" height="40" rx="10" fill="rgb(var(--brand) / 0.14)" />
-          <path d="M10 13h20M20 13v15" stroke="rgb(var(--brand))" strokeWidth="3" strokeLinecap="round" />
-          <circle cx="20" cy="13" r="2.4" fill="rgb(var(--brand))" />
+          <rect x="4" y="20" width="8" height="8" rx="1.5" fill="rgb(var(--brand))" opacity="0.45" />
+          <rect x="4" y="12" width="8" height="8" rx="1.5" fill="rgb(var(--brand))" opacity="0.65" />
+          <rect x="12" y="12" width="8" height="8" rx="1.5" fill="rgb(var(--brand))" opacity="0.85" />
+          <rect x="12" y="4" width="8" height="8" rx="1.5" fill="rgb(var(--brand))" />
+          <rect x="20" y="4" width="8" height="8" rx="1.5" fill="rgb(var(--brand))" opacity="0.65" />
         </svg>
       );
   }
@@ -49,17 +50,38 @@ export function Logo({
   size = 32,
   showName = true,
   className,
+  forceMarkOnly,
+  darkText,
 }: {
   size?: number;
   showName?: boolean;
   className?: string;
+  /** Skip fullLogo and render the SVG mark + text (useful on dark backgrounds) */
+  forceMarkOnly?: boolean;
+  /** Render company name in white (for dark backgrounds) */
+  darkText?: boolean;
 }) {
   const { theme } = useTheme();
+
+  if (showName && theme.fullLogo && !forceMarkOnly) {
+    return (
+      <div className={cn("flex items-center", className)}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={theme.fullLogo}
+          alt={theme.company}
+          style={{ height: size }}
+          className="w-auto object-contain"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
       <Mark theme={theme} size={size} />
       {showName && (
-        <span className="text-[15px] font-semibold tracking-tight text-foreground">
+        <span className={cn("text-[15px] font-semibold tracking-tight", darkText ? "text-white" : "text-foreground")}>
           {theme.company}
         </span>
       )}

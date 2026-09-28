@@ -17,12 +17,20 @@ export default async function InternalPage() {
   ]);
 
   const companyById = Object.fromEntries(clients.map((c) => [c.id, c.company]));
+  const colorById = Object.fromEntries(clients.map((c) => [c.id, c.primary_color]));
 
   const pipeline: PipelineColumn[] = STAGES.map((s) => ({
     stage: s.label,
+    stageKey: s.key,
     projects: projects
       .filter((p) => p.status === s.key)
-      .map((p) => ({ name: p.name, client: companyById[p.client_id] ?? "—" })),
+      .map((p) => ({
+        name: p.name,
+        client: companyById[p.client_id] ?? "—",
+        clientColor: colorById[p.client_id] ?? "#888888",
+        assignee: p.assigned_to ?? "",
+        due: p.due ?? "",
+      })),
   }));
 
   // Real MRR history: cumulative MRR of clients onboarded on/before each month.

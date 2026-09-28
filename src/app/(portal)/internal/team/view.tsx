@@ -1,5 +1,7 @@
 "use client";
 
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { ChatThread } from "@/components/chat/chat-thread";
 import { ChatPeer, Message, Role } from "@/types";
@@ -22,9 +24,14 @@ export function TeamChatView({
   return (
     <div className="flex h-[calc(100vh-7rem)] flex-col">
       <div className="shrink-0 pb-4">
-        <PageHeader title={t("team.title")} subtitle={t("team.subtitle")} />
+        <PageHeader title={t("team.title")} subtitle={t("team.subtitle")}>
+          <Button size="sm">
+            <Plus className="h-4 w-4" />
+            {t("chat.newThread")}
+          </Button>
+        </PageHeader>
       </div>
-      <div className="min-h-0 flex-1 max-w-4xl">
+      <div className="min-h-0 flex-1">
         <ChatThread
           internal
           clientId={null}
@@ -33,8 +40,8 @@ export function TeamChatView({
           currentName={currentName}
           currentRole={currentRole}
           peers={peers}
-          title={t("chat.team")}
-          subtitle={t("chat.groupEveryone")}
+          title="TyloTech Team"
+          subtitle={t("chat.groupMembers", { n: String(peers.length) })}
           className="h-full"
         />
       </div>

@@ -18,6 +18,17 @@ export interface SourceStatus {
 }
 
 type MetricKey = "spend" | "leads" | "roas";
+
+const KPI_LABEL_DE: Record<string, string> = {
+  "Organic Clicks": "Organische Klicks",
+  "Impressions": "Impressionen",
+  "Avg. Position": "Ø Position",
+  "Cost per Lead": "Kosten je Lead",
+  "Ad Spend": "Werbebudget",
+  "Clicks": "Klicks",
+  "Users": "Nutzer",
+  "Sessions": "Sitzungen",
+};
 type Agg = "sum" | "avg";
 
 interface MetricDef {
@@ -29,10 +40,10 @@ interface MetricDef {
 }
 
 const RANGES: { id: string; label: string; days: number | "ytd" }[] = [
-  { id: "7D", label: "7D", days: 7 },
-  { id: "30D", label: "30D", days: 30 },
-  { id: "90D", label: "90D", days: 90 },
-  { id: "YTD", label: "YTD", days: "ytd" },
+  { id: "7D", label: "7 T", days: 7 },
+  { id: "30D", label: "30 T", days: 30 },
+  { id: "90D", label: "90 T", days: 90 },
+  { id: "YTD", label: "Jahr", days: "ytd" },
 ];
 
 // What each source's own trend chart is actually plotting — the shared
@@ -42,27 +53,27 @@ const RANGES: { id: string; label: string; days: number | "ytd" }[] = [
 // across days (sum a count, average a ratio) all vary by source.
 const SOURCE_METRICS: Record<string, MetricDef[]> = {
   all: [
-    { key: "spend", label: "Ad Spend", metricName: "ad_spend", agg: "sum", unit: "currency" },
-    { key: "leads", label: "Leads", metricName: "leads", agg: "sum", unit: "number" },
-    { key: "roas", label: "ROAS", metricName: "roas", agg: "avg", unit: "ratio" },
+    { key: "spend", label: "perf.adSpend", metricName: "ad_spend", agg: "sum", unit: "currency" },
+    { key: "leads", label: "perf.metricLeads", metricName: "leads", agg: "sum", unit: "number" },
+    { key: "roas", label: "perf.metricRoas", metricName: "roas", agg: "avg", unit: "ratio" },
   ],
   meta_ads: [
-    { key: "spend", label: "Ad Spend", metricName: "ad_spend", agg: "sum", unit: "currency" },
-    { key: "leads", label: "Leads", metricName: "leads", agg: "sum", unit: "number" },
-    { key: "roas", label: "ROAS", metricName: "roas", agg: "avg", unit: "ratio" },
+    { key: "spend", label: "perf.adSpend", metricName: "ad_spend", agg: "sum", unit: "currency" },
+    { key: "leads", label: "perf.metricLeads", metricName: "leads", agg: "sum", unit: "number" },
+    { key: "roas", label: "perf.metricRoas", metricName: "roas", agg: "avg", unit: "ratio" },
   ],
   google_ads: [
-    { key: "spend", label: "Ad Spend", metricName: "ad_spend", agg: "sum", unit: "currency" },
-    { key: "leads", label: "Conversions", metricName: "leads", agg: "sum", unit: "number" },
-    { key: "roas", label: "ROAS", metricName: "roas", agg: "avg", unit: "ratio" },
+    { key: "spend", label: "perf.adSpend", metricName: "ad_spend", agg: "sum", unit: "currency" },
+    { key: "leads", label: "perf.metricConversions", metricName: "leads", agg: "sum", unit: "number" },
+    { key: "roas", label: "perf.metricRoas", metricName: "roas", agg: "avg", unit: "ratio" },
   ],
   search_console: [
-    { key: "leads", label: "Clicks", metricName: "clicks", agg: "sum", unit: "number" },
-    { key: "roas", label: "Impressions", metricName: "impressions", agg: "sum", unit: "number" },
+    { key: "leads", label: "perf.metricClicks", metricName: "clicks", agg: "sum", unit: "number" },
+    { key: "roas", label: "perf.metricImpressions", metricName: "impressions", agg: "sum", unit: "number" },
   ],
   ga4: [
-    { key: "leads", label: "Users", metricName: "users", agg: "sum", unit: "number" },
-    { key: "roas", label: "Sessions", metricName: "sessions", agg: "sum", unit: "number" },
+    { key: "leads", label: "perf.metricUsers", metricName: "users", agg: "sum", unit: "number" },
+    { key: "roas", label: "perf.metricSessions", metricName: "sessions", agg: "sum", unit: "number" },
   ],
 };
 
@@ -236,7 +247,7 @@ export function PerformanceView({
     };
   }, [fullSeries, anchorDate, dayCount]);
 
-  const chartLabels = Object.fromEntries(metricOptions.map((m) => [m.key, m.label])) as Partial<Record<MetricKey, string>>;
+  const chartLabels = Object.fromEntries(metricOptions.map((m) => [m.key, t(m.label)])) as Partial<Record<MetricKey, string>>;
 
   // Metrics that have real day-by-day history behind them get a range-aware
   // card (total for the selected window + a real delta vs the prior window).
@@ -357,7 +368,7 @@ export function PerformanceView({
                 return (
                   <Card key={def.key} className="p-4">
                     <div className="flex items-center justify-between">
-                      <p className="text-xs text-muted">{def.label}</p>
+                      <p className="text-xs text-muted">{t(def.label)}</p>
                       <DeltaBadge delta={delta} />
                     </div>
                     <p className="mt-1.5 font-display text-xl font-semibold">{fmtByUnit(total, def.unit)}</p>
@@ -380,7 +391,7 @@ export function PerformanceView({
               <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                 {snapshotKpis.map((k) => (
                   <Card key={k.id} className="p-4">
-                    <p className="text-xs text-muted">{k.label}</p>
+                    <p className="text-xs text-muted">{KPI_LABEL_DE[k.label] ?? k.label}</p>
                     <p className="mt-1.5 font-display text-xl font-semibold">{kpiValue(k)}</p>
                     <div className="mt-0.5 flex items-center gap-1.5">
                       <p className="text-[11px] text-muted">{k.source} · {k.period}</p>
@@ -411,7 +422,7 @@ export function PerformanceView({
                         activeMetric === key ? "bg-brand text-brand-foreground" : "text-muted hover:text-foreground",
                       )}
                     >
-                      {label}
+                      {t(label)}
                     </button>
                   ))}
                 </div>

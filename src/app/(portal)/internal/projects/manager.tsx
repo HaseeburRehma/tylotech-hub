@@ -1,21 +1,37 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
-import { Plus, Trash2, X } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  LayoutGrid,
+  List,
+  MoreHorizontal,
+  Plus,
+  Users,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input, Label } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
 import { Progress } from "@/components/ui/progress";
+import { NewProjectModal } from "@/components/modals/new-project-modal";
+import { useT } from "@/lib/i18n/provider";
 import { PROJECT_STATUS } from "@/lib/status";
 import { cn } from "@/lib/utils";
 import type { Project, ProjectStatus } from "@/types";
 import type { TeamMember } from "@/lib/data";
 
-const STATUSES: ProjectStatus[] = ["planning", "in_progress", "review", "done", "blocked"];
+type StatusFilter = "all" | ProjectStatus;
+const STATUSES: ProjectStatus[] = ["planning", "in_progress", "review", "done"];
+
+const STATUS_LABEL_KEY: Record<ProjectStatus, string> = {
+  planning: "proj.planning",
+  in_progress: "proj.inProgress",
+  review: "proj.review",
+  done: "proj.done",
+  blocked: "proj.planning",
+};
 
 export function ProjectsManager({
   projects,
@@ -26,18 +42,10 @@ export function ProjectsManager({
   clients: { id: string; company: string }[];
   members: TeamMember[];
 }) {
+  const t = useT();
   const router = useRouter();
+  const [filter, setFilter] = useState<StatusFilter>("all");
   const [open, setOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    clientId: clients[0]?.id ?? "",
-    name: "",
-    assignedToId: members[0]?.id ?? "",
-    status: "planning" as ProjectStatus,
-    progress: "0",
-    due: "",
-  });
 
   const clientName = useMemo(
     () => Object.fromEntries(clients.map((c) => [c.id, c.company])),
@@ -48,36 +56,24 @@ export function ProjectsManager({
     [members],
   );
 
-  async function create() {
-    if (!form.name.trim() || !form.clientId) {
-      setError("Client and project name are required.");
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    const res = await fetch("/api/projects", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId: form.clientId,
-        name: form.name,
-        status: form.status,
-        progress: form.progress,
-        assignedToId: form.assignedToId,
-        assignedToName: memberName[form.assignedToId] ?? null,
-        due: form.due,
-      }),
-    });
-    const data = await res.json();
-    setSaving(false);
-    if (!res.ok) {
-      setError(data.error ?? "Could not create project.");
-      return;
-    }
-    setOpen(false);
-    setForm((f) => ({ ...f, name: "", progress: "0", due: "" }));
-    router.refresh();
-  }
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const s of STATUSES) counts[s] = 0;
+    for (const p of projects) counts[p.status] = (counts[p.status] ?? 0) + 1;
+    return counts;
+  }, [projects]);
+
+  const sorted = useMemo(
+    () =>
+      [...projects].sort(
+        (a, b) => new Date(a.due).getTime() - new Date(b.due).getTime(),
+      ),
+    [projects],
+  );
+
+  const filtered = sorted.filter(
+    (p) => filter === "all" || p.status === filter,
+  );
 
   async function patch(id: string, body: Record<string, unknown>) {
     await fetch("/api/projects", {
@@ -88,170 +84,225 @@ export function ProjectsManager({
     router.refresh();
   }
 
-  async function remove(id: string) {
-    await fetch(`/api/projects?id=${id}`, { method: "DELETE" });
-    router.refresh();
-  }
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <Badge variant="outline">{projects.length} projects</Badge>
-        <Button size="sm" onClick={() => setOpen((o) => !o)}>
-          {open ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {open ? "Cancel" : "New project"}
-        </Button>
+    <div className="space-y-6">
+      <PageHeader title={t("proj.title")} subtitle={t("proj.subtitle")}>
+        <div className="flex items-center gap-3">
+          {/* View toggle */}
+          <div className="flex items-center gap-1 rounded-xl border border-border bg-surface p-1">
+            <button className="flex items-center gap-1.5 rounded-lg bg-brand/10 px-3 py-1.5 text-sm font-medium text-foreground">
+              <List className="h-3.5 w-3.5" />
+              {t("proj.list")}
+            </button>
+            <button className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted hover:text-foreground transition-colors">
+              <LayoutGrid className="h-3.5 w-3.5" />
+              {t("proj.board")}
+            </button>
+          </div>
+          <Button size="sm" onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4" />
+            {t("proj.newProject")}
+          </Button>
+        </div>
+      </PageHeader>
+
+      <NewProjectModal open={open} onClose={() => setOpen(false)} clients={clients} members={members} />
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1 rounded-xl border border-border bg-surface p-1">
+          {(
+            [
+              { key: "all" as StatusFilter, label: t("proj.all"), count: projects.length },
+              { key: "planning" as StatusFilter, label: t("proj.planning"), count: statusCounts.planning },
+              { key: "in_progress" as StatusFilter, label: t("proj.inProgress"), count: statusCounts.in_progress },
+              { key: "review" as StatusFilter, label: t("proj.review"), count: statusCounts.review },
+              { key: "done" as StatusFilter, label: t("proj.done"), count: statusCounts.done },
+            ]
+          ).map((p) => (
+            <button
+              key={p.key}
+              onClick={() => setFilter(p.key)}
+              className={cn(
+                "rounded-lg px-3 py-1.5 text-sm transition-colors",
+                filter === p.key
+                  ? "bg-brand/10 font-medium text-foreground"
+                  : "text-muted hover:text-foreground",
+              )}
+            >
+              {p.label}
+              <span className="ml-1.5 text-xs text-muted">{p.count}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted hover:text-foreground transition-colors">
+            <Users className="h-3.5 w-3.5" />
+            {t("proj.assigneeAll")}
+          </button>
+          <button className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted hover:text-foreground transition-colors">
+            <svg
+              className="h-3.5 w-3.5"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
+              <path d="M4 6l4 4 4-4" />
+            </svg>
+            {t("proj.sortDue")}
+          </button>
+        </div>
       </div>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
-          >
-            <Card className="p-6">
-              {error && (
-                <div className="mb-4 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">
-                  {error}
-                </div>
-              )}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <Label htmlFor="pname">Project name</Label>
-                  <Input id="pname" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Q3 Meta Ads Scaling" />
-                </div>
-                <div>
-                  <Label htmlFor="pclient">Client</Label>
-                  <select id="pclient" value={form.clientId} onChange={(e) => setForm((f) => ({ ...f, clientId: e.target.value }))} className="input-base appearance-none">
-                    {clients.map((c) => (
-                      <option key={c.id} value={c.id} className="bg-surface">{c.company}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="passignee">Assign to</Label>
-                  <select id="passignee" value={form.assignedToId} onChange={(e) => setForm((f) => ({ ...f, assignedToId: e.target.value }))} className="input-base appearance-none">
-                    {members.map((m) => (
-                      <option key={m.id} value={m.id} className="bg-surface">{m.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="pstatus">Status</Label>
-                  <select id="pstatus" value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as ProjectStatus }))} className="input-base appearance-none">
-                    {STATUSES.map((s) => (
-                      <option key={s} value={s} className="bg-surface">{PROJECT_STATUS[s].label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="pprog">Progress %</Label>
-                    <Input id="pprog" type="number" min={0} max={100} value={form.progress} onChange={(e) => setForm((f) => ({ ...f, progress: e.target.value }))} />
-                  </div>
-                  <div>
-                    <Label htmlFor="pdue">Due</Label>
-                    <Input id="pdue" type="date" value={form.due} onChange={(e) => setForm((f) => ({ ...f, due: e.target.value }))} />
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 flex justify-end">
-                <Button onClick={create} loading={saving}>Create project</Button>
-              </div>
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Table */}
+      <div className="overflow-x-auto rounded-xl border border-border bg-surface">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted">
+                {t("proj.col.project")}
+              </th>
+              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted">
+                {t("proj.col.client")}
+              </th>
+              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted">
+                {t("proj.col.status")}
+              </th>
+              <th className="hidden px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted md:table-cell">
+                {t("proj.col.progress")}
+              </th>
+              <th className="hidden px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-muted lg:table-cell">
+                {t("proj.col.assignee")}
+              </th>
+              <th className="hidden px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-muted md:table-cell">
+                {t("proj.col.due")}
+              </th>
+              <th className="w-10 px-4 py-3">
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((p, i) => {
+              const s = PROJECT_STATUS[p.status];
+              const assignee = p.assigned_to_id
+                ? memberName[p.assigned_to_id] ?? p.assigned_to
+                : p.assigned_to;
+              const cName = clientName[p.client_id] ?? "—";
+              return (
+                <motion.tr
+                  key={p.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.03 }}
+                  className="group border-b border-border/50 last:border-0 hover:bg-surface-2/50"
+                >
+                  {/* Project name */}
+                  <td className="px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-foreground">
+                        {p.name}
+                      </p>
+                      {p.description && (
+                        <p className="mt-0.5 truncate text-xs text-muted">{p.description}</p>
+                      )}
+                    </div>
+                  </td>
 
-      <Card className="p-2">
-        {projects.length === 0 ? (
-          <p className="py-10 text-center text-sm text-muted">No projects yet. Create your first one.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs text-muted">
-                  <th className="p-3 font-medium">Project</th>
-                  <th className="p-3 font-medium">Client</th>
-                  <th className="p-3 font-medium">Assignee</th>
-                  <th className="p-3 font-medium">Status</th>
-                  <th className="p-3 font-medium">Progress</th>
-                  <th className="p-3 font-medium" />
-                </tr>
-              </thead>
-              <tbody>
-                {projects.map((p) => {
-                  const s = PROJECT_STATUS[p.status];
-                  const assignee = p.assigned_to_id ? memberName[p.assigned_to_id] ?? p.assigned_to : p.assigned_to;
-                  return (
-                    <tr key={p.id} className="border-b border-border/50 last:border-0 hover:bg-surface-2/50">
-                      <td className="p-3 font-medium text-foreground">{p.name}</td>
-                      <td className="p-3 text-muted">{clientName[p.client_id] ?? "—"}</td>
-                      <td className="p-3">
-                        <select
-                          value={p.assigned_to_id ?? ""}
-                          onChange={(e) =>
-                            patch(p.id, { assignedToId: e.target.value, assignedToName: memberName[e.target.value] ?? null })
-                          }
-                          className="rounded-lg border border-border bg-bg/60 px-2 py-1.5 text-xs outline-none focus:border-brand/50"
-                        >
-                          <option value="" className="bg-surface">Unassigned</option>
-                          {members.map((m) => (
-                            <option key={m.id} value={m.id} className="bg-surface">{m.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="p-3">
-                        <select
-                          value={p.status}
-                          onChange={(e) => patch(p.id, { status: e.target.value })}
-                          className={cn(
-                            "rounded-lg border border-border bg-bg/60 px-2 py-1.5 text-xs outline-none focus:border-brand/50",
-                          )}
-                        >
-                          {STATUSES.map((st) => (
-                            <option key={st} value={st} className="bg-surface">{PROJECT_STATUS[st].label}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-2">
-                          <Progress value={p.progress} tone={s.tone} className="w-24" />
-                          <input
-                            type="number"
-                            defaultValue={p.progress}
-                            min={0}
-                            max={100}
-                            onBlur={(e) => {
-                              const v = Number(e.target.value);
-                              if (v !== p.progress) patch(p.id, { progress: v });
-                            }}
-                            className="w-14 rounded-lg border border-border bg-bg/60 px-2 py-1 text-xs outline-none focus:border-brand/50"
+                  {/* Client */}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Avatar name={cName} size={28} />
+                      <span className="truncate text-muted">{cName}</span>
+                    </div>
+                  </td>
+
+                  {/* Status */}
+                  <td className="px-4 py-3">
+                    <Badge
+                      variant={
+                        s.variant === "danger" ? "neutral" : s.variant
+                      }
+                      className="text-[10px]"
+                    >
+                      <span
+                        className={cn(
+                          "mr-1 inline-block h-1.5 w-1.5 rounded-full",
+                          {
+                            "bg-muted": p.status === "planning",
+                            "bg-brand": p.status === "in_progress",
+                            "bg-warning": p.status === "review",
+                            "bg-success": p.status === "done",
+                            "bg-danger": p.status === "blocked",
+                          },
+                        )}
+                      />
+                      {t(STATUS_LABEL_KEY[p.status] ?? "proj.planning")}
+                    </Badge>
+                  </td>
+
+                  {/* Progress */}
+                  <td className="hidden px-4 py-3 md:table-cell">
+                    <div className="flex items-center gap-2">
+                      <Progress
+                        value={p.progress}
+                        tone={s.tone}
+                        className="w-20"
+                      />
+                      <span className="text-xs tabular-nums text-muted">
+                        {p.progress} %
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Assignee */}
+                  <td className="hidden px-4 py-3 lg:table-cell">
+                    {assignee ? (
+                      <div className="flex -space-x-1.5">
+                        {assignee.split(",").map((name) => (
+                          <Avatar
+                            key={name.trim()}
+                            name={name.trim()}
+                            size={28}
+                            className="ring-2 ring-surface"
                           />
-                        </div>
-                      </td>
-                      <td className="p-3 text-right">
-                        <button
-                          onClick={() => remove(p.id)}
-                          className="text-muted transition-colors hover:text-danger"
-                          aria-label="Delete project"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted">—</span>
+                    )}
+                  </td>
+
+                  {/* Due date */}
+                  <td className="hidden px-4 py-3 text-right text-xs text-muted md:table-cell">
+                    {p.due
+                      ? new Date(p.due).toLocaleDateString("de-DE", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })
+                      : "—"}
+                  </td>
+
+                  {/* More */}
+                  <td className="px-4 py-3 text-right">
+                    <button className="inline-flex items-center text-muted transition-colors hover:text-foreground">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </button>
+                  </td>
+                </motion.tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {filtered.length === 0 && (
+          <div className="flex h-32 items-center justify-center text-sm text-muted">
+            {t("proj.noProjects")}
           </div>
         )}
-      </Card>
-
-      <div className="flex items-center gap-2 text-xs text-muted">
-        <Avatar name="Team" size={20} /> Assignees are pulled from your TyloTech team members.
       </div>
     </div>
   );

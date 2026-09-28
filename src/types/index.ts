@@ -31,6 +31,7 @@ export interface Project {
   id: string;
   client_id: string;
   name: string;
+  description?: string | null;
   status: ProjectStatus;
   progress: number;
   assigned_to: string;
@@ -120,7 +121,7 @@ export interface AiTool {
   slug: string;
   description: string;
   icon: string;
-  category: "Content" | "SEO" | "Ads" | "Analytics";
+  category: string;
   is_active: boolean;
   unlocked: boolean;
 }

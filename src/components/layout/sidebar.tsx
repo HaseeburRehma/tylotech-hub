@@ -3,106 +3,102 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CLIENT_NAV, INTERNAL_NAV } from "@/lib/nav";
 import { Logo } from "@/components/ui/logo";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Sparkles, Building2, ChevronDown } from "lucide-react";
+import { ChevronDown, Settings } from "lucide-react";
 import { useT } from "@/lib/i18n/provider";
-import { useUnreadHrefs } from "@/lib/hooks/use-unread";
+import { useUser } from "@/components/providers/user-provider";
+import { AccountMenu } from "./account-menu";
+import { BrandPreview } from "./brand-preview";
 import type { SidebarClient } from "./app-shell";
+
+const ROLE_LABEL: Record<string, string> = {
+  admin: "Super Admin",
+  team: "TyloTech Team",
+  client: "Client",
+};
+
+function ClientSwitcher({ clients }: { clients: SidebarClient[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const t = useT();
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  const selected = clients[0];
+  if (!selected) return null;
+
+  return (
+    <div ref={ref} className="relative mx-3 mb-2">
+      <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted/70">
+        {t("nav.client") ?? "Kunde"}
+      </p>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition-colors hover:bg-surface-2 ring-focus"
+      >
+        <Avatar name={selected.name} size={28} />
+        <span className="flex-1 truncate text-left font-medium text-foreground">
+          {selected.name}
+        </span>
+        <ChevronDown className={cn("h-4 w-4 text-muted transition-transform", open && "rotate-180")} />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-border bg-surface p-1 shadow-float">
+          {clients.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setOpen(false)}
+              className={cn(
+                "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-surface-2",
+                c.id === selected.id && "bg-brand/8 text-foreground",
+              )}
+            >
+              {c.logoUrl ? (
+                <img src={c.logoUrl} alt="" className="h-6 w-6 shrink-0 rounded-md object-cover" />
+              ) : (
+                <Avatar name={c.name} size={24} />
+              )}
+              <span className="truncate">{c.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function NavList({
   onNavigate,
   canSeeInternal,
-  userId,
   clients,
 }: {
   onNavigate?: () => void;
   canSeeInternal: boolean;
-  userId: string;
   clients: SidebarClient[];
 }) {
   const pathname = usePathname();
   const t = useT();
-  const { hrefs: unreadHrefs, reload } = useUnreadHrefs(userId);
-  // idHref = canonical UUID path used by stored notifications (badge matching).
-  // linkHref = clean slug path used for the visible link (falls back to id).
-  const idHref = (id: string) => `/internal/clients/${id}`;
-  const linkHref = (c: SidebarClient) => `/internal/clients/${c.slug || c.id}`;
-  const onClientPage = pathname.startsWith("/internal/clients/");
-  const [clientsOpen, setClientsOpen] = useState(false);
-  useEffect(() => {
-    if (onClientPage) setClientsOpen(true);
-  }, [onClientPage]);
 
-  // Which client (if any) the current path points at — by slug OR uuid.
-  const activeClient = clients.find(
-    (c) =>
-      pathname === linkHref(c) ||
-      pathname.startsWith(linkHref(c) + "/") ||
-      pathname === idHref(c.id) ||
-      pathname.startsWith(idHref(c.id) + "/"),
-  );
-
-  // Longest-prefix match for the main nav. Client UUID hrefs are included so a
-  // client's messages attribute to THAT client (not "Internal Hub"). Disabled on
-  // client pages so Internal Hub doesn't falsely highlight — the client row does.
   const allHrefs = [
     ...CLIENT_NAV.map((i) => i.href),
     ...INTERNAL_NAV.map((i) => i.href),
-    ...clients.map((c) => idHref(c.id)),
   ];
-  const activeHref = onClientPage
-    ? undefined
-    : allHrefs.filter((h) => pathname === h || pathname.startsWith(h + "/")).sort((a, b) => b.length - a.length)[0];
-
-  const countFor = (href: string) =>
-    unreadHrefs.filter((h) => {
-      const best = allHrefs
-        .filter((n) => h === n || h.startsWith(n + "/"))
-        .sort((a, b) => b.length - a.length)[0];
-      return best === href;
-    }).length;
-  const clientsTotal = clients.reduce((sum, c) => sum + countFor(idHref(c.id)), 0);
-
-  // Opening a main-nav section clears its badge.
-  useEffect(() => {
-    if (!activeHref) return;
-    if (!unreadHrefs.some((h) => h === activeHref || h.startsWith(activeHref + "/"))) return;
-    fetch("/api/notifications", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hrefPrefix: activeHref }),
-    })
-      .then(() => reload())
-      .catch(() => {});
-  }, [activeHref, unreadHrefs, reload]);
-
-  // Opening a client clears ITS badge — matched on the UUID href (notifications
-  // are stored with the uuid path even when the URL is a slug).
-  useEffect(() => {
-    if (!activeClient) return;
-    const prefix = idHref(activeClient.id);
-    if (!unreadHrefs.some((h) => h === prefix || h.startsWith(prefix + "/"))) return;
-    fetch("/api/notifications", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hrefPrefix: prefix }),
-    })
-      .then(() => reload())
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeClient?.id, unreadHrefs, reload]);
-
-  const badge = (count: number) =>
-    count > 0 ? (
-      <Badge variant="brand" className="px-1.5 py-0.5 text-[10px]">
-        {count > 9 ? "9+" : count}
-      </Badge>
-    ) : null;
+  const activeHref = allHrefs
+    .filter((h) => pathname === h || pathname.startsWith(h + "/"))
+    .sort((a, b) => b.length - a.length)[0];
 
   const render = (items: typeof CLIENT_NAV) =>
     items.map((item) => {
@@ -115,84 +111,57 @@ function NavList({
           onClick={onNavigate}
           className={cn(
             "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ring-focus",
-            active ? "text-foreground" : "text-muted hover:text-foreground hover:bg-surface-2",
+            active ? "text-foreground font-medium" : "text-muted hover:text-foreground hover:bg-surface-2",
           )}
         >
           {active && (
             <motion.span
               layoutId="nav-active"
-              className="absolute inset-0 -z-10 rounded-xl bg-brand/10 ring-1 ring-brand/20"
+              className="absolute inset-0 -z-10 rounded-xl bg-brand/8 ring-1 ring-brand/15"
               transition={{ type: "spring", stiffness: 400, damping: 32 }}
             />
           )}
           <Icon className={cn("h-[18px] w-[18px]", active && "text-brand")} />
-          <span className="flex-1 font-medium">{t(item.label)}</span>
-          {badge(countFor(item.href))}
+          <span className="flex-1">{t(item.label)}</span>
         </Link>
       );
     });
 
   return (
-    <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3">
-      <p className="px-3 pb-2 pt-4 text-[11px] font-semibold uppercase tracking-wider text-muted/60">
+    <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3">
+      <p className="px-3 pb-1.5 pt-4 text-[10px] font-semibold uppercase tracking-widest text-muted/70">
         {t("nav.workspace")}
       </p>
       {render(CLIENT_NAV)}
+
       {canSeeInternal && (
         <>
-          <p className="px-3 pb-2 pt-5 text-[11px] font-semibold uppercase tracking-wider text-muted/60">
+          <p className="px-3 pb-1.5 pt-5 text-[10px] font-semibold uppercase tracking-widest text-muted/70">
             {t("nav.tylotech")}
           </p>
           {render(INTERNAL_NAV)}
-
-          {clients.length > 0 && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setClientsOpen((o) => !o)}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-foreground ring-focus"
-              >
-                <Building2 className="h-[18px] w-[18px]" />
-                <span className="flex-1 text-left font-medium">{t("nav.clients")}</span>
-                {!clientsOpen && badge(clientsTotal)}
-                <ChevronDown className={cn("h-4 w-4 transition-transform", clientsOpen && "rotate-180")} />
-              </button>
-
-              {clientsOpen && (
-                <div className="mt-0.5 space-y-0.5 pl-3">
-                  {clients.map((c) => {
-                    const active = activeClient?.id === c.id;
-                    const count = countFor(idHref(c.id));
-                    return (
-                      <Link
-                        key={c.id}
-                        href={linkHref(c)}
-                        onClick={onNavigate}
-                        className={cn(
-                          "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ring-focus",
-                          active ? "bg-brand/10 text-foreground ring-1 ring-brand/20" : "text-muted hover:bg-surface-2 hover:text-foreground",
-                        )}
-                      >
-                        {c.logoUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={c.logoUrl} alt="" className="h-6 w-6 shrink-0 rounded-md object-cover" />
-                        ) : (
-                          <Avatar name={c.name} size={24} />
-                        )}
-                        <span className="flex-1 truncate">{c.name}</span>
-                        {count > 0 && (
-                          <span className="h-2 w-2 shrink-0 rounded-full bg-brand" title={`${count} new`} />
-                        )}
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
         </>
       )}
     </nav>
+  );
+}
+
+function UserProfile() {
+  const user = useUser();
+
+  return (
+    <div className="m-3 mt-auto shrink-0">
+      <div className="flex items-center gap-3 rounded-xl p-2">
+        <Avatar name={user.name} size={36} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
+          <p className="truncate text-xs text-muted">
+            {ROLE_LABEL[user.role] ?? user.role}
+          </p>
+        </div>
+        <AccountMenu />
+      </div>
+    </div>
   );
 }
 
@@ -209,27 +178,27 @@ export function Sidebar({
 }) {
   const t = useT();
   return (
-    <aside className="flex h-full w-[260px] flex-col border-r border-border bg-surface/40">
-      <div className="flex h-16 items-center px-5">
+    <aside className="flex h-full w-[260px] flex-col border-r border-border bg-surface">
+      <div className="flex h-16 items-center gap-2 px-5">
         <Logo />
-      </div>
-
-      <NavList onNavigate={onNavigate} canSeeInternal={canSeeInternal} userId={userId} clients={clients} />
-
-      <div className="m-3 mt-auto shrink-0 rounded-2xl border border-brand/20 bg-brand/[0.06] p-4">
-        <div className="mb-1.5 flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-brand" />
-          <span className="text-sm font-semibold text-foreground">{t("nav.unlockAi")}</span>
+        <div className="ml-auto flex items-center gap-1">
+          {canSeeInternal && <BrandPreview />}
+          <Link
+            href="/settings"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+          >
+            <Settings className="h-4 w-4" />
+          </Link>
         </div>
-        <p className="mb-3 text-xs leading-relaxed text-muted">{t("nav.unlockAiDesc")}</p>
-        <Link
-          href="/ai-tools"
-          onClick={onNavigate}
-          className="inline-flex text-xs font-semibold text-brand hover:underline"
-        >
-          {t("nav.viewAddons")}
-        </Link>
       </div>
+
+      {canSeeInternal && clients.length > 0 && (
+        <ClientSwitcher clients={clients} />
+      )}
+
+      <NavList onNavigate={onNavigate} canSeeInternal={canSeeInternal} clients={clients} />
+
+      <UserProfile />
     </aside>
   );
 }

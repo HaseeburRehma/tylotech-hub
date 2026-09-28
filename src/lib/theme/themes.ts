@@ -25,6 +25,8 @@ export interface BrandTheme {
   /** Whether brand color is light enough that text on it should be dark */
   onPrimaryDark?: boolean;
   tagline?: string;
+  /** Full lockup image (mark + wordmark) — replaces mark+text when showName is true */
+  fullLogo?: string;
 }
 
 const LOGO_BASE = "https://gdofcdiekmazmjznlria.supabase.co/storage/v1/object/public/logos";
@@ -33,11 +35,12 @@ export const TYLOTECH_THEME: BrandTheme = {
   id: "tylotech",
   name: "TyloTech",
   company: "TyloTech",
-  logo: { type: "url", value: `${LOGO_BASE}/tylotech.png` },
+  logo: { type: "mark", value: "tylotech" },
   primary: [201, 168, 76], // #C9A84C gold
   secondary: [24, 22, 18],
   onPrimaryDark: true,
   tagline: "Growth, engineered.",
+  fullLogo: "/images/tylotech-logo.png",
 };
 
 /** Real onboarded clients — used to preview white-label in the theme switcher. */
@@ -111,18 +114,18 @@ export function buildClientTheme(opts: {
 export function themeToCssVars(theme: BrandTheme): Record<string, string> {
   const onPrimaryDark = theme.onPrimaryDark ?? isLight(theme.primary);
   return {
-    "--bg": "8 8 9",
-    "--surface": "18 18 20",
-    "--surface-2": "26 26 29",
-    "--border": "38 38 42",
-    "--foreground": "237 237 240",
-    "--muted": "148 148 156",
+    "--bg": "252 252 251",
+    "--surface": "255 255 255",
+    "--surface-2": "245 245 243",
+    "--border": "230 230 228",
+    "--foreground": "23 23 23",
+    "--muted": "120 120 126",
     "--brand": theme.primary.join(" "),
     "--brand-foreground": onPrimaryDark ? "12 12 14" : "255 255 255",
     "--accent": theme.secondary.join(" "),
-    "--success": "52 199 123",
-    "--warning": "240 185 66",
-    "--danger": "244 87 87",
-    "--info": "96 165 250",
+    "--success": "34 170 90",
+    "--warning": "228 176 52",
+    "--danger": "220 60 60",
+    "--info": "59 130 246",
   };
 }

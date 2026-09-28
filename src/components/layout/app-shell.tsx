@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
+import { CommandPalette } from "./command-palette";
 import { ChatWidget } from "@/components/chat/chat-widget";
 import type { AuthUser } from "@/lib/auth";
 
@@ -28,13 +29,7 @@ export function AppShell({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* Ambient background glow */}
-      <div className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-brand/[0.07] blur-[120px]" />
-        <div className="absolute right-0 top-1/3 h-80 w-80 rounded-full bg-info/[0.05] blur-[120px]" />
-      </div>
-
+    <div className="flex h-screen overflow-hidden bg-bg">
       {/* Desktop sidebar */}
       <div className="sticky top-0 hidden h-screen lg:block">
         <Sidebar canSeeInternal={canSeeInternal} userId={user.id} clients={clients} />
@@ -49,14 +44,14 @@ export function AppShell({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setOpen(false)}
-              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+              className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm lg:hidden"
             />
             <motion.div
               initial={{ x: -300 }}
               animate={{ x: 0 }}
               exit={{ x: -300 }}
               transition={{ type: "spring", stiffness: 380, damping: 36 }}
-              className="fixed inset-y-0 left-0 z-50 bg-bg lg:hidden"
+              className="fixed inset-y-0 left-0 z-50 bg-surface lg:hidden"
             >
               <Sidebar canSeeInternal={canSeeInternal} userId={user.id} clients={clients} onNavigate={() => setOpen(false)} />
             </motion.div>
@@ -72,6 +67,7 @@ export function AppShell({
       </div>
 
       <ChatWidget />
+      <CommandPalette />
     </div>
   );
 }

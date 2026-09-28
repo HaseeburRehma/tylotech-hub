@@ -1,65 +1,28 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { BarChart3, Bot, MessagesSquare, ShieldCheck, Sparkles } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
-import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { useTheme } from "@/lib/theme/theme-provider";
 import { useT } from "@/lib/i18n/provider";
+import { cn } from "@/lib/utils";
 
-const FEATURES = [
-  { icon: BarChart3, key: "feature1" },
-  { icon: Bot, key: "feature2" },
-  { icon: MessagesSquare, key: "feature3" },
-];
-
-function PreviewCard() {
-  const bars = [42, 58, 50, 71, 64, 83, 76];
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 18, rotateX: 8 }}
-      animate={{ opacity: 1, y: 0, rotateX: 0 }}
-      transition={{ delay: 0.25, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-      className="glass w-full max-w-sm rounded-2xl border border-white/10 p-4 shadow-float"
-    >
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-[11px] font-medium text-white/60">Monthly Ad Spend</span>
-        <span className="rounded-full bg-brand/20 px-2 py-0.5 text-[10px] font-semibold text-brand">+12.4%</span>
-      </div>
-      <p className="font-display text-2xl font-semibold text-white">€18,400</p>
-      <div className="mt-3 flex h-14 items-end gap-1.5">
-        {bars.map((h, i) => (
-          <motion.span
-            key={i}
-            initial={{ height: 0 }}
-            animate={{ height: `${h}%` }}
-            transition={{ delay: 0.5 + i * 0.06, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="flex-1 rounded-t-sm bg-brand/80"
-          />
-        ))}
-      </div>
-      <div className="mt-3 flex items-center gap-4 border-t border-white/10 pt-3">
-        <div><span className="text-[10px] text-white/50">Leads</span><p className="text-sm font-semibold text-white">342</p></div>
-        <div><span className="text-[10px] text-white/50">ROAS</span><p className="text-sm font-semibold text-white">4.7x</p></div>
-        <div className="ml-auto text-[10px] text-brand">● live</div>
-      </div>
-    </motion.div>
-  );
-}
-
-/** Brand mark that can be overridden by a direct logo URL / company name. */
-function BrandMark({ size = 34, showName = true, logoUrl, company }: { size?: number; showName?: boolean; logoUrl?: string | null; company?: string }) {
+function BrandMark({ size = 34, showName = true, logoUrl, company, dark }: { size?: number; showName?: boolean; logoUrl?: string | null; company?: string; dark?: boolean }) {
   if (logoUrl) {
     return (
       <div className="flex items-center gap-2.5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={logoUrl} alt={company ?? ""} width={size} height={size} className="rounded-lg" />
         {showName && company && (
-          <span className="text-[15px] font-semibold tracking-tight text-foreground">{company}</span>
+          <span className={cn("text-[15px] font-semibold tracking-tight", dark ? "text-white" : "text-foreground")}>{company}</span>
         )}
       </div>
     );
+  }
+  if (dark) {
+    return <Logo size={size} showName={showName} forceMarkOnly darkText />;
   }
   return <Logo size={size} showName={showName} />;
 }
@@ -70,24 +33,76 @@ export interface AuthShellBrand {
   tagline?: string;
 }
 
+function StyledHeadline({ text }: { text: string }) {
+  const parts = text.split(/(\*[^*]+\*)/g);
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.startsWith("*") && p.endsWith("*") ? (
+          <span key={i} className="italic" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
+            {p.slice(1, -1)}
+          </span>
+        ) : (
+          <span key={i}>{p}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 export function AuthShell({
   children,
   hideThemeSwitcher,
   brand,
+  panelHeadline,
+  panelTagline,
 }: {
   children: React.ReactNode;
   hideThemeSwitcher?: boolean;
-  /** Override the brand display (for client-specific login pages). */
   brand?: AuthShellBrand;
+  panelHeadline?: string;
+  panelTagline?: string;
 }) {
   const { theme } = useTheme();
   const t = useT();
-  const [headA, headB] = t("auth.headline").split("\n");
-  const displayTagline = brand?.tagline ?? theme.tagline ?? t("dash.subtitle");
+  const headline = panelHeadline ?? t("auth.headline");
+  const headlineFormatted = headline.replace("\n", " ");
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
-      {/* ---------- Left: branded showcase ---------- */}
+    <div className="grid min-h-screen lg:grid-cols-[1fr_1.05fr]">
+      {/* ---------- Left: form ---------- */}
+      <div className="relative flex flex-col bg-bg px-5 py-8 sm:px-10 lg:px-14">
+        {/* Top bar */}
+        <div className="flex items-center justify-between">
+          <BrandMark size={34} logoUrl={brand?.logoUrl} company={brand?.company} />
+          <LanguageSwitcher />
+        </div>
+
+        {/* Centered form */}
+        <div className="flex flex-1 items-center justify-center">
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="w-full max-w-[440px]"
+          >
+            {children}
+          </motion.div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-muted/60">
+          <Link href="/impressum" className="hover:text-muted transition-colors">
+            {t("auth.imprint")}
+          </Link>
+          <Link href="/datenschutz" className="hover:text-muted transition-colors">
+            {t("auth.privacy")}
+          </Link>
+          <span className="lg:ml-auto">{t("auth.copyright")}</span>
+        </div>
+      </div>
+
+      {/* ---------- Right: branded showcase ---------- */}
       <div className="relative hidden flex-col justify-between overflow-hidden p-10 xl:p-14 lg:flex">
         {/* layered brand background */}
         <div className="absolute inset-0 -z-10 bg-[rgb(var(--accent))]" />
@@ -95,91 +110,63 @@ export function AuthShell({
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(100%_100%_at_110%_110%,rgb(var(--brand)/0.22),transparent_55%)]" />
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-black/10 to-black/40" />
         <div className="absolute inset-0 -z-10 bg-grid bg-[size:44px_44px] opacity-[0.18] [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]" />
-        <div className="absolute -left-24 top-1/4 -z-10 h-80 w-80 rounded-full bg-brand/30 blur-[110px]" />
-        <div className="absolute bottom-0 right-0 -z-10 h-72 w-72 rounded-full bg-brand/15 blur-[120px]" />
+        <div className="absolute -right-24 top-1/4 -z-10 h-80 w-80 rounded-full bg-brand/30 blur-[110px]" />
+        <div className="absolute bottom-0 left-0 -z-10 h-72 w-72 rounded-full bg-brand/15 blur-[120px]" />
 
-        <BrandMark size={34} logoUrl={brand?.logoUrl} company={brand?.company} />
+        <BrandMark size={34} logoUrl={brand?.logoUrl} company={brand?.company} dark />
 
-        <div className="max-w-md">
+        <div className="max-w-lg">
           <motion.h1
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             className="font-display text-4xl font-semibold leading-[1.1] tracking-tight text-white xl:text-[2.75rem]"
           >
-            {headA}
-            <br />
-            {headB}
+            <StyledHeadline text={headlineFormatted} />
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.6 }}
-            className="mt-4 max-w-sm text-[15px] leading-relaxed text-white/65"
+            className="mt-5 max-w-md text-[15px] leading-relaxed text-white/65"
           >
-            {displayTagline}
+            {panelTagline ?? brand?.tagline ?? t("auth.tagline")}
           </motion.p>
 
-          <div className="mt-7 space-y-3.5">
-            {FEATURES.map((f, i) => {
-              const Icon = f.icon;
-              return (
-                <motion.div
-                  key={f.key}
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.15 + i * 0.08, duration: 0.5 }}
-                  className="flex items-start gap-3"
-                >
-                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/20 text-brand ring-1 ring-brand/30">
-                    <Icon className="h-[18px] w-[18px]" />
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold text-white">{t(`auth.${f.key}Title`)}</p>
-                    <p className="text-[13px] text-white/65">{t(`auth.${f.key}Desc`)}</p>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-
-          <div className="mt-7">
-            <PreviewCard />
-          </div>
+          {/* Stats row */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+            className="mt-8 flex gap-8"
+          >
+            <div>
+              <p className="text-2xl font-bold text-white">2.109&nbsp;€</p>
+              <p className="mt-1 text-sm text-white/50">{t("auth.statBudget")}</p>
+            </div>
+            <div className="border-l border-white/10 pl-8">
+              <p className="text-2xl font-bold text-white">39</p>
+              <p className="mt-1 text-sm text-white/50">{t("auth.statLeads")}</p>
+            </div>
+            <div className="border-l border-white/10 pl-8">
+              <p className="text-2xl font-bold text-white">10</p>
+              <p className="mt-1 text-sm text-white/50">{t("auth.statClients")}</p>
+            </div>
+          </motion.div>
         </div>
 
-        <div className="flex items-center gap-2 text-[13px] text-white/50">
-          <ShieldCheck className="h-4 w-4 text-brand/70" />
-          {t("auth.secure")}
-        </div>
-      </div>
-
-      {/* ---------- Right: form ---------- */}
-      <div className="relative flex items-center justify-center bg-bg px-5 py-10 sm:px-10">
-        <div className="pointer-events-none absolute inset-0 -z-10 lg:hidden">
-          <div className="absolute left-1/2 top-0 h-[26rem] w-[26rem] -translate-x-1/2 rounded-full bg-brand/[0.12] blur-[120px]" />
-        </div>
-        <div className="absolute right-5 top-5 flex items-center gap-2">
-          <LanguageSwitcher />
-          {!hideThemeSwitcher && <ThemeSwitcher />}
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-[400px]"
-        >
-          {/* Mobile brand mark */}
-          <div className="mb-8 flex justify-center lg:hidden">
-            <BrandMark size={40} showName={false} logoUrl={brand?.logoUrl} company={brand?.company} />
+        {/* Bottom row */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-[13px] text-white/50">
+            <ShieldCheck className="h-4 w-4 text-brand/70" />
+            {t("auth.secure")}
           </div>
-          {children}
-          <div className="mt-8 flex items-center justify-center gap-1.5 text-xs text-muted/60">
-            <Sparkles className="h-3 w-3 text-brand/60" />
-            {t("auth.poweredBy")} <span className="font-semibold text-muted">TyloTech</span>
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-white" />
+            <span className="h-2 w-2 rounded-full bg-white/30" />
+            <span className="h-2 w-2 rounded-full bg-white/30" />
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

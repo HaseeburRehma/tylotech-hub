@@ -1,7 +1,17 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, CheckCheck } from "lucide-react";
+import {
+  Bell,
+  CheckCheck,
+  FileText,
+  MessageCircle,
+  RefreshCw,
+  AlertCircle,
+  UserPlus,
+  Settings,
+} from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -15,6 +25,33 @@ interface Item {
   href: string | null;
   read: boolean;
   created_at: string;
+  type?: string;
+}
+
+const TYPE_ICON: Record<string, React.ElementType> = {
+  message: MessageCircle,
+  document: FileText,
+  sync: RefreshCw,
+  alert: AlertCircle,
+  user: UserPlus,
+};
+
+const TYPE_COLOR: Record<string, string> = {
+  message: "bg-brand/15 text-brand",
+  document: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+  sync: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  alert: "bg-red-500/15 text-red-500",
+  user: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
+};
+
+function guessType(title: string): string {
+  const t = title.toLowerCase();
+  if (t.includes("nachricht") || t.includes("message")) return "message";
+  if (t.includes("datei") || t.includes("file") || t.includes("dokument") || t.includes("document")) return "document";
+  if (t.includes("synchron") || t.includes("sync") || t.includes("console")) return "sync";
+  if (t.includes("budget") || t.includes("ausgeschöpft") || t.includes("alert") || t.includes("warnung")) return "alert";
+  if (t.includes("angelegt") || t.includes("created") || t.includes("eingeladen") || t.includes("invited")) return "user";
+  return "message";
 }
 
 export function NotificationsBell({ userId }: { userId: string }) {
@@ -37,7 +74,6 @@ export function NotificationsBell({ userId }: { userId: string }) {
     load();
   }, [load]);
 
-  // Live badge updates.
   useEffect(() => {
     const supabase = createClient();
     if (!supabase) return;
@@ -96,38 +132,63 @@ export function NotificationsBell({ userId }: { userId: string }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.97 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 z-50 mt-2 w-80 rounded-2xl border border-border bg-surface p-2 shadow-float"
+            className="absolute right-0 z-50 mt-2 w-[360px] rounded-2xl border border-border bg-surface shadow-float"
           >
-            <div className="flex items-center justify-between px-3 py-2">
-              <p className="text-sm font-semibold text-foreground">{t("notif.title")}</p>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4">
+              <p className="text-base font-semibold text-foreground">{t("notif.title")}</p>
               {unread > 0 && (
-                <button onClick={markAll} className="inline-flex items-center gap-1 text-xs text-brand hover:underline">
-                  <CheckCheck className="h-3.5 w-3.5" /> {t("notif.markAll")}
+                <button onClick={markAll} className="text-xs font-medium text-brand hover:underline">
+                  {t("notif.markAll")}
                 </button>
               )}
             </div>
-            <div className="max-h-80 overflow-y-auto">
+
+            {/* Items */}
+            <div className="max-h-[400px] overflow-y-auto px-2">
               {items.length === 0 ? (
-                <p className="px-3 py-8 text-center text-sm text-muted">{t("notif.caughtUp")}</p>
+                <p className="px-3 py-10 text-center text-sm text-muted">{t("notif.caughtUp")}</p>
               ) : (
-                items.map((i) => (
-                  <button
-                    key={i.id}
-                    onClick={() => openItem(i)}
-                    className={cn(
-                      "flex w-full gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-surface-2",
-                      !i.read && "bg-brand/[0.06]",
-                    )}
-                  >
-                    <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", i.read ? "bg-transparent" : "bg-brand")} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium text-foreground">{i.title}</span>
-                      {i.body && <span className="block truncate text-xs text-muted">{i.body}</span>}
-                      <span className="block text-[10px] text-muted/60">{formatRelativeTime(i.created_at)}</span>
-                    </span>
-                  </button>
-                ))
+                items.map((i) => {
+                  const nType = i.type || guessType(i.title);
+                  const Icon = TYPE_ICON[nType] ?? Bell;
+                  const iconColor = TYPE_COLOR[nType] ?? "bg-surface-2 text-muted";
+                  return (
+                    <button
+                      key={i.id}
+                      onClick={() => openItem(i)}
+                      className={cn(
+                        "relative flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-surface-2",
+                        !i.read && "bg-brand/[0.04]",
+                      )}
+                    >
+                      <span className={cn("mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", iconColor)}>
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium text-foreground">{i.title}</span>
+                        {i.body && <span className="mt-0.5 block text-xs text-muted line-clamp-2">{i.body}</span>}
+                        <span className="mt-1 block text-[11px] text-muted/60">{formatRelativeTime(i.created_at)}</span>
+                      </span>
+                      {!i.read && (
+                        <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-brand" />
+                      )}
+                    </button>
+                  );
+                })
               )}
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-border px-5 py-3">
+              <Link
+                href="/settings"
+                onClick={() => setOpen(false)}
+                className="flex items-center justify-center gap-1.5 text-sm text-muted transition-colors hover:text-foreground"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                {t("notif.settingsLink")}
+              </Link>
             </div>
           </motion.div>
         )}

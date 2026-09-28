@@ -1,16 +1,24 @@
 "use client";
 
-import { Check, Plus } from "lucide-react";
+import { Check, FileText, Plus, Rocket, Star, Zap } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { ChatThread } from "@/components/chat/chat-thread";
 import { UPDATE_META } from "@/lib/status";
 import { ChatPeer, Message, Role, Update } from "@/types";
 import { formatRelativeTime } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
+import { type LucideIcon } from "lucide-react";
+
+const TYPE_ICONS: Record<string, LucideIcon> = {
+  milestone: Star,
+  report: FileText,
+  campaign: Rocket,
+  note: FileText,
+  alert: Zap,
+};
 
 export function ChatView({
   initialMessages,
@@ -20,6 +28,7 @@ export function ChatView({
   currentName,
   currentRole,
   clientId,
+  clientCompany,
 }: {
   initialMessages: Message[];
   updates: Update[];
@@ -28,6 +37,7 @@ export function ChatView({
   currentName: string;
   currentRole: Role;
   clientId: string | null;
+  clientCompany?: string;
 }) {
   const t = useT();
   const [requested, setRequested] = useState(false);
@@ -50,17 +60,18 @@ export function ChatView({
 
   return (
     <div className="flex h-[calc(100vh-7rem)] flex-col">
-      <div className="mb-3 shrink-0 flex items-center justify-between">
+      <div className="mb-3 shrink-0">
         <PageHeader title={t("chat.title")} subtitle={t("chat.subtitle")}>
-          <Button size="sm" variant="outline" onClick={requestTask} loading={requesting}>
+          <Button size="sm" onClick={requestTask} loading={requesting}>
             {requested ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
             {requested ? t("chat.requestSent") : t("chat.requestTask")}
           </Button>
         </PageHeader>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-4">
-        <div className="lg:col-span-3 min-h-0">
+      <div className="flex min-h-0 flex-1 gap-4">
+        {/* Chat (takes remaining space) */}
+        <div className="min-h-0 min-w-0 flex-1">
           <ChatThread
             initialMessages={initialMessages}
             currentUserId={currentUserId}
@@ -69,39 +80,46 @@ export function ChatView({
             clientId={clientId}
             peers={peers}
             title={t("chat.team")}
-            subtitle={t("chat.groupEveryone")}
+            subtitle={clientCompany ? t("chat.groupMembersClient", { n: String(peers.length), client: clientCompany }) : t("chat.groupMembers", { n: String(peers.length) })}
             className="h-full"
           />
         </div>
 
-        <Card className="overflow-y-auto">
-          <CardHeader>
-            <CardTitle>{t("chat.thisMonthAt")}</CardTitle>
-            <Badge variant="brand">{updates.length}</Badge>
-          </CardHeader>
-          <div className="relative space-y-5 pl-5">
-            {updates.length === 0 && (
-              <p className="py-6 text-sm text-muted">{t("chat.noUpdates")}</p>
-            )}
-            {updates.length > 0 && (
-              <span className="absolute left-[7px] top-1.5 h-[calc(100%-1rem)] w-px bg-border" />
-            )}
-            {updates.map((u) => {
-              const meta = UPDATE_META[u.type];
-              return (
-                <div key={u.id} className="relative">
-                  <span className="absolute -left-[18px] top-1 h-3.5 w-3.5 rounded-full border-2 border-bg bg-brand" />
-                  <div className="flex items-center gap-2">
-                    <Badge variant={meta.variant}>{meta.label}</Badge>
-                    <span className="text-[11px] text-muted/60">{formatRelativeTime(u.created_at)}</span>
-                  </div>
-                  <p className="mt-1.5 text-sm font-medium text-foreground">{u.title}</p>
-                  {u.description && <p className="mt-0.5 text-xs leading-relaxed text-muted">{u.description}</p>}
-                </div>
-              );
-            })}
+        {/* Updates sidebar */}
+        <div className="hidden w-[300px] shrink-0 flex-col overflow-hidden lg:flex">
+          <div className="flex items-center justify-between px-4 py-3">
+            <p className="text-sm font-semibold text-foreground">{t("chat.thisMonthAt")}</p>
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand/10 px-1.5 text-[11px] font-semibold text-brand">{updates.length}</span>
           </div>
-        </Card>
+
+          <div className="flex-1 overflow-y-auto px-4">
+            {updates.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Star className="mb-2 h-8 w-8 text-muted/20" />
+                <p className="text-sm text-muted">{t("chat.noUpdates")}</p>
+              </div>
+            )}
+            <div className="space-y-6">
+              {updates.map((u) => {
+                const Icon = TYPE_ICONS[u.type] ?? FileText;
+                return (
+                  <div key={u.id} className="flex items-start gap-3">
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-[13px] font-semibold leading-snug text-foreground">{u.title}</p>
+                        <span className="shrink-0 text-[11px] text-muted">{formatRelativeTime(u.created_at)}</span>
+                      </div>
+                      {u.description && <p className="mt-1 text-[12px] leading-relaxed text-muted">{u.description}</p>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
