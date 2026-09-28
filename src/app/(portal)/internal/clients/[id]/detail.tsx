@@ -76,6 +76,7 @@ export function ClientDetail({
 }) {
   const t = useT();
   const [tab, setTab] = useState<TabKey>("overview");
+  const [showKpiEditor, setShowKpiEditor] = useState(false);
   const isChat = tab === "chat";
 
   const activeProjects = projects.filter(
@@ -83,10 +84,6 @@ export function ClientDetail({
   );
   const doneProjects = projects.filter((p) => p.status === "done");
   const costPerLead = leads30d > 0 ? spend30d / leads30d : 0;
-  const pctOfAccounts =
-    totalClients > 0
-      ? Math.round((spend30d / (totalClients * spend30d || 1)) * 100)
-      : 0;
 
   const clientSince = new Date(client.created_at).toLocaleDateString("de-DE", {
     month: "long",
@@ -126,7 +123,6 @@ export function ClientDetail({
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Brand colors */}
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted">{t("cd.brandColors")}</span>
               <span
@@ -169,7 +165,7 @@ export function ClientDetail({
         </div>
       </div>
 
-      {/* Overview */}
+      {/* ───────── Overview ───────── */}
       {tab === "overview" && (
         <div className="space-y-6">
           {/* Stats row */}
@@ -298,7 +294,7 @@ export function ClientDetail({
 
             {/* Right sidebar */}
             <div className="space-y-4">
-              {/* Team/Betreuung */}
+              {/* Team */}
               <div className="rounded-xl border border-border bg-surface p-5">
                 <div className="mb-4 flex items-center justify-between">
                   <h3 className="font-semibold text-foreground">{t("cd.team")}</h3>
@@ -335,13 +331,12 @@ export function ClientDetail({
                   <h3 className="font-semibold text-foreground">
                     {t("cd.dataSources")}
                   </h3>
-                  <Link
-                    href={`/internal/clients/${client.id}`}
+                  <button
                     onClick={() => setTab("metrics")}
                     className="text-sm font-medium text-brand hover:underline"
                   >
                     {t("cd.manage")}
-                  </Link>
+                  </button>
                 </div>
                 <div className="space-y-3">
                   {["Search Console", "Meta Ads", "Google Ads", "GA4"].map(
@@ -423,23 +418,198 @@ export function ClientDetail({
         </div>
       )}
 
+      {/* ───────── Invoices & KPIs ───────── */}
       {tab === "metrics" && (
         <div className="space-y-6">
-          <MetricsEditor clientId={client.id} initialKpis={kpis} />
-          <div>
-            <h3 className="mb-1 text-sm font-semibold">{t("cd.dataSources")}</h3>
-            <IntegrationsBoard
-              providers={PROVIDERS}
-              rows={integrations}
-              clientId={client.id}
-              clients={[]}
-              isStaff
-              liveProviders={liveProviders}
-            />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.6fr]">
+            {/* Left: Stammblatt + Team */}
+            <div className="space-y-4">
+              {/* Master data */}
+              <div className="rounded-xl border border-border bg-surface p-5">
+                <h3 className="mb-4 font-semibold text-foreground">{t("cd.masterData")}</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-border pb-2.5">
+                    <span className="text-xs text-muted">{t("cd.company")}</span>
+                    <span className="text-sm font-medium text-foreground">{client.company}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-border pb-2.5">
+                    <span className="text-xs text-muted">{t("cd.contact")}</span>
+                    <span className="text-sm font-medium text-foreground">{peers[0]?.name ?? "—"}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-border pb-2.5">
+                    <span className="text-xs text-muted">{t("cd.industry")}</span>
+                    <span className="text-sm text-muted">—</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-border pb-2.5">
+                    <span className="text-xs text-muted">{t("cd.planLabel")}</span>
+                    <Badge variant={client.plan === "Scale" ? "brand" : "success"} className="text-[10px]">
+                      {client.plan}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-border pb-2.5">
+                    <span className="text-xs text-muted">{t("cd.mrr")}</span>
+                    <span className="text-sm font-medium text-foreground">{formatCurrency(client.mrr)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted">{t("cd.since")}</span>
+                    <span className="text-sm font-medium text-foreground">{clientSince}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Team */}
+              <div className="rounded-xl border border-border bg-surface p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="font-semibold text-foreground">{t("cd.team")}</h3>
+                  <button className="text-sm font-medium text-brand hover:underline">
+                    {t("cd.change")}
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {teamMembers.map((m) => (
+                    <div key={m.id} className="flex items-center gap-3">
+                      <Avatar name={m.name} size={36} />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{m.name}</p>
+                        <p className="text-xs text-muted">{m.role}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Data sources */}
+              <div className="rounded-xl border border-border bg-surface p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="font-semibold text-foreground">{t("cd.dataSources")}</h3>
+                  <span className="text-xs text-muted">
+                    {integrations.filter((i: any) => i.status === "connected").length}/{["Search Console", "Meta Ads", "Google Ads", "GA4"].length} {t("cd.connected")}
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  {["Search Console", "Meta Ads", "Google Ads", "GA4"].map((source) => {
+                    const isConnected = integrations.some(
+                      (i: any) =>
+                        i.provider?.replace(/_/g, " ").toLowerCase() ===
+                          source.toLowerCase().replace(/ /g, "_") && i.status === "connected",
+                    );
+                    return (
+                      <div key={source} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className={cn("inline-block h-2 w-2 rounded-full", isConnected ? "bg-brand" : "bg-muted/40")} />
+                          <span className="text-sm text-foreground">{source}</span>
+                        </div>
+                        <span className="text-xs text-muted">{isConnected ? t("cd.connected") : t("cd.open")}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Dashboard KPIs table */}
+            <div className="space-y-4">
+              <div className="rounded-xl border border-border bg-surface p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="font-semibold text-foreground">{t("cd.dashKpis")}</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowKpiEditor(!showKpiEditor)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    {t("cd.editKpis")}
+                  </Button>
+                </div>
+
+                {kpis.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border text-left">
+                          <th className="pb-2.5 text-xs font-medium text-muted">{t("cd.metric")}</th>
+                          <th className="pb-2.5 text-xs font-medium text-muted text-right">{t("cd.value")}</th>
+                          <th className="pb-2.5 text-xs font-medium text-muted text-right">{t("cd.unit")}</th>
+                          <th className="pb-2.5 text-xs font-medium text-muted text-right">Δ %</th>
+                          <th className="pb-2.5 text-xs font-medium text-muted text-right">{t("cd.source")}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {kpis.map((k) => (
+                          <tr key={k.id} className="group">
+                            <td className="py-3 font-medium text-foreground">{k.label}</td>
+                            <td className="py-3 text-right tabular-nums">
+                              {k.unit === "currency" ? formatCurrency(k.value) : k.value}
+                            </td>
+                            <td className="py-3 text-right text-muted">{k.unit}</td>
+                            <td className="py-3 text-right">
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-0.5 text-xs font-medium",
+                                  k.delta > 0 ? "text-success" : k.delta < 0 ? "text-danger" : "text-muted",
+                                )}
+                              >
+                                {k.delta > 0 ? "+" : ""}
+                                {k.delta}%
+                              </span>
+                            </td>
+                            <td className="py-3 text-right text-muted">{k.source}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted">{t("cd.noKpis")}</p>
+                )}
+              </div>
+
+              {/* KPI Editor (collapsible) */}
+              {showKpiEditor && (
+                <MetricsEditor clientId={client.id} initialKpis={kpis} />
+              )}
+
+              {/* Integrations board (collapsible behind editor) */}
+              {showKpiEditor && (
+                <div>
+                  <h3 className="mb-1 text-sm font-semibold">{t("cd.dataSources")}</h3>
+                  <IntegrationsBoard
+                    providers={PROVIDERS}
+                    rows={integrations}
+                    clientId={client.id}
+                    clients={[]}
+                    isStaff
+                    liveProviders={liveProviders}
+                  />
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Client contacts */}
+          {peers.length > 0 && (
+            <div className="rounded-xl border border-border bg-surface p-5">
+              <h3 className="mb-4 font-semibold text-foreground">{t("cd.clientContacts")}</h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {peers.map((p) => (
+                  <div key={p.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
+                    <Avatar name={p.name} size={40} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground">{p.name}</p>
+                      <p className="text-xs text-muted">{p.title ?? p.role}</p>
+                    </div>
+                    <button className="text-muted hover:text-foreground transition-colors">
+                      <MessageCircle className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
+      {/* ───────── Chat ───────── */}
       {tab === "chat" && (
         <div className="min-h-0 flex-1">
           <ChatThread
@@ -456,10 +626,12 @@ export function ClientDetail({
         </div>
       )}
 
+      {/* ───────── Updates ───────── */}
       {tab === "updates" && (
         <UpdatesManager updates={updates} clientId={client.id} canPost />
       )}
 
+      {/* ───────── Documents ───────── */}
       {tab === "documents" && (
         <DocumentsPanel documents={documents} clientId={client.id} />
       )}
