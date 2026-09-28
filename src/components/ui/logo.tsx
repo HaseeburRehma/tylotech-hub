@@ -50,27 +50,24 @@ export function Logo({
   size = 32,
   showName = true,
   className,
-  forceMarkOnly,
-  darkText,
+  invert,
 }: {
   size?: number;
   showName?: boolean;
   className?: string;
-  /** Skip fullLogo and render the SVG mark + text (useful on dark backgrounds) */
-  forceMarkOnly?: boolean;
-  /** Render company name in white (for dark backgrounds) */
-  darkText?: boolean;
+  /** Invert the full logo to white for dark backgrounds */
+  invert?: boolean;
 }) {
   const { theme } = useTheme();
 
-  if (showName && theme.fullLogo && !forceMarkOnly) {
+  if (showName && theme.fullLogo) {
     return (
       <div className={cn("flex items-center", className)}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={theme.fullLogo}
           alt={theme.company}
-          style={{ height: size }}
+          style={{ height: size, filter: invert ? "brightness(0) invert(1)" : undefined }}
           className="w-auto object-contain"
         />
       </div>
@@ -81,7 +78,7 @@ export function Logo({
     <div className={cn("flex items-center gap-2.5", className)}>
       <Mark theme={theme} size={size} />
       {showName && (
-        <span className={cn("text-[15px] font-semibold tracking-tight", darkText ? "text-white" : "text-foreground")}>
+        <span className={cn("text-[15px] font-semibold tracking-tight", invert ? "text-white" : "text-foreground")}>
           {theme.company}
         </span>
       )}

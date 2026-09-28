@@ -21,10 +21,7 @@ function BrandMark({ size = 34, showName = true, logoUrl, company, dark }: { siz
       </div>
     );
   }
-  if (dark) {
-    return <Logo size={size} showName={showName} forceMarkOnly darkText />;
-  }
-  return <Logo size={size} showName={showName} />;
+  return <Logo size={size} showName={showName} invert={dark} />;
 }
 
 export interface AuthShellBrand {
