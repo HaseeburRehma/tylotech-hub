@@ -5,14 +5,16 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
-  CheckCircle2,
   Clock,
+  Globe,
   Link2,
   Mail,
+  Megaphone,
   Phone,
   Play,
   Plus,
-  Rocket,
+  Search,
+  Share2,
   Upload,
   User,
   Users,
@@ -29,7 +31,14 @@ import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 const STEPS = ["ob.stepWelcome", "ob.stepProfile", "ob.stepChannels", "ob.stepTeam", "ob.stepDone"] as const;
-const STEP_ICONS = [Rocket, User, Link2, Users, Check];
+
+const SERVICES = [
+  { id: "website", icon: Globe, label: "Website" },
+  { id: "seo", icon: Search, label: "SEO" },
+  { id: "ads", icon: Megaphone, label: "Ads" },
+  { id: "social", icon: Share2, label: "Social" },
+  { id: "mail", icon: Mail, label: "Mail" },
+];
 
 const CHANNELS = [
   { id: "search_console", name: "Search Console", category: "SEO", desc: "ob.scDesc", color: "#4285F4" },
@@ -49,15 +58,18 @@ const ROLES = ["Designer", "Developer", "SEO Expert", "Head of Support", "Market
 
 interface InviteRow {
   email: string;
+  name: string;
   role: string;
 }
 
 function Stepper({ step, t }: { step: number; t: (k: string) => string }) {
+  const sidebarSteps = STEPS.slice(1);
   return (
     <nav className="space-y-1">
-      {STEPS.map((key, i) => {
-        const done = i < step;
-        const current = i === step;
+      {sidebarSteps.map((key, i) => {
+        const stepIndex = i + 1;
+        const done = stepIndex < step;
+        const current = stepIndex === step;
         return (
           <div key={key} className="flex items-start gap-3">
             <div className="flex flex-col items-center">
@@ -74,7 +86,7 @@ function Stepper({ step, t }: { step: number; t: (k: string) => string }) {
                 {done && <Check className="h-3.5 w-3.5" />}
                 {current && <span className="h-2 w-2 rounded-full bg-brand" />}
               </div>
-              {i < STEPS.length - 1 && (
+              {i < sidebarSteps.length - 1 && (
                 <div className={cn("mt-1 h-6 w-0.5", done ? "bg-brand" : "bg-border")} />
               )}
             </div>
@@ -94,7 +106,7 @@ function Stepper({ step, t }: { step: number; t: (k: string) => string }) {
 }
 
 function ProgressBar({ step, t }: { step: number; t: (k: string, v?: Record<string, string | number>) => string }) {
-  const pct = Math.round(((step - 1) / (STEPS.length - 1)) * 100);
+  const pct = Math.round((step / (STEPS.length - 1)) * 100);
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
       <div className="flex items-center justify-between text-xs text-muted">
@@ -117,12 +129,13 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const userName = "Dawood";
 
+  const [selectedServices, setSelectedServices] = useState<Set<string>>(new Set(["website"]));
   const [profile, setProfile] = useState({ name: "", role: "", phone: "" });
   const [connected, setConnected] = useState<Set<string>>(new Set());
   const [invites, setInvites] = useState<InviteRow[]>([
-    { email: "", role: "" },
-    { email: "", role: "" },
-    { email: "", role: "" },
+    { email: "", name: "", role: "" },
+    { email: "", name: "", role: "" },
+    { email: "", name: "", role: "" },
   ]);
 
   const connectedCount = connected.size;
@@ -148,12 +161,19 @@ export default function OnboardingPage() {
           </p>
 
           <div className="mt-10 flex flex-wrap justify-center gap-4">
-            {STEPS.map((key, i) => {
-              const Icon = STEP_ICONS[i];
-              const active = i === 0;
+            {SERVICES.map((svc) => {
+              const active = selectedServices.has(svc.id);
               return (
-                <div
-                  key={key}
+                <button
+                  key={svc.id}
+                  onClick={() => {
+                    setSelectedServices((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(svc.id)) next.delete(svc.id);
+                      else next.add(svc.id);
+                      return next;
+                    });
+                  }}
                   className={cn(
                     "flex w-28 flex-col items-center gap-2 rounded-xl border p-4 text-center transition-colors",
                     active ? "border-brand/40 bg-brand/5" : "border-border bg-surface",
@@ -163,10 +183,10 @@ export default function OnboardingPage() {
                     "flex h-10 w-10 items-center justify-center rounded-xl",
                     active ? "bg-brand/15 text-brand" : "bg-surface-2 text-muted",
                   )}>
-                    <Icon className="h-5 w-5" />
+                    <svc.icon className="h-5 w-5" />
                   </div>
-                  <span className="text-xs font-medium text-foreground">{t(key)}</span>
-                </div>
+                  <span className="text-xs font-medium text-foreground">{svc.label}</span>
+                </button>
               );
             })}
           </div>
@@ -179,6 +199,13 @@ export default function OnboardingPage() {
               <Clock className="h-4 w-4" />
               {t("ob.approx3min")}
             </span>
+            <span className="text-muted/40">·</span>
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="text-sm text-muted hover:text-foreground transition-colors"
+            >
+              {t("ob.skipSetup")}
+            </button>
           </div>
         </div>
       </div>
@@ -242,7 +269,7 @@ export default function OnboardingPage() {
     );
   }
 
-  // Steps 1–4: sidebar + content
+  // Steps 1–3: sidebar + content
   return (
     <div className="flex min-h-screen bg-bg">
       {/* Sidebar */}
@@ -418,6 +445,16 @@ export default function OnboardingPage() {
                             className="h-12 pl-10"
                           />
                         </div>
+                        <Input
+                          value={inv.name}
+                          onChange={(e) => {
+                            const next = [...invites];
+                            next[i] = { ...next[i], name: e.target.value };
+                            setInvites(next);
+                          }}
+                          placeholder={t("auth.fullName")}
+                          className="h-12 w-36"
+                        />
                         <select
                           value={inv.role}
                           onChange={(e) => {
@@ -439,7 +476,7 @@ export default function OnboardingPage() {
                       </div>
                     ))}
                     <button
-                      onClick={() => setInvites((prev) => [...prev, { email: "", role: "" }])}
+                      onClick={() => setInvites((prev) => [...prev, { email: "", name: "", role: "" }])}
                       className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3 text-sm text-muted hover:border-brand/40 hover:text-foreground"
                     >
                       <Plus className="h-4 w-4" />
