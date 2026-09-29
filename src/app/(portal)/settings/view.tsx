@@ -112,14 +112,14 @@ export function SettingsView({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-2xl font-semibold tracking-tight">
             {t("settings.title")}
           </h1>
           <p className="mt-1 text-sm text-muted">{t("settings.subtitle")}</p>
         </div>
-        <Button onClick={saveProfile} loading={saving}>
+        <Button onClick={saveProfile} loading={saving} className="w-full sm:w-auto">
           {t("settings.saveChanges")}
         </Button>
       </div>
@@ -171,18 +171,22 @@ export function SettingsView({
                 </div>
 
                 {/* Avatar row */}
-                <div className="flex items-center gap-5">
-                  <div className="relative">
+                <div className="flex items-start gap-4 sm:items-center sm:gap-5">
+                  <div className="relative shrink-0">
                     <Initials name={displayName || "U"} />
                     <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-bg bg-surface text-muted">
                       <Camera className="h-3 w-3" />
                     </div>
                   </div>
-                  <div className="flex-1">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold">{t("settings.avatar")}</p>
                     <p className="text-xs text-muted">{t("settings.avatarHint")}</p>
+                    <Button variant="outline" size="sm" className="mt-2 sm:hidden">
+                      <Upload className="mr-1.5 h-3.5 w-3.5" />
+                      {t("settings.upload")}
+                    </Button>
                   </div>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="hidden shrink-0 sm:inline-flex">
                     <Upload className="mr-1.5 h-3.5 w-3.5" />
                     {t("settings.upload")}
                   </Button>

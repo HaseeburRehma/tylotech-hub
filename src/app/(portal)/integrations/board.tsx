@@ -117,7 +117,7 @@ export function IntegrationsBoard({
       )}
 
       {(anyConnected || isStaff) && (
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           {isStaff && (
             <Button size="sm" variant="secondary" loading={busy === "all-clients"} onClick={syncAllClients}>
               <RefreshCw className="h-4 w-4" /> {t("integ.syncAllClients")}

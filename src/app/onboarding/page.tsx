@@ -191,7 +191,7 @@ export default function OnboardingPage() {
             })}
           </div>
 
-          <div className="mt-10 flex items-center gap-4">
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <Button size="lg" onClick={() => setStep(1)}>
               {t("ob.startSetup")} <ArrowRight className="h-4 w-4" />
             </Button>
@@ -199,7 +199,7 @@ export default function OnboardingPage() {
               <Clock className="h-4 w-4" />
               {t("ob.approx3min")}
             </span>
-            <span className="text-muted/40">·</span>
+            <span className="hidden text-muted/40 sm:inline">·</span>
             <button
               onClick={() => router.push("/dashboard")}
               className="text-sm text-muted hover:text-foreground transition-colors"
@@ -240,22 +240,22 @@ export default function OnboardingPage() {
             })}
           </p>
 
-          <div className="mt-8 flex divide-x divide-border overflow-hidden rounded-xl border border-border">
-            <div className="px-8 py-4 text-center">
+          <div className="mt-8 grid grid-cols-1 divide-y divide-border overflow-hidden rounded-xl border border-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+            <div className="px-6 py-4 text-center sm:px-8">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">{t("ob.profile")}</p>
               <p className="mt-1 text-sm font-bold">{t("ob.profileStatus")}</p>
             </div>
-            <div className="px-8 py-4 text-center">
+            <div className="px-6 py-4 text-center sm:px-8">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">{t("ob.sources")}</p>
               <p className="mt-1 text-sm font-bold">{t("ob.sourcesStatus", { n: connectedCount, total: CHANNELS.length })}</p>
             </div>
-            <div className="px-8 py-4 text-center">
+            <div className="px-6 py-4 text-center sm:px-8">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">{t("ob.invitations")}</p>
               <p className="mt-1 text-sm font-bold">{t("ob.invitesStatus", { n: invitesSent })}</p>
             </div>
           </div>
 
-          <div className="mt-8 flex items-center gap-3">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Button size="lg" onClick={() => router.push("/dashboard")}>
               {t("ob.goToDashboard")} <ArrowRight className="h-4 w-4" />
             </Button>
@@ -430,46 +430,50 @@ export default function OnboardingPage() {
 
                   <div className="mt-8 space-y-3">
                     {invites.map((inv, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <div className="relative flex-1">
-                          <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                          <Input
-                            type="email"
-                            value={inv.email}
-                            onChange={(e) => {
-                              const next = [...invites];
-                              next[i] = { ...next[i], email: e.target.value };
-                              setInvites(next);
-                            }}
-                            placeholder="name@tylotech.de"
-                            className="h-12 pl-10"
-                          />
+                      <div key={i} className="relative rounded-xl border border-border p-3 sm:border-0 sm:p-0">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <div className="relative flex-1">
+                            <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                            <Input
+                              type="email"
+                              value={inv.email}
+                              onChange={(e) => {
+                                const next = [...invites];
+                                next[i] = { ...next[i], email: e.target.value };
+                                setInvites(next);
+                              }}
+                              placeholder="name@tylotech.de"
+                              className="h-12 pl-10"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <Input
+                              value={inv.name}
+                              onChange={(e) => {
+                                const next = [...invites];
+                                next[i] = { ...next[i], name: e.target.value };
+                                setInvites(next);
+                              }}
+                              placeholder={t("auth.fullName")}
+                              className="h-12 flex-1 sm:w-36 sm:flex-none"
+                            />
+                            <select
+                              value={inv.role}
+                              onChange={(e) => {
+                                const next = [...invites];
+                                next[i] = { ...next[i], role: e.target.value };
+                                setInvites(next);
+                              }}
+                              className="input-base h-12 flex-1 appearance-none sm:w-40 sm:flex-none"
+                            >
+                              <option value="">{t("ob.selectRole")}</option>
+                              {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                          </div>
                         </div>
-                        <Input
-                          value={inv.name}
-                          onChange={(e) => {
-                            const next = [...invites];
-                            next[i] = { ...next[i], name: e.target.value };
-                            setInvites(next);
-                          }}
-                          placeholder={t("auth.fullName")}
-                          className="h-12 w-36"
-                        />
-                        <select
-                          value={inv.role}
-                          onChange={(e) => {
-                            const next = [...invites];
-                            next[i] = { ...next[i], role: e.target.value };
-                            setInvites(next);
-                          }}
-                          className="input-base h-12 w-40 appearance-none"
-                        >
-                          <option value="">{t("ob.selectRole")}</option>
-                          {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-                        </select>
                         <button
                           onClick={() => setInvites((prev) => prev.filter((_, j) => j !== i))}
-                          className="p-2 text-muted hover:text-danger"
+                          className="absolute right-2 top-2 p-1 text-muted hover:text-danger sm:static sm:p-2"
                         >
                           <X className="h-4 w-4" />
                         </button>

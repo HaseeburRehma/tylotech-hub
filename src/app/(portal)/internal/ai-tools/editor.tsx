@@ -70,9 +70,9 @@ export function AiToolsEditor({
         </button>
       </PageHeader>
 
-      <div className="flex gap-6">
+      <div className="flex flex-col gap-6 lg:flex-row">
         {/* Sidebar – tool list */}
-        <div className="w-64 shrink-0 space-y-1">
+        <div className="shrink-0 space-y-1 lg:w-64">
           {tools.map((tool) => {
             const Icon = ICON_MAP[tool.slug === "ad-copy" ? "Megaphone" : tool.slug === "content-generator" ? "PenLine" : tool.slug === "seo-analyzer" ? "Search" : tool.slug === "audience" ? "Users" : tool.slug === "email" ? "Mail" : "Globe"];
             const cat = CAT_LABEL[tool.category ?? ""] ?? tool.category ?? "";
@@ -162,16 +162,16 @@ function PromptPanel({
   return (
     <div className="min-w-0 flex-1 rounded-xl border border-border bg-surface">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-6 py-4">
+      <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-2">
             <PenLine className="h-4.5 w-4.5 text-muted" />
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">
+          <div className="min-w-0">
+            <h2 className="truncate text-lg font-semibold text-foreground">
               {SLUG_I18N[tool.slug] ? t(SLUG_I18N[tool.slug].name) : tool.name}
             </h2>
-            <p className="text-xs text-muted">
+            <p className="truncate text-xs text-muted">
               {SLUG_I18N[tool.slug] ? t(SLUG_I18N[tool.slug].blurb) : tool.description}
             </p>
           </div>
@@ -225,7 +225,7 @@ function PromptPanel({
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between border-t border-border px-6 py-4">
+      <div className="flex flex-col gap-3 border-t border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex items-center gap-2 text-xs text-muted">
           <Avatar name="Designer" size={24} />
           <span>
@@ -239,7 +239,7 @@ function PromptPanel({
             })}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {state === "saved" && (
             <span className="inline-flex items-center gap-1 text-xs text-success">
               <Check className="h-3.5 w-3.5" /> Saved
