@@ -674,6 +674,10 @@ const en: Dict = {
   "account.signOut": "Sign out",
   "account.teamLabel": "TyloTech Team",
 
+  // sidebar bottom items
+  "sidebar.darkMode": "Dark mode",
+  "sidebar.adminAccess": "Admin settings",
+
   // request AI tool modal
   "reqTool.title": "Request a custom AI tool",
   "reqTool.desc": "We build Claude tools tailored to your workflow. Describe briefly what it should do.",
@@ -1385,6 +1389,10 @@ const de: Dict = {
   "account.help": "Hilfe und Support",
   "account.signOut": "Abmelden",
   "account.teamLabel": "TyloTech-Team",
+
+  // sidebar bottom items
+  "sidebar.darkMode": "Dunkler Modus",
+  "sidebar.adminAccess": "Admin-Zugriff",
 
   // request AI tool modal
   "reqTool.title": "Eigenes KI-Werkzeug anfragen",

@@ -2,16 +2,25 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CLIENT_NAV, INTERNAL_NAV } from "@/lib/nav";
 import { Logo } from "@/components/ui/logo";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { ChevronDown, Settings } from "lucide-react";
-import { useT } from "@/lib/i18n/provider";
+import {
+  ChevronDown,
+  Globe,
+  KeyRound,
+  LogOut,
+  Mail,
+  Moon,
+  Settings,
+  Sun,
+} from "lucide-react";
+import { useT, useI18n } from "@/lib/i18n/provider";
 import { useUser } from "@/components/providers/user-provider";
-import { AccountMenu } from "./account-menu";
+import { createClient } from "@/lib/supabase/client";
 import { BrandPreview } from "./brand-preview";
 import type { SidebarClient } from "./app-shell";
 
@@ -146,11 +155,113 @@ function NavList({
   );
 }
 
+function DarkModeToggle() {
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    setDark(document.documentElement.classList.contains("dark"));
+  }, []);
+
+  function toggle() {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    try { localStorage.setItem("theme-mode", next ? "dark" : "light"); } catch {}
+  }
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={dark}
+      onClick={toggle}
+      className={cn(
+        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors",
+        dark ? "bg-brand" : "bg-border",
+      )}
+    >
+      <span
+        className={cn(
+          "inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform",
+          dark ? "translate-x-[18px]" : "translate-x-0.5",
+        )}
+      />
+    </button>
+  );
+}
+
+function SidebarBottomItems({ canSeeInternal }: { canSeeInternal: boolean }) {
+  const t = useT();
+  const router = useRouter();
+  const { locale, setLocale } = useI18n();
+
+  async function signOut() {
+    const supabase = createClient();
+    if (supabase) await supabase.auth.signOut();
+    router.push("/login");
+  }
+
+  const linkClass =
+    "flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted transition-colors hover:text-foreground hover:bg-surface-2";
+
+  return (
+    <div className="mx-3 shrink-0 space-y-0.5 border-t border-border pt-3">
+      {/* Hook E-Mail */}
+      <a href="mailto:hook@tylotech.de" className={linkClass}>
+        <Mail className="h-[18px] w-[18px]" />
+        <span className="flex-1">Hook E-Mail</span>
+      </a>
+
+      {/* Settings */}
+      <Link href="/settings" className={linkClass}>
+        <Settings className="h-[18px] w-[18px]" />
+        <span className="flex-1">{t("account.settings")}</span>
+      </Link>
+
+      {/* Language */}
+      <button
+        type="button"
+        onClick={() => setLocale(locale === "de" ? "en" : "de")}
+        className={cn(linkClass, "w-full")}
+      >
+        <Globe className="h-[18px] w-[18px]" />
+        <span className="flex-1">{t("account.language")}</span>
+        <span className="text-xs text-muted">{locale === "de" ? "Deutsch" : "English"}</span>
+      </button>
+
+      {/* Dark mode */}
+      <div className={cn(linkClass, "cursor-default")}>
+        <Moon className="h-[18px] w-[18px]" />
+        <span className="flex-1">{t("sidebar.darkMode")}</span>
+        <DarkModeToggle />
+      </div>
+
+      {/* Admin settings */}
+      {canSeeInternal && (
+        <Link href="/internal" className={linkClass}>
+          <KeyRound className="h-[18px] w-[18px]" />
+          <span className="flex-1">{t("sidebar.adminAccess")}</span>
+        </Link>
+      )}
+
+      {/* Sign out */}
+      <button
+        type="button"
+        onClick={signOut}
+        className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-danger transition-colors hover:bg-danger/10"
+      >
+        <LogOut className="h-[18px] w-[18px]" />
+        <span className="flex-1 text-left">{t("account.signOut")}</span>
+      </button>
+    </div>
+  );
+}
+
 function UserProfile() {
   const user = useUser();
 
   return (
-    <div className="m-3 mt-auto shrink-0">
+    <div className="m-3 mt-2 shrink-0">
       <div className="flex items-center gap-3 rounded-xl p-2">
         <Avatar name={user.name} size={36} />
         <div className="min-w-0 flex-1">
@@ -159,7 +270,6 @@ function UserProfile() {
             {ROLE_LABEL[user.role] ?? user.role}
           </p>
         </div>
-        <AccountMenu />
       </div>
     </div>
   );
@@ -183,12 +293,6 @@ export function Sidebar({
         <Logo />
         <div className="ml-auto flex items-center gap-1">
           {canSeeInternal && <BrandPreview />}
-          <Link
-            href="/settings"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
-          >
-            <Settings className="h-4 w-4" />
-          </Link>
         </div>
       </div>
 
@@ -198,6 +302,7 @@ export function Sidebar({
 
       <NavList onNavigate={onNavigate} canSeeInternal={canSeeInternal} clients={clients} />
 
+      <SidebarBottomItems canSeeInternal={canSeeInternal} />
       <UserProfile />
     </aside>
   );
