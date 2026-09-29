@@ -3,9 +3,10 @@
 import {
   Bell,
   Camera,
+  Code2,
+  Link2,
   LogOut,
   Lock,
-  Palette,
   ShieldCheck,
   Upload,
   User,
@@ -19,14 +20,14 @@ import { createClient } from "@/lib/supabase/client";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
-const TABS = ["profile", "security", "notifications", "appearance"] as const;
+const TABS = ["profile", "notifications", "integrations", "apiAccess"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_ICONS: Record<Tab, React.ElementType> = {
   profile: User,
-  security: Lock,
   notifications: Bell,
-  appearance: Palette,
+  integrations: Link2,
+  apiAccess: Code2,
 };
 
 function Initials({ name }: { name: string }) {
@@ -258,24 +259,38 @@ export function SettingsView({
                   <MfaToggle />
                 </div>
               </section>
-            </>
-          )}
 
-          {tab === "security" && (
-            <MfaSetup />
+              {/* Danger zone / 2FA status banner */}
+              <div className="flex items-center gap-3 rounded-2xl border border-warning/30 bg-warning/5 px-5 py-4">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-warning/15">
+                  <ShieldCheck className="h-5 w-5 text-warning" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground">{t("settings.dangerZone")}</p>
+                  <p className="text-xs text-muted">{t("settings.dangerZoneDesc")}</p>
+                </div>
+              </div>
+            </>
           )}
 
           {tab === "notifications" && (
             <section className="rounded-2xl border border-border bg-bg p-6">
               <h2 className="text-lg font-semibold">{t("settings.notifications")}</h2>
-              <p className="mt-1 text-sm text-muted">Coming soon</p>
+              <p className="mt-1 text-sm text-muted">{t("settings.comingSoon")}</p>
             </section>
           )}
 
-          {tab === "appearance" && (
+          {tab === "integrations" && (
             <section className="rounded-2xl border border-border bg-bg p-6">
-              <h2 className="text-lg font-semibold">{t("settings.appearance")}</h2>
-              <p className="mt-1 text-sm text-muted">Coming soon</p>
+              <h2 className="text-lg font-semibold">{t("settings.integrations")}</h2>
+              <p className="mt-1 text-sm text-muted">{t("settings.comingSoon")}</p>
+            </section>
+          )}
+
+          {tab === "apiAccess" && (
+            <section className="rounded-2xl border border-border bg-bg p-6">
+              <h2 className="text-lg font-semibold">{t("settings.apiAccess")}</h2>
+              <p className="mt-1 text-sm text-muted">{t("settings.comingSoon")}</p>
             </section>
           )}
         </div>

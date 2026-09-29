@@ -2,10 +2,10 @@
 
 import {
   ArrowRight,
+  FolderKanban,
   LayoutDashboard,
   Mail,
-  MessageCircle,
-  TrendingUp,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -40,16 +40,16 @@ const NAV_LINKS = [
     descKey: "e404.dashboardDesc",
   },
   {
-    href: "/performance",
-    icon: TrendingUp,
-    labelKey: "nav.performance",
-    descKey: "e404.perfDesc",
+    href: "/internal/clients",
+    icon: Users,
+    labelKey: "nav.clients",
+    descKey: "e404.clientsDesc",
   },
   {
-    href: "/chat",
-    icon: MessageCircle,
-    labelKey: "nav.chat",
-    descKey: "e404.chatDesc",
+    href: "/internal/projects",
+    icon: FolderKanban,
+    labelKey: "nav.projects",
+    descKey: "e404.projectsDesc",
   },
 ] as const;
 
