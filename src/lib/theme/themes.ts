@@ -110,22 +110,12 @@ export function buildClientTheme(opts: {
   };
 }
 
-/** Produce the CSS variable map for a given theme. */
+/** Produce the CSS variable map for a given theme (light mode only — brand/accent). */
 export function themeToCssVars(theme: BrandTheme): Record<string, string> {
   const onPrimaryDark = theme.onPrimaryDark ?? isLight(theme.primary);
   return {
-    "--bg": "252 252 251",
-    "--surface": "255 255 255",
-    "--surface-2": "245 245 243",
-    "--border": "230 230 228",
-    "--foreground": "23 23 23",
-    "--muted": "120 120 126",
     "--brand": theme.primary.join(" "),
     "--brand-foreground": onPrimaryDark ? "12 12 14" : "255 255 255",
     "--accent": theme.secondary.join(" "),
-    "--success": "34 170 90",
-    "--warning": "228 176 52",
-    "--danger": "220 60 60",
-    "--info": "59 130 246",
   };
 }

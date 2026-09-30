@@ -21,12 +21,30 @@
   --font-display: var(--font-sans);
 }
 
+.dark {
+  --bg: 18 18 20;
+  --surface: 28 28 32;
+  --surface-2: 38 38 42;
+  --border: 50 50 56;
+  --foreground: 240 240 245;
+  --muted: 150 150 158;
+  --accent: 38 36 32;
+  --success: 52 200 110;
+  --warning: 240 190 70;
+  --danger: 240 80 80;
+  --info: 80 150 255;
+}
+
 * {
   border-color: rgb(var(--border));
 }
 
 html {
   color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
 }
 
 body {

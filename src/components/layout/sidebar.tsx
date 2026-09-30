@@ -159,7 +159,10 @@ function DarkModeToggle() {
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
-    setDark(document.documentElement.classList.contains("dark"));
+    const stored = localStorage.getItem("theme-mode");
+    const isDark = stored === "dark" || document.documentElement.classList.contains("dark");
+    setDark(isDark);
+    document.documentElement.classList.toggle("dark", isDark);
   }, []);
 
   function toggle() {
@@ -190,10 +193,41 @@ function DarkModeToggle() {
   );
 }
 
-function SidebarBottomItems({ canSeeInternal }: { canSeeInternal: boolean }) {
+function SidebarBottomNav() {
+  const t = useT();
+
+  const linkClass =
+    "flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted transition-colors hover:text-foreground hover:bg-surface-2";
+
+  return (
+    <div className="mx-3 shrink-0 space-y-0.5 border-t border-border pt-3">
+      <a href="mailto:hook@tylotech.de" className={linkClass}>
+        <Mail className="h-[18px] w-[18px]" />
+        <span className="flex-1">Hook E-Mail</span>
+      </a>
+      <Link href="/settings" className={linkClass}>
+        <Settings className="h-[18px] w-[18px]" />
+        <span className="flex-1">{t("account.settings")}</span>
+      </Link>
+    </div>
+  );
+}
+
+function UserProfileDropdown({ canSeeInternal }: { canSeeInternal: boolean }) {
   const t = useT();
   const router = useRouter();
+  const user = useUser();
   const { locale, setLocale } = useI18n();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
 
   async function signOut() {
     const supabase = createClient();
@@ -201,76 +235,65 @@ function SidebarBottomItems({ canSeeInternal }: { canSeeInternal: boolean }) {
     router.push("/login");
   }
 
-  const linkClass =
-    "flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted transition-colors hover:text-foreground hover:bg-surface-2";
+  const itemClass =
+    "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted transition-colors hover:text-foreground hover:bg-surface-2";
 
   return (
-    <div className="mx-3 shrink-0 space-y-0.5 border-t border-border pt-3">
-      {/* Hook E-Mail */}
-      <a href="mailto:hook@tylotech.de" className={linkClass}>
-        <Mail className="h-[18px] w-[18px]" />
-        <span className="flex-1">Hook E-Mail</span>
-      </a>
-
-      {/* Settings */}
-      <Link href="/settings" className={linkClass}>
-        <Settings className="h-[18px] w-[18px]" />
-        <span className="flex-1">{t("account.settings")}</span>
-      </Link>
-
-      {/* Language */}
+    <div ref={ref} className="relative m-3 mt-2 shrink-0">
       <button
         type="button"
-        onClick={() => setLocale(locale === "de" ? "en" : "de")}
-        className={cn(linkClass, "w-full")}
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-3 rounded-xl p-2 transition-colors hover:bg-surface-2"
       >
-        <Globe className="h-[18px] w-[18px]" />
-        <span className="flex-1">{t("account.language")}</span>
-        <span className="text-xs text-muted">{locale === "de" ? "Deutsch" : "English"}</span>
-      </button>
-
-      {/* Dark mode */}
-      <div className={cn(linkClass, "cursor-default")}>
-        <Moon className="h-[18px] w-[18px]" />
-        <span className="flex-1">{t("sidebar.darkMode")}</span>
-        <DarkModeToggle />
-      </div>
-
-      {/* Admin settings */}
-      {canSeeInternal && (
-        <Link href="/internal" className={linkClass}>
-          <KeyRound className="h-[18px] w-[18px]" />
-          <span className="flex-1">{t("sidebar.adminAccess")}</span>
-        </Link>
-      )}
-
-      {/* Sign out */}
-      <button
-        type="button"
-        onClick={signOut}
-        className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-danger transition-colors hover:bg-danger/10"
-      >
-        <LogOut className="h-[18px] w-[18px]" />
-        <span className="flex-1 text-left">{t("account.signOut")}</span>
-      </button>
-    </div>
-  );
-}
-
-function UserProfile() {
-  const user = useUser();
-
-  return (
-    <div className="m-3 mt-2 shrink-0">
-      <div className="flex items-center gap-3 rounded-xl p-2">
         <Avatar name={user.name} size={36} />
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 text-left">
           <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
           <p className="truncate text-xs text-muted">
             {ROLE_LABEL[user.role] ?? user.role}
           </p>
         </div>
-      </div>
+        <ChevronDown className={cn("h-4 w-4 text-muted transition-transform", open && "rotate-180")} />
+      </button>
+
+      {open && (
+        <div className="absolute bottom-full left-0 right-0 z-50 mb-2 rounded-xl border border-border bg-surface p-1.5 shadow-float">
+          {/* Language */}
+          <button
+            type="button"
+            onClick={() => { setLocale(locale === "de" ? "en" : "de"); }}
+            className={itemClass}
+          >
+            <Globe className="h-[18px] w-[18px]" />
+            <span className="flex-1 text-left">{t("account.language")}</span>
+            <span className="text-xs text-muted">{locale === "de" ? "Deutsch" : "English"}</span>
+          </button>
+
+          {/* Dark mode */}
+          <div className={cn(itemClass, "cursor-default")}>
+            <Moon className="h-[18px] w-[18px]" />
+            <span className="flex-1">{t("sidebar.darkMode")}</span>
+            <DarkModeToggle />
+          </div>
+
+          {/* Admin settings */}
+          {canSeeInternal && (
+            <Link href="/internal" onClick={() => setOpen(false)} className={itemClass}>
+              <KeyRound className="h-[18px] w-[18px]" />
+              <span className="flex-1">{t("sidebar.adminAccess")}</span>
+            </Link>
+          )}
+
+          {/* Sign out */}
+          <button
+            type="button"
+            onClick={signOut}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-danger transition-colors hover:bg-danger/10"
+          >
+            <LogOut className="h-[18px] w-[18px]" />
+            <span className="flex-1 text-left">{t("account.signOut")}</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -302,8 +325,8 @@ export function Sidebar({
 
       <NavList onNavigate={onNavigate} canSeeInternal={canSeeInternal} clients={clients} />
 
-      <SidebarBottomItems canSeeInternal={canSeeInternal} />
-      <UserProfile />
+      <SidebarBottomNav />
+      <UserProfileDropdown canSeeInternal={canSeeInternal} />
     </aside>
   );
 }

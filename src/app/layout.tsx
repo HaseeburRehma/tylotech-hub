@@ -76,6 +76,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang={locale} className={`${inter.variable} ${sora.variable}`} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem("theme-mode")==="dark"){document.documentElement.classList.add("dark")}}catch(e){}`,
+          }}
+        />
+      </head>
       <body className="min-h-screen bg-bg text-foreground antialiased">
         <I18nProvider initialLocale={locale}>
           <ThemeProvider initialTheme={initialTheme} brands={brands}>{children}</ThemeProvider>
