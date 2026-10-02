@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { ModalShell } from "@/components/ui/modal";
 import { Sparkles, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -44,24 +44,7 @@ export function RequestToolModal({
   }
 
   return (
-    <AnimatePresence>
-      {open && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 z-[60] bg-foreground/25 backdrop-blur-sm"
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 20 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="fixed inset-0 z-[61] flex items-center justify-center p-4"
-          >
-            <div className="w-full max-w-lg rounded-2xl border border-border bg-bg shadow-float" onClick={(e) => e.stopPropagation()}>
+    <ModalShell open={open} onClose={onClose}>
               {/* Header */}
               <div className="flex items-start gap-4 px-6 pt-6 pb-4">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/15">
@@ -71,7 +54,7 @@ export function RequestToolModal({
                   <h2 className="text-lg font-semibold text-foreground">{t("reqTool.title")}</h2>
                   <p className="mt-0.5 text-sm text-muted">{t("reqTool.desc")}</p>
                 </div>
-                <button onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground transition-colors">
+                <button type="button" aria-label="Close" onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground transition-colors">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -146,10 +129,6 @@ export function RequestToolModal({
                   </Button>
                 </div>
               </div>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+    </ModalShell>
   );
 }

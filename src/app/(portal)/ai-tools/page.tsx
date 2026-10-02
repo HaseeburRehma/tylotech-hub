@@ -1,5 +1,6 @@
 "use client";
 
+import { AiHistoryModal } from "@/components/modals/ai-history-modal";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -24,7 +25,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { RequestToolModal } from "@/components/modals/request-tool-modal";
 import { useT } from "@/lib/i18n/provider";
 import { useUser } from "@/components/providers/user-provider";
-import { AI_TOOLS } from "@/lib/mock/data";
+import { AI_TOOLS } from "@/lib/ai-tools";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -42,22 +43,28 @@ export default function AiToolsPage() {
   const unlocked = AI_TOOLS.filter((tool) => tool.unlocked).length;
   const [prompt, setPrompt] = useState("");
   const [showRequestTool, setShowRequestTool] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const firstName = user.name?.split(" ")[0] ?? "";
 
   return (
     <div className="space-y-8">
       <PageHeader title={t("ai.title")} subtitle={t("ai.subtitle")}>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <FileText className="h-4 w-4" />
-            {t("ait.brandRules")}
-          </Button>
-          <Button variant="outline" size="sm">
+          {user.role !== "client" && (
+            <Link href="/internal/ai-tools">
+              <Button variant="outline" size="sm">
+                <FileText className="h-4 w-4" />
+                {t("ait.brandRules")}
+              </Button>
+            </Link>
+          )}
+          <Button variant="outline" size="sm" onClick={() => setShowHistory(true)}>
             <Clock className="h-4 w-4" />
             {t("ait.history")}
           </Button>
         </div>
       </PageHeader>
+      <AiHistoryModal open={showHistory} onClose={() => setShowHistory(false)} />
 
       {/* Hero prompt */}
       <div className="text-center">

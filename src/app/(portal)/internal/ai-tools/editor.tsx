@@ -64,10 +64,10 @@ export function AiToolsEditor({
   return (
     <div className="space-y-6">
       <PageHeader title={t("prompts.title")} subtitle={t("prompts.subtitle")}>
-        <button className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm text-muted">
+        <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm text-muted">
           <Clock className="h-4 w-4" />
           {t("prompts.affectsAll", { n: clientCount })}
-        </button>
+        </span>
       </PageHeader>
 
       <div className="flex flex-col gap-6 lg:flex-row">

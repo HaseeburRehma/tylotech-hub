@@ -1,4 +1,5 @@
 import { getAuthUser } from "@/lib/auth";
+import { activeClientRef } from "@/lib/active-client-server";
 import { getKpis, getSeriesByProvider, getClientByRef } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -23,7 +24,8 @@ export default async function PerformancePage({
   }
 
   // searchParams.client may be a slug (clean links) or a legacy UUID.
-  const requestedClient = isStaff && searchParams.client ? await getClientByRef(searchParams.client) : null;
+  const ref = isStaff ? activeClientRef(searchParams.client) : null;
+  const requestedClient = ref ? await getClientByRef(ref) : null;
   const clientId = isStaff ? (requestedClient?.id ?? clients[0]?.id ?? null) : (user?.client_id ?? null);
 
   const [kpis, series] = await Promise.all([getKpis(clientId), getSeriesByProvider(clientId)]);

@@ -66,6 +66,7 @@ export default async function DashboardPage() {
       myProjects={myProjects}
       myActiveTasks={myActiveTasks}
       updates={updates}
+      activeClients={clients.length}
     />
   );
 }

@@ -13,6 +13,10 @@ export interface AuthUser {
   primaryColor: string | null;
   secondaryColor: string | null;
   logoUrl: string | null;
+  title: string | null;
+  avatarUrl: string | null;
+  /** Email notifications for new messages/files (opt-out, stored in auth metadata). */
+  notifyEmail: boolean;
 }
 
 /** Demo identity used only when Supabase isn't configured. */
@@ -26,6 +30,9 @@ export const DEMO_USER: AuthUser = {
   primaryColor: "#C9A84C",
   secondaryColor: "#181612",
   logoUrl: null,
+  title: null,
+  avatarUrl: null,
+  notifyEmail: true,
 };
 
 /**
@@ -45,7 +52,7 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("id,email,name,role,client_id, clients(company,primary_color,secondary_color,logo_url)")
+    .select("id,email,name,role,client_id,title,avatar_url, clients(company,primary_color,secondary_color,logo_url)")
     .eq("id", user.id)
     .single();
 
@@ -63,6 +70,9 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
     primaryColor: client?.primary_color ?? null,
     secondaryColor: client?.secondary_color ?? null,
     logoUrl: client?.logo_url ?? null,
+    title: profile.title ?? null,
+    avatarUrl: profile.avatar_url ?? null,
+    notifyEmail: user.user_metadata?.notify_email !== false,
   };
 });
 

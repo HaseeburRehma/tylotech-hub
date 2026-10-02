@@ -8,7 +8,8 @@ import {
   Pencil,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,9 @@ import { UpdatesManager } from "@/components/updates/updates-manager";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { MetricsEditor } from "@/components/metrics/metrics-editor";
 import { IntegrationsBoard } from "@/app/(portal)/integrations/board";
+import { EditClientModal } from "@/components/modals/edit-client-modal";
+import { useTheme } from "@/lib/theme/theme-provider";
+import { buildClientTheme } from "@/lib/theme/themes";
 import { PROVIDERS } from "@/lib/integrations/providers";
 import { PROJECT_STATUS } from "@/lib/status";
 import { useT } from "@/lib/i18n/provider";
@@ -77,7 +81,35 @@ export function ClientDetail({
   const t = useT();
   const [tab, setTab] = useState<TabKey>("overview");
   const [showKpiEditor, setShowKpiEditor] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [chatWith, setChatWith] = useState<string | null>(null);
+  const router = useRouter();
+  const { setThemeOverride } = useTheme();
   const isChat = tab === "chat";
+
+  // The client's team = staff assigned to its projects.
+  const clientTeam = useMemo(() => {
+    const ids = new Set(projects.map((p) => p.assigned_to_id).filter(Boolean));
+    return teamMembers.filter((m) => ids.has(m.id));
+  }, [projects, teamMembers]);
+
+  function viewAsClient() {
+    setThemeOverride(
+      buildClientTheme({
+        id: client.id,
+        company: client.company,
+        primary: client.primary_color,
+        secondary: client.secondary_color,
+        logoUrl: client.logo_url,
+      }),
+    );
+    router.push(`/performance?client=${encodeURIComponent(client.slug ?? client.id)}`);
+  }
+
+  function openClientChat(peerId: string) {
+    setChatWith(peerId);
+    setTab("chat");
+  }
 
   const activeProjects = projects.filter(
     (p) => p.status === "in_progress" || p.status === "review",
@@ -122,7 +154,7 @@ export function ClientDetail({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted">{t("cd.brandColors")}</span>
               <span
@@ -135,19 +167,21 @@ export function ClientDetail({
               />
             </div>
 
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={viewAsClient}>
               <Eye className="h-4 w-4" />
               {t("cd.viewAsClient")}
             </Button>
-            <Button size="sm">
+            <Button size="sm" onClick={() => setEditing(true)}>
               <Pencil className="h-4 w-4" />
               {t("cd.edit")}
             </Button>
           </div>
         </div>
 
+        <EditClientModal open={editing} onClose={() => setEditing(false)} client={client} />
+
         {/* Tabs */}
-        <div className="flex gap-6 border-b border-border">
+        <div className="flex gap-6 overflow-x-auto border-b border-border">
           {TABS.map((tb) => (
             <button
               key={tb.key}
@@ -298,12 +332,13 @@ export function ClientDetail({
               <div className="rounded-xl border border-border bg-surface p-5">
                 <div className="mb-4 flex items-center justify-between">
                   <h3 className="font-semibold text-foreground">{t("cd.team")}</h3>
-                  <button className="text-sm font-medium text-brand hover:underline">
+                  <Link href="/internal/projects" className="text-sm font-medium text-brand hover:underline">
                     {t("cd.change")}
-                  </button>
+                  </Link>
                 </div>
                 <div className="space-y-3">
-                  {teamMembers.map((m) => (
+                  {clientTeam.length === 0 && <p className="text-sm text-muted">{t("cd.noTeam")}</p>}
+                  {clientTeam.map((m) => (
                     <div
                       key={m.id}
                       className="flex items-center justify-between"
@@ -317,9 +352,13 @@ export function ClientDetail({
                           <p className="text-xs text-muted">{m.role}</p>
                         </div>
                       </div>
-                      <button className="text-muted hover:text-foreground transition-colors">
+                      <Link
+                        href={`/internal/team?dm=${m.id}`}
+                        aria-label={t("cd.messageMember", { name: m.name })}
+                        className="text-muted transition-colors hover:text-foreground"
+                      >
                         <MessageCircle className="h-4 w-4" />
-                      </button>
+                      </Link>
                     </div>
                   ))}
                 </div>
@@ -339,15 +378,11 @@ export function ClientDetail({
                   </button>
                 </div>
                 <div className="space-y-3">
-                  {["Search Console", "Meta Ads", "Google Ads", "GA4"].map(
+                  {PROVIDERS.map((prov) => prov.name).map(
                     (source) => {
+                      const id = PROVIDERS.find((p) => p.name === source)?.id;
                       const isConnected = integrations.some(
-                        (i: any) =>
-                          i.provider
-                            ?.replace(/_/g, " ")
-                            .toLowerCase() ===
-                            source.toLowerCase().replace(/ /g, "_") &&
-                          i.status === "connected",
+                        (i: any) => i.provider === id && i.status === "connected",
                       );
                       return (
                         <div
@@ -386,7 +421,11 @@ export function ClientDetail({
                   {t("cd.activitySub", { name: client.company })}
                 </p>
               </div>
-              <button className="text-sm font-medium text-brand hover:underline">
+              <button
+                type="button"
+                onClick={() => setTab("updates")}
+                className="text-sm font-medium text-brand hover:underline"
+              >
                 {t("cd.fullHistory")}
               </button>
             </div>
@@ -411,7 +450,7 @@ export function ClientDetail({
                 </div>
               ))}
               {updates.length === 0 && (
-                <p className="text-sm text-muted">No recent activity.</p>
+                <p className="text-sm text-muted">{t("cd.noActivity")}</p>
               )}
             </div>
           </div>
@@ -461,12 +500,13 @@ export function ClientDetail({
               <div className="rounded-xl border border-border bg-surface p-5">
                 <div className="mb-4 flex items-center justify-between">
                   <h3 className="font-semibold text-foreground">{t("cd.team")}</h3>
-                  <button className="text-sm font-medium text-brand hover:underline">
+                  <Link href="/internal/projects" className="text-sm font-medium text-brand hover:underline">
                     {t("cd.change")}
-                  </button>
+                  </Link>
                 </div>
                 <div className="space-y-3">
-                  {teamMembers.map((m) => (
+                  {clientTeam.length === 0 && <p className="text-sm text-muted">{t("cd.noTeam")}</p>}
+                  {clientTeam.map((m) => (
                     <div key={m.id} className="flex items-center gap-3">
                       <Avatar name={m.name} size={36} />
                       <div>
@@ -598,7 +638,12 @@ export function ClientDetail({
                       <p className="truncate text-sm font-medium text-foreground">{p.name}</p>
                       <p className="text-xs text-muted">{p.title ?? p.role}</p>
                     </div>
-                    <button className="text-muted hover:text-foreground transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => openClientChat(p.id)}
+                      aria-label={t("cd.messageMember", { name: p.name })}
+                      className="text-muted transition-colors hover:text-foreground"
+                    >
                       <MessageCircle className="h-4 w-4" />
                     </button>
                   </div>
@@ -619,8 +664,8 @@ export function ClientDetail({
             currentRole={staff.role}
             clientId={client.id}
             peers={peers}
-            title={`${client.company} · team`}
-            subtitle="Group · everyone"
+            initialSelected={chatWith}
+            title={`${client.company} · Team`}
             className="h-full"
           />
         </div>

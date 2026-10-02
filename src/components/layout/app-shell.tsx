@@ -13,6 +13,7 @@ export interface SidebarClient {
   slug: string | null;
   name: string;
   logoUrl: string | null;
+  color: string | null;
 }
 
 export function AppShell({
@@ -61,7 +62,7 @@ export function AppShell({
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <Topbar onMenu={() => setOpen(true)} user={user} />
-        <main className="min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-6 lg:px-8">
+        <main className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 md:px-6 lg:px-8">
           <div className="mx-auto w-full max-w-7xl">{children}</div>
         </main>
       </div>

@@ -13,19 +13,24 @@ export function TeamChatView({
   currentUserId,
   currentName,
   currentRole,
+  initialSelected = null,
 }: {
   initialMessages: Message[];
   peers: ChatPeer[];
   currentUserId: string;
   currentName: string;
   currentRole: Role;
+  initialSelected?: string | null;
 }) {
   const t = useT();
   return (
     <div className="flex h-[calc(100vh-7rem)] flex-col">
       <div className="shrink-0 pb-4">
         <PageHeader title={t("team.title")} subtitle={t("team.subtitle")}>
-          <Button size="sm">
+          <Button
+            size="sm"
+            onClick={() => document.querySelector<HTMLTextAreaElement>("[data-chat-composer]")?.focus()}
+          >
             <Plus className="h-4 w-4" />
             {t("chat.newThread")}
           </Button>
@@ -40,6 +45,7 @@ export function TeamChatView({
           currentName={currentName}
           currentRole={currentRole}
           peers={peers}
+          initialSelected={initialSelected}
           title="TyloTech Team"
           subtitle={t("chat.groupMembers", { n: String(peers.length) })}
           className="h-full"

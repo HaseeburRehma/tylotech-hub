@@ -8,18 +8,22 @@ import { CLIENT_NAV, INTERNAL_NAV } from "@/lib/nav";
 import { Logo } from "@/components/ui/logo";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { hexToRgb, isLight } from "@/lib/theme/themes";
 import {
+  Check,
   ChevronDown,
   Globe,
   KeyRound,
   LogOut,
   Mail,
   Moon,
+  Search,
   Settings,
   Sun,
 } from "lucide-react";
 import { useT, useI18n } from "@/lib/i18n/provider";
 import { useUser } from "@/components/providers/user-provider";
+import { useActiveClient } from "@/components/providers/active-client-provider";
 import { createClient } from "@/lib/supabase/client";
 import { BrandPreview } from "./brand-preview";
 import type { SidebarClient } from "./app-shell";
@@ -30,59 +34,126 @@ const ROLE_LABEL: Record<string, string> = {
   client: "Client",
 };
 
-function ClientSwitcher({ clients }: { clients: SidebarClient[] }) {
+export function ClientLogo({ client, size }: { client: SidebarClient; size: number }) {
+  const rgb = client.color ? hexToRgb(client.color) : null;
+  return (
+    <span
+      aria-hidden
+      style={{
+        width: size,
+        height: size,
+        fontSize: Math.round(size * 0.42),
+        backgroundColor: rgb ? `rgb(${rgb.join(" ")})` : undefined,
+        color: rgb ? (isLight(rgb) ? "#0c0c0e" : "#ffffff") : undefined,
+      }}
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-md font-semibold",
+        !rgb && "bg-brand text-brand-foreground",
+      )}
+    >
+      {client.name.trim().charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
+function ClientSwitcher({ onNavigate }: { onNavigate?: () => void }) {
+  const { clients, active, setActive } = useActiveClient();
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const t = useT();
 
   useEffect(() => {
+    if (!open) return;
     function onClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
     document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, []);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
-  const selected = clients[0];
-  if (!selected) return null;
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+
+  if (!active) return null;
+
+  const q = query.trim().toLowerCase();
+  const visible = q ? clients.filter((c) => c.name.toLowerCase().includes(q)) : clients;
+
+  function pick(c: SidebarClient) {
+    setOpen(false);
+    if (c.id !== active?.id) setActive(c);
+    onNavigate?.();
+  }
 
   return (
     <div ref={ref} className="relative mx-3 mb-2">
       <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted/70">
-        {t("nav.client") ?? "Kunde"}
+        {t("nav.client")}
       </p>
       <button
         type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition-colors hover:bg-surface-2 ring-focus"
+        className="flex w-full items-center gap-2.5 rounded-xl border border-border px-2.5 py-2 text-sm transition-colors hover:bg-surface-2 ring-focus"
       >
-        <Avatar name={selected.name} size={28} />
-        <span className="flex-1 truncate text-left font-medium text-foreground">
-          {selected.name}
-        </span>
+        <ClientLogo client={active} size={28} />
+        <span className="flex-1 truncate text-left font-medium text-foreground">{active.name}</span>
         <ChevronDown className={cn("h-4 w-4 text-muted transition-transform", open && "rotate-180")} />
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-border bg-surface p-1 shadow-float">
-          {clients.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => setOpen(false)}
-              className={cn(
-                "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-surface-2",
-                c.id === selected.id && "bg-brand/8 text-foreground",
-              )}
-            >
-              {c.logoUrl ? (
-                <img src={c.logoUrl} alt="" className="h-6 w-6 shrink-0 rounded-md object-cover" />
-              ) : (
-                <Avatar name={c.name} size={24} />
-              )}
-              <span className="truncate">{c.name}</span>
-            </button>
-          ))}
+        <div className="absolute left-0 right-0 z-50 mt-1 rounded-xl border border-border bg-surface p-1 shadow-float">
+          {clients.length > 6 && (
+            <div className="relative mb-1">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && visible[0]) pick(visible[0]);
+                }}
+                placeholder={t("nav.searchClient")}
+                className="w-full rounded-lg bg-surface-2 py-2 pl-8 pr-2.5 text-sm text-foreground outline-none placeholder:text-muted/70"
+              />
+            </div>
+          )}
+          <ul role="listbox" className="max-h-64 overflow-y-auto">
+            {visible.map((c) => {
+              const selected = c.id === active.id;
+              return (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    onClick={() => pick(c)}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-surface-2",
+                      selected ? "bg-brand/8 font-medium text-foreground" : "text-muted hover:text-foreground",
+                    )}
+                  >
+                    <ClientLogo client={c} size={24} />
+                    <span className="flex-1 truncate text-left">{c.name}</span>
+                    {selected && <Check className="h-4 w-4 shrink-0 text-brand" />}
+                  </button>
+                </li>
+              );
+            })}
+            {visible.length === 0 && (
+              <li className="px-2.5 py-3 text-center text-xs text-muted">{t("nav.noClientMatch")}</li>
+            )}
+          </ul>
         </div>
       )}
     </div>
@@ -155,7 +226,7 @@ function NavList({
   );
 }
 
-function DarkModeToggle() {
+export function DarkModeToggle() {
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
@@ -245,7 +316,7 @@ function UserProfileDropdown({ canSeeInternal }: { canSeeInternal: boolean }) {
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center gap-3 rounded-xl p-2 transition-colors hover:bg-surface-2"
       >
-        <Avatar name={user.name} size={36} />
+        <Avatar name={user.name} src={user.avatarUrl} size={36} />
         <div className="min-w-0 flex-1 text-left">
           <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
           <p className="truncate text-xs text-muted">
@@ -319,9 +390,7 @@ export function Sidebar({
         </div>
       </div>
 
-      {canSeeInternal && clients.length > 0 && (
-        <ClientSwitcher clients={clients} />
-      )}
+      {canSeeInternal && clients.length > 0 && <ClientSwitcher onNavigate={onNavigate} />}
 
       <NavList onNavigate={onNavigate} canSeeInternal={canSeeInternal} clients={clients} />
 

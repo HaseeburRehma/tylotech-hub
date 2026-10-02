@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import {
+  Check,
   Download,
   FileArchive,
   FileText,
@@ -20,6 +21,7 @@ import { Card } from "@/components/ui/card";
 import { DocItem, DocType } from "@/types";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
+import { useUser } from "@/components/providers/user-provider";
 
 // `label` values are i18n keys — translated at render via t().
 const META: Record<DocType, { label: string; icon: LucideIcon; variant: "info" | "brand" | "success" | "warning" }> = {
@@ -52,6 +54,19 @@ export function DocumentsPanel({
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<DocItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const user = useUser();
+  const [requestState, setRequestState] = useState<"idle" | "busy" | "sent" | "error">("idle");
+
+  async function requestReport() {
+    if (!clientId) return;
+    setRequestState("busy");
+    const res = await fetch("/api/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId, content: t("empty.requestReportMessage") }),
+    }).catch(() => null);
+    setRequestState(res?.ok ? "sent" : "error");
+  }
   const fileRef = useRef<HTMLInputElement>(null);
 
   const docs = documents.filter((d) => filter === "all" || d.type === filter);
@@ -156,11 +171,19 @@ export function DocumentsPanel({
                 <Upload className="h-4 w-4" />
                 {t("empty.uploadDoc")}
               </button>
-              <button className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-bg px-4 text-sm font-medium text-foreground transition-colors hover:bg-surface">
-                <MessageCircle className="h-4 w-4" />
-                {t("empty.requestReport")}
-              </button>
+              {user.role === "client" && (
+                <button
+                  type="button"
+                  onClick={requestReport}
+                  disabled={!clientId || requestState === "busy" || requestState === "sent"}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-bg px-4 text-sm font-medium text-foreground transition-colors hover:bg-surface disabled:opacity-60"
+                >
+                  {requestState === "sent" ? <Check className="h-4 w-4 text-success" /> : <MessageCircle className="h-4 w-4" />}
+                  {requestState === "sent" ? t("empty.requestSent") : t("empty.requestReport")}
+                </button>
+              )}
             </div>
+            {requestState === "error" && <p className="text-sm text-danger">{t("ait.actionFailed")}</p>}
           </div>
         ) : (
           <ul className="divide-y divide-border">

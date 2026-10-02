@@ -11,6 +11,9 @@ async function guard() {
   return sb ? sb : null;
 }
 
+const isMissingColumn = (err: { code?: string; message?: string }) =>
+  err.code === "42703" || err.code === "PGRST204" || /description/i.test(err.message ?? "");
+
 export async function POST(req: Request) {
   const sb = await guard();
   if (!sb) return NextResponse.json({ error: "Forbidden or backend not configured." }, { status: 403 });
@@ -20,19 +23,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Client and project name are required." }, { status: 400 });
   }
 
-  const { data, error } = await sb
-    .from("projects")
-    .insert({
-      client_id: b.clientId,
-      name: b.name.trim(),
-      status: b.status || "planning",
-      progress: Number(b.progress) || 0,
-      assigned_to: b.assignedToName || null,
-      assigned_to_id: b.assignedToId || null,
-      due: b.due || null,
-    })
-    .select()
-    .single();
+  const row: Record<string, unknown> = {
+    client_id: b.clientId,
+    name: b.name.trim(),
+    status: b.status || "planning",
+    progress: Number(b.progress) || 0,
+    assigned_to: b.assignedToName || null,
+    assigned_to_id: b.assignedToId || null,
+    due: b.due || null,
+  };
+  const description = typeof b.description === "string" ? b.description.trim().slice(0, 1000) : "";
+  let res = await sb.from("projects").insert(description ? { ...row, description } : row).select().single();
+  // Pre-0025 schema has no description column — keep the project, drop the note.
+  if (res.error && description && isMissingColumn(res.error)) {
+    res = await sb.from("projects").insert(row).select().single();
+  }
+  const { data, error } = res;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ ok: true, project: data });

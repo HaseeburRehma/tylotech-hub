@@ -28,6 +28,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AutoRefresh } from "@/components/integrations/auto-refresh";
 import { useT } from "@/lib/i18n/provider";
+import { useActiveClient } from "@/components/providers/active-client-provider";
 import type { Kpi, Project, SeriesPoint, Update } from "@/types";
 import type { IntegrationHealthRow, PortfolioSummary } from "@/lib/data";
 
@@ -336,15 +337,18 @@ export function StaffDashboardView({
   myProjects,
   myActiveTasks,
   updates,
+  activeClients,
 }: {
   portfolio: PortfolioSummary;
   attention: AttentionRow[];
   myProjects: StaffProject[];
   myActiveTasks: number;
   updates: StaffUpdate[];
+  activeClients: number;
 }) {
   const user = useUser();
   const t = useT();
+  const { active: activeClient } = useActiveClient();
   const firstName = user.name.split(" ")[0];
   const period = new Date().toLocaleDateString("de-DE", { month: "long", year: "numeric" });
 
@@ -365,7 +369,15 @@ export function StaffDashboardView({
             <CalendarDays className="h-4 w-4" />
             {period}
           </span>
-          <Button size="sm" variant="primary">
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={!activeClient}
+            title={activeClient ? activeClient.name : undefined}
+            onClick={() =>
+              activeClient && window.open(`/api/reports/performance?client=${activeClient.id}`, "_blank", "noopener")
+            }
+          >
             {t("dash.shareReport")}
           </Button>
         </div>
@@ -409,8 +421,7 @@ export function StaffDashboardView({
             <KpiCardNew
               index={3}
               label={t("dash.staff.activeClients")}
-              value={String(attention.length + myProjects.length > 0 ? 10 : 0)}
-              suffix={t("dash.vsPrevMonth")}
+              value={String(activeClients)}
             />
           </div>
 

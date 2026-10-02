@@ -19,14 +19,19 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { notFound, useParams } from "next/navigation";
-import { useState } from "react";
+import { notFound, useParams, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/lib/theme/theme-provider";
 import { useT } from "@/lib/i18n/provider";
+import { useActiveClient } from "@/components/providers/active-client-provider";
+import { ClientLogo } from "@/components/layout/sidebar";
+import { AiHistoryModal } from "@/components/modals/ai-history-modal";
+import { useUser } from "@/components/providers/user-provider";
+import { pushAiHistory, readAiHistory } from "@/lib/ai-history";
 
 type Field =
   | { name: string; label: string; type: "input" | "textarea"; placeholder: string; required?: boolean }
@@ -109,28 +114,99 @@ const CONFIG: Record<
   },
 };
 
-function ClientChip({ company }: { company: string }) {
-  const initials = company
+function initialsOf(name: string) {
+  return name
     .split(/\s+/)
     .map((w) => w[0])
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+function ClientChip({ fallbackCompany }: { fallbackCompany: string }) {
+  const { clients, active, setActive } = useActiveClient();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const company = active?.name ?? fallbackCompany;
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const badge = active ? (
+    <ClientLogo client={active} size={24} />
+  ) : (
+    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand/15 text-[10px] font-bold text-brand">
+      {initialsOf(company)}
+    </span>
+  );
+
+  // Clients only ever generate for their own brand.
+  if (clients.length === 0) {
+    return (
+      <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground">
+        {badge}
+        {company}
+      </span>
+    );
+  }
 
   return (
-    <button className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-surface-2">
-      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand/15 text-[10px] font-bold text-brand">
-        {initials}
-      </span>
-      {company}
-      <ChevronDown className="h-3.5 w-3.5 text-muted" />
-    </button>
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex max-w-[220px] items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-surface-2"
+      >
+        {badge}
+        <span className="truncate">{company}</span>
+        <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          className="absolute right-0 z-50 mt-1 max-h-72 w-60 overflow-y-auto rounded-xl border border-border bg-surface p-1 shadow-float"
+        >
+          {clients.map((c) => (
+            <li key={c.id}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={c.id === active?.id}
+                onClick={() => {
+                  setOpen(false);
+                  if (c.id !== active?.id) setActive(c);
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors hover:bg-surface-2"
+              >
+                <ClientLogo client={c} size={24} />
+                <span className="flex-1 truncate">{c.name}</span>
+                {c.id === active?.id && <Check className="h-4 w-4 text-brand" />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
 export default function ToolPage() {
   const { slug } = useParams<{ slug: string }>();
   const { theme } = useTheme();
+  const { active } = useActiveClient();
   const t = useT();
   const config = CONFIG[slug];
   if (!config) notFound();
@@ -140,7 +216,65 @@ export default function ToolPage() {
   const [loading, setLoading] = useState(false);
   const [demo, setDemo] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
+  const [generatedFor, setGeneratedFor] = useState<string>("");
+  const [showHistory, setShowHistory] = useState(false);
+  const [action, setAction] = useState<{ kind: "doc" | "chat"; state: "busy" | "ok" | "error"; msg?: string } | null>(null);
+  const user = useUser();
+  const searchParams = useSearchParams();
+  const historyId = searchParams.get("h");
+  const brand = active?.name ?? theme.company;
+  const targetClientId = user.role === "client" ? user.client_id : active?.id ?? null;
   const Icon = config.icon;
+
+  // Re-open a past generation from the history panel.
+  useEffect(() => {
+    if (!historyId) return;
+    const entry = readAiHistory().find((e) => e.id === historyId && e.tool === slug);
+    if (!entry) return;
+    setInputs(entry.inputs);
+    setOutput(entry.output);
+    setGeneratedAt(new Date(entry.at));
+    setGeneratedFor(entry.brand);
+    setDemo(false);
+    setAction(null);
+  }, [historyId, slug]);
+
+  async function saveAsDocument() {
+    if (!targetClientId || !output) return;
+    setAction({ kind: "doc", state: "busy" });
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
+    const file = new File([`# ${t(config.name)} — ${generatedFor || brand}\n\n${output}\n`], `${slug}-${stamp}.md`, {
+      type: "text/markdown",
+    });
+    const form = new FormData();
+    form.append("file", file);
+    form.append("clientId", targetClientId);
+    form.append("type", "asset");
+    try {
+      const res = await fetch("/api/documents", { method: "POST", body: form });
+      const data = await res.json().catch(() => ({}));
+      setAction(res.ok ? { kind: "doc", state: "ok" } : { kind: "doc", state: "error", msg: data.error });
+    } catch {
+      setAction({ kind: "doc", state: "error" });
+    }
+  }
+
+  async function shareInChat() {
+    if (!targetClientId || !output) return;
+    setAction({ kind: "chat", state: "busy" });
+    try {
+      const res = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: `✨ ${t(config.name)}\n\n${output}`, clientId: targetClientId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      setAction(res.ok ? { kind: "chat", state: "ok" } : { kind: "chat", state: "error", msg: data.error });
+    } catch {
+      setAction({ kind: "chat", state: "error" });
+    }
+  }
 
   async function run() {
     setLoading(true);
@@ -149,11 +283,15 @@ export default function ToolPage() {
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tool: slug, inputs, brand: theme.company }),
+        body: JSON.stringify({ tool: slug, inputs, brand }),
       });
       const data = await res.json();
       setOutput(data.output ?? data.error ?? t("ait.somethingWrong"));
       setDemo(Boolean(data.demo));
+      setGeneratedAt(new Date());
+      setGeneratedFor(brand);
+      setAction(null);
+      if (res.ok && data.output) pushAiHistory({ tool: slug, brand, inputs, output: data.output });
     } catch {
       setOutput(t("ait.networkError"));
     } finally {
@@ -174,8 +312,10 @@ export default function ToolPage() {
         <Link href="/ai-tools" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> {t("ait.allTools")}
         </Link>
-        <ClientChip company={theme.company} />
+        <ClientChip fallbackCompany={theme.company} />
       </div>
+
+      <AiHistoryModal open={showHistory} onClose={() => setShowHistory(false)} tool={slug} />
 
       {/* Tool header */}
       <div className="flex items-center gap-4">
@@ -267,9 +407,16 @@ export default function ToolPage() {
                   {copied ? t("ait.copied") : t("ait.copy")}
                 </button>
                 <button
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+                  type="button"
+                  onClick={saveAsDocument}
+                  disabled={!targetClientId || action?.state === "busy"}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
                 >
-                  <FileText className="h-3.5 w-3.5" />
+                  {action?.kind === "doc" && action.state === "ok" ? (
+                    <Check className="h-3.5 w-3.5 text-success" />
+                  ) : (
+                    <FileText className="h-3.5 w-3.5" />
+                  )}
                   {t("ait.asDocument")}
                 </button>
                 <button
@@ -281,9 +428,13 @@ export default function ToolPage() {
                 </button>
               </div>
             ) : (
-              <Link href="#" className="text-sm text-muted hover:text-foreground">
+              <button
+                type="button"
+                onClick={() => setShowHistory(true)}
+                className="text-sm text-muted hover:text-foreground"
+              >
                 {t("ait.history")}
-              </Link>
+              </button>
             )}
           </div>
 
@@ -331,14 +482,41 @@ export default function ToolPage() {
           {output && !loading && (
             <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
               <p className="text-xs text-muted">
-                {theme.company} · {new Date().toLocaleDateString("de-DE", { day: "numeric", month: "numeric" })},{" "}
-                {new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
+                {generatedFor || brand}
+                {generatedAt && (
+                  <>
+                    {" · "}
+                    {generatedAt.toLocaleDateString("de-DE", { day: "numeric", month: "numeric" })},{" "}
+                    {generatedAt.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
+                  </>
+                )}
               </p>
-              <button className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-foreground">
-                <MessageCircle className="h-3.5 w-3.5" />
+              <button
+                type="button"
+                onClick={shareInChat}
+                disabled={!targetClientId || action?.state === "busy"}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+              >
+                {action?.kind === "chat" && action.state === "ok" ? (
+                  <Check className="h-3.5 w-3.5 text-success" />
+                ) : (
+                  <MessageCircle className="h-3.5 w-3.5" />
+                )}
                 {t("ait.shareInChat")}
               </button>
             </div>
+          )}
+          {action && action.state !== "busy" && (
+            <p
+              role="status"
+              className={`mt-2 text-xs ${action.state === "ok" ? "text-success" : "text-danger"}`}
+            >
+              {action.state === "ok"
+                ? action.kind === "doc"
+                  ? t("ait.savedToDocs")
+                  : t("ait.sharedInChat")
+                : action.msg ?? t("ait.actionFailed")}
+            </p>
           )}
         </Card>
       </div>

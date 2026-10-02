@@ -11,17 +11,19 @@ import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { buildClientTheme, themeToCssVars } from "@/lib/theme/themes";
-import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n/provider";
+import { cn, formatCurrency } from "@/lib/utils";
 
 const PLANS = ["Starter", "Growth", "Scale", "Enterprise"];
 const STEPS = [
-  { title: "Company", icon: Building2 },
-  { title: "Brand", icon: Palette },
-  { title: "Access", icon: UserPlus },
+  { title: "onb.stepCompany", icon: Building2 },
+  { title: "onb.stepBrand", icon: Palette },
+  { title: "onb.stepAccess", icon: UserPlus },
 ];
 
 export default function OnboardPage() {
   const router = useRouter();
+  const t = useT();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -50,7 +52,7 @@ export default function OnboardPage() {
     setUploading(false);
     if (!res?.ok) {
       const data = res ? await res.json().catch(() => ({})) : {};
-      setError(data.error ?? "Logo upload failed.");
+      setError(data.error ?? t("onb.logoFailed"));
       return;
     }
     const { url } = await res.json();
@@ -61,12 +63,12 @@ export default function OnboardPage() {
   const previewVars = useMemo(() => {
     const theme = buildClientTheme({
       id: "preview",
-      company: form.company || "Your Client",
+      company: form.company || t("onb.yourClient"),
       primary: form.primaryColor,
       secondary: form.secondaryColor,
     });
     return themeToCssVars(theme) as React.CSSProperties;
-  }, [form.company, form.primaryColor, form.secondaryColor]);
+  }, [form.company, form.primaryColor, form.secondaryColor, t]);
 
   async function submit() {
     setLoading(true);
@@ -79,14 +81,14 @@ export default function OnboardPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Could not create client.");
+        setError(data.error ?? t("onb.createFailed"));
         setLoading(false);
         return;
       }
       setResult({ ok: true, warning: data.warning });
       setLoading(false);
     } catch {
-      setError("Network error. Please try again.");
+      setError(t("onb.networkError"));
       setLoading(false);
     }
   }
@@ -95,16 +97,16 @@ export default function OnboardPage() {
     return (
       <div className="mx-auto max-w-md py-16 text-center">
         <CheckCircle2 className="mx-auto h-14 w-14 text-success" />
-        <h1 className="mt-4 text-2xl font-semibold">{form.company} onboarded</h1>
+        <h1 className="mt-4 text-2xl font-semibold">{t("onb.doneTitle", { company: form.company })}</h1>
         <p className="mt-2 text-sm text-muted">
-          Their branded portal is live. {form.clientEmail && `Login created for ${form.clientEmail}.`}
+          {t("onb.doneBody")} {form.clientEmail && t("onb.loginCreated", { email: form.clientEmail })}
         </p>
         {result.warning && (
           <p className="mt-3 text-sm text-warning">{result.warning}</p>
         )}
         <div className="mt-6 flex justify-center gap-3">
           <Link href="/internal">
-            <Button variant="secondary">Back to hub</Button>
+            <Button variant="secondary">{t("onb.backToHub")}</Button>
           </Link>
           <Button
             onClick={() => {
@@ -113,7 +115,7 @@ export default function OnboardPage() {
               setForm((f) => ({ ...f, company: "", mrr: "", clientName: "", clientEmail: "", clientPassword: "" }));
             }}
           >
-            Onboard another
+            {t("onb.another")}
           </Button>
         </div>
       </div>
@@ -123,9 +125,9 @@ export default function OnboardPage() {
   return (
     <div className="space-y-6">
       <Link href="/internal" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Internal Hub
+        <ArrowLeft className="h-4 w-4" /> {t("common.backToHub")}
       </Link>
-      <PageHeader title="Onboard a client" subtitle="Spin up a branded white-label portal in three steps." />
+      <PageHeader title={t("onb.title")} subtitle={t("onb.subtitle")} />
 
       {/* Stepper */}
       <div className="flex items-center gap-2">
@@ -148,7 +150,7 @@ export default function OnboardPage() {
                 {complete ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
               </div>
               <span className={cn("hidden text-sm font-medium sm:block", active ? "text-foreground" : "text-muted")}>
-                {s.title}
+                {t(s.title)}
               </span>
               {i < STEPS.length - 1 && <div className="h-px flex-1 bg-border" />}
             </div>
@@ -176,12 +178,12 @@ export default function OnboardPage() {
               {step === 0 && (
                 <>
                   <div>
-                    <Label htmlFor="company">Company name</Label>
-                    <Input id="company" value={form.company} onChange={(e) => set("company", e.target.value)} placeholder="Acme Corp" />
+                    <Label htmlFor="company">{t("cd.company")}</Label>
+                    <Input id="company" value={form.company} onChange={(e) => set("company", e.target.value)} placeholder={t("onb.companyPh")} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="plan">Plan</Label>
+                      <Label htmlFor="plan">{t("cd.planLabel")}</Label>
                       <select
                         id="plan"
                         value={form.plan}
@@ -194,7 +196,7 @@ export default function OnboardPage() {
                       </select>
                     </div>
                     <div>
-                      <Label htmlFor="mrr">Monthly fee (€)</Label>
+                      <Label htmlFor="mrr">{t("onb.monthlyFee")}</Label>
                       <Input id="mrr" type="number" value={form.mrr} onChange={(e) => set("mrr", e.target.value)} placeholder="4200" />
                     </div>
                   </div>
@@ -205,7 +207,7 @@ export default function OnboardPage() {
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="primary">Primary color</Label>
+                      <Label htmlFor="primary">{t("editClient.primary")}</Label>
                       <div className="flex items-center gap-2">
                         <input
                           type="color"
@@ -217,7 +219,7 @@ export default function OnboardPage() {
                       </div>
                     </div>
                     <div>
-                      <Label htmlFor="secondary">Secondary color</Label>
+                      <Label htmlFor="secondary">{t("editClient.secondary")}</Label>
                       <div className="flex items-center gap-2">
                         <input
                           type="color"
@@ -235,12 +237,12 @@ export default function OnboardPage() {
                       <div className="flex items-center gap-3 rounded-xl border border-border bg-bg/40 p-3">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={form.logoUrl} alt="Logo" className="h-12 w-12 rounded-lg object-contain" />
-                        <span className="flex-1 truncate text-xs text-muted">Logo uploaded</span>
+                        <span className="flex-1 truncate text-xs text-muted">{t("onb.logoUploaded")}</span>
                         <button
                           type="button"
                           onClick={() => set("logoUrl", "")}
                           className="text-muted hover:text-danger"
-                          aria-label="Remove logo"
+                          aria-label={t("onb.removeLogo")}
                         >
                           <X className="h-4 w-4" />
                         </button>
@@ -249,17 +251,17 @@ export default function OnboardPage() {
                       <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-bg/40 px-4 py-6 text-sm text-muted transition-colors hover:border-brand/40 hover:text-foreground">
                         {uploading ? (
                           <>
-                            <Loader2 className="h-4 w-4 animate-spin" /> Uploading…
+                            <Loader2 className="h-4 w-4 animate-spin" /> {t("onb.uploading")}
                           </>
                         ) : (
                           <>
-                            <ImagePlus className="h-4 w-4" /> Upload logo (PNG/SVG, max 2 MB)
+                            <ImagePlus className="h-4 w-4" /> {t("onb.uploadLogo")}
                           </>
                         )}
                         <input
                           id="logo"
                           type="file"
-                          accept="image/*"
+                          accept="image/png,image/jpeg,image/webp"
                           className="hidden"
                           disabled={uploading}
                           onChange={(e) => {
@@ -271,8 +273,7 @@ export default function OnboardPage() {
                     )}
                   </div>
                   <p className="text-xs text-muted">
-                    Colors become CSS variables across the client&apos;s entire portal; the logo replaces the
-                    mark in their top-left.
+                    {t("onb.brandHint")}
                   </p>
                 </>
               )}
@@ -280,19 +281,19 @@ export default function OnboardPage() {
               {step === 2 && (
                 <>
                   <p className="text-sm text-muted">
-                    Optionally create the client&apos;s first login now. You can also invite them later.
+                    {t("onb.accessHint")}
                   </p>
                   <div>
-                    <Label htmlFor="cname">Contact name</Label>
-                    <Input id="cname" value={form.clientName} onChange={(e) => set("clientName", e.target.value)} placeholder="Jane Doe" />
+                    <Label htmlFor="cname">{t("cd.contact")}</Label>
+                    <Input id="cname" value={form.clientName} onChange={(e) => set("clientName", e.target.value)} placeholder={t("auth.fullName")} />
                   </div>
                   <div>
-                    <Label htmlFor="cemail">Login email</Label>
-                    <Input id="cemail" type="email" value={form.clientEmail} onChange={(e) => set("clientEmail", e.target.value)} placeholder="jane@acme.com" />
+                    <Label htmlFor="cemail">{t("onb.loginEmail")}</Label>
+                    <Input id="cemail" type="email" value={form.clientEmail} onChange={(e) => set("clientEmail", e.target.value)} placeholder={t("ob.emailPlaceholder")} />
                   </div>
                   <div>
-                    <Label htmlFor="cpass">Temporary password</Label>
-                    <Input id="cpass" value={form.clientPassword} onChange={(e) => set("clientPassword", e.target.value)} placeholder="At least 8 characters" />
+                    <Label htmlFor="cpass">{t("onb.tempPassword")}</Label>
+                    <Input id="cpass" value={form.clientPassword} onChange={(e) => set("clientPassword", e.target.value)} placeholder={t("onb.min8")} />
                   </div>
                 </>
               )}
@@ -305,15 +306,15 @@ export default function OnboardPage() {
               onClick={() => setStep((s) => Math.max(0, s - 1))}
               disabled={step === 0}
             >
-              Back
+              {t("ob.back")}
             </Button>
             {step < STEPS.length - 1 ? (
               <Button onClick={() => setStep((s) => s + 1)} disabled={step === 0 && !form.company.trim()}>
-                Continue <ArrowRight className="h-4 w-4" />
+                {t("ob.next")} <ArrowRight className="h-4 w-4" />
               </Button>
             ) : (
               <Button onClick={submit} loading={loading} disabled={!form.company.trim()}>
-                Create client
+                {t("onb.create")}
               </Button>
             )}
           </div>
@@ -321,7 +322,7 @@ export default function OnboardPage() {
 
         {/* Live brand preview */}
         <div>
-          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted/60">Live preview</p>
+          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted/60">{t("onb.livePreview")}</p>
           <div style={previewVars} className="overflow-hidden rounded-2xl border border-border bg-bg p-4">
             <div className="mb-4 flex items-center gap-2.5">
               {form.logoUrl ? (
@@ -332,22 +333,22 @@ export default function OnboardPage() {
                   <span className="h-4 w-4 rounded-sm bg-brand" />
                 </span>
               )}
-              <span className="text-sm font-semibold text-foreground">{form.company || "Your Client"}</span>
+              <span className="text-sm font-semibold text-foreground">{form.company || t("onb.yourClient")}</span>
             </div>
             <div className="space-y-3">
               <div className="rounded-xl border border-border bg-surface p-3">
-                <p className="text-[11px] text-muted">Monthly Ad Spend</p>
-                <p className="font-display text-lg font-semibold text-foreground">€18,400</p>
+                <p className="text-[11px] text-muted">{t("onb.monthlyFee")}</p>
+                <p className="font-display text-lg font-semibold text-foreground">{formatCurrency(Number(form.mrr) || 0)}</p>
                 <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
                   <div className="h-full w-2/3 rounded-full bg-brand" />
                 </div>
               </div>
-              <button className="w-full rounded-xl bg-brand py-2.5 text-sm font-medium text-brand-foreground">
-                Primary action
-              </button>
+              <div aria-hidden className="w-full rounded-xl bg-brand py-2.5 text-center text-sm font-medium text-brand-foreground">
+                {t("onb.sampleButton")}
+              </div>
               <div className="flex gap-2">
-                <Badge variant="brand">Brand badge</Badge>
-                <span className="rounded-full border border-brand/40 px-2.5 py-1 text-xs text-brand">Outline</span>
+                <Badge variant="brand">{form.plan}</Badge>
+                <span className="rounded-full border border-brand/40 px-2.5 py-1 text-xs text-brand">Powered by TyloTech</span>
               </div>
             </div>
           </div>

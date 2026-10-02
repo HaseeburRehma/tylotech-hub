@@ -133,3 +133,43 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
 
   await send(to, subject, html);
 }
+
+/** Bilingual invitation to join the Hub; the link lets the invitee set a password. */
+export async function sendInviteEmail(to: string, inviteUrl: string, inviterName: string, workspace: string): Promise<boolean> {
+  if (!emailConfigured) return false;
+  const inviter = esc(inviterName);
+  const ws = esc(workspace);
+  const de = {
+    subject: `${inviterName} lädt Sie zu TyloTech ein`,
+    lead: `${inviter} hat Sie zum Head Quarter von <strong>${ws}</strong> eingeladen. Legen Sie Ihr Passwort fest, um loszulegen.`,
+    cta: "Einladung annehmen",
+  };
+  const en = {
+    subject: `${inviterName} invited you to TyloTech`,
+    lead: `${inviter} invited you to the <strong>${ws}</strong> Head Quarter. Set your password to get started.`,
+    cta: "Accept invitation",
+  };
+  const button = (label: string) =>
+    `<a href="${inviteUrl}" style="display:inline-block;background:#C9A84C;color:#111;text-decoration:none;font-weight:600;padding:11px 22px;border-radius:10px;font-size:14px">${label} →</a>`;
+  const block = (lang: string, c: typeof de) => `
+        <p style="margin:0 0 6px;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:#999">${lang}</p>
+        <p style="margin:0 0 14px;font-size:14px;color:#555;line-height:1.5">${c.lead}</p>
+        ${button(c.cta)}`;
+  const html = `<!doctype html><html><body style="margin:0;background:#f4f4f5;padding:24px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+    <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e5e5">
+      <tr><td style="padding:20px 28px;border-bottom:1px solid #eee">
+        <span style="font-size:17px;font-weight:700;color:#111">Tylo<span style="color:#C9A84C">Tech</span></span>
+      </td></tr>
+      <tr><td style="padding:24px 28px 8px">${block("Deutsch", de)}</td></tr>
+      <tr><td style="padding:8px 28px"><hr style="border:none;border-top:1px solid #eee;margin:16px 0"/></td></tr>
+      <tr><td style="padding:0 28px 24px">${block("English", en)}</td></tr>
+      <tr><td style="padding:16px 28px;background:#fafafa;border-top:1px solid #eee">
+        <p style="margin:0;font-size:12px;color:#999">Diese E-Mail wurde automatisch gesendet. · This email was sent automatically. — TyloTech</p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+  </body></html>`;
+  await send(to, `${de.subject} · ${en.subject}`, html);
+  return true;
+}

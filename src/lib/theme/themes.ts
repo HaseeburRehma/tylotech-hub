@@ -27,6 +27,8 @@ export interface BrandTheme {
   tagline?: string;
   /** Full lockup image (mark + wordmark) — replaces mark+text when showName is true */
   fullLogo?: string;
+  /** Variant of fullLogo for dark backgrounds */
+  fullLogoDark?: string;
 }
 
 const LOGO_BASE = "https://gdofcdiekmazmjznlria.supabase.co/storage/v1/object/public/logos";
@@ -41,6 +43,7 @@ export const TYLOTECH_THEME: BrandTheme = {
   onPrimaryDark: true,
   tagline: "Growth, engineered.",
   fullLogo: "/images/tylotech-logo.png",
+  fullLogoDark: "/images/tylotech-logo-dark.png",
 };
 
 /** Real onboarded clients — used to preview white-label in the theme switcher. */

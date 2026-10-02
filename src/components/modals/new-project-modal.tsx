@@ -1,10 +1,12 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { ModalShell } from "@/components/ui/modal";
 import { ClipboardList, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
+import { Menu, MenuItem } from "@/components/ui/menu";
+import { useActiveClient } from "@/components/providers/active-client-provider";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/lib/i18n/provider";
 import type { ProjectStatus } from "@/types";
@@ -34,7 +36,12 @@ export function NewProjectModal({
   const [error, setError] = useState<string | null>(null);
 
   const [name, setName] = useState("");
+  const { active } = useActiveClient();
   const [clientId, setClientId] = useState(clients[0]?.id ?? "");
+
+  useEffect(() => {
+    if (open && active && clients.some((c) => c.id === active.id)) setClientId(active.id);
+  }, [open, active, clients]);
   const [status, setStatus] = useState<ProjectStatus>("planning");
   const [due, setDue] = useState("");
   const [assignedIds, setAssignedIds] = useState<string[]>([]);
@@ -86,24 +93,7 @@ export function NewProjectModal({
   }
 
   return (
-    <AnimatePresence>
-      {open && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 z-[60] bg-foreground/25 backdrop-blur-sm"
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 20 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="fixed inset-0 z-[61] flex items-center justify-center p-4"
-          >
-            <div className="w-full max-w-lg rounded-2xl border border-border bg-bg shadow-float" onClick={(e) => e.stopPropagation()}>
+    <ModalShell open={open} onClose={onClose}>
               {/* Header */}
               <div className="flex items-start gap-4 px-6 pt-6 pb-4">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/15">
@@ -113,7 +103,7 @@ export function NewProjectModal({
                   <h2 className="text-lg font-semibold text-foreground">{t("newProj.title")}</h2>
                   <p className="mt-0.5 text-sm text-muted">{t("newProj.desc")}</p>
                 </div>
-                <button onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground transition-colors">
+                <button type="button" aria-label="Close" onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground transition-colors">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -179,32 +169,44 @@ export function NewProjectModal({
                       {assignedIds.map((id) => (
                         <span key={id} className="inline-flex items-center gap-1 rounded-full bg-surface-2 pl-1 pr-2 py-0.5">
                           <Avatar name={memberMap[id] ?? ""} size={22} />
-                          <button onClick={() => removeAssignee(id)} className="text-muted hover:text-foreground">
+                          <button type="button" aria-label="Remove" onClick={() => removeAssignee(id)} className="text-muted hover:text-foreground">
                             <X className="h-3 w-3" />
                           </button>
                         </span>
                       ))}
-                      <div className="relative group">
-                        <button
-                          type="button"
-                          className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-border text-muted hover:border-brand/40 hover:text-brand transition-colors"
-                        >
-                          <Plus className="h-3 w-3" />
-                        </button>
-                        <div className="absolute left-0 top-full z-10 mt-1 hidden w-48 rounded-xl border border-border bg-surface p-1 shadow-float group-focus-within:block group-hover:block">
-                          {members.filter((m) => !assignedIds.includes(m.id)).map((m) => (
+                      {members.some((m) => !assignedIds.includes(m.id)) && (
+                        <Menu
+                          width={220}
+                          trigger={({ toggle, open }) => (
                             <button
-                              key={m.id}
                               type="button"
-                              onClick={() => toggleAssignee(m.id)}
-                              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2"
+                              onClick={toggle}
+                              aria-expanded={open}
+                              aria-label={t("newProj.assignee")}
+                              className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-border text-muted transition-colors hover:border-brand/40 hover:text-brand"
                             >
-                              <Avatar name={m.name} size={24} />
-                              <span className="truncate">{m.name}</span>
+                              <Plus className="h-3 w-3" />
                             </button>
-                          ))}
-                        </div>
-                      </div>
+                          )}
+                        >
+                          {(close) =>
+                            members
+                              .filter((m) => !assignedIds.includes(m.id))
+                              .map((m) => (
+                                <MenuItem
+                                  key={m.id}
+                                  icon={<Avatar name={m.name} size={20} />}
+                                  onSelect={() => {
+                                    toggleAssignee(m.id);
+                                    close();
+                                  }}
+                                >
+                                  {m.name}
+                                </MenuItem>
+                              ))
+                          }
+                        </Menu>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -236,10 +238,6 @@ export function NewProjectModal({
                   {t("newProj.create")}
                 </Button>
               </div>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+    </ModalShell>
   );
 }

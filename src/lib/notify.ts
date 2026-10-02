@@ -44,7 +44,14 @@ async function fetchRecipients(admin: any, apply: (q: any) => any): Promise<Reci
  */
 async function dispatchEmails(admin: any, users: Recipient[], n: NotifyInput) {
   if (!n.email) return;
-  const withEmail = users.filter((u) => u.email);
+  const optedOut = new Set<string>();
+  await Promise.all(
+    users.map(async (u) => {
+      const { data } = await admin.auth.admin.getUserById(u.id);
+      if (data?.user?.user_metadata?.notify_email === false) optedOut.add(u.id);
+    }),
+  );
+  const withEmail = users.filter((u) => u.email && !optedOut.has(u.id));
   if (!withEmail.length) return;
   const now = Date.now();
   const cutoff = new Date(now - COOLDOWN_MS).toISOString();

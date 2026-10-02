@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import {
+  ArrowDownUp,
   ArrowRight,
   ChevronRight,
   Plus,
@@ -15,11 +16,20 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { NewClientModal } from "@/components/modals/new-client-modal";
+import { Menu, MenuItem, MenuLabel, MenuSeparator } from "@/components/ui/menu";
 import { useT } from "@/lib/i18n/provider";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { ClientListRow, TeamMember } from "@/lib/data";
 
 type PlanFilter = "all" | "Growth" | "Scale" | "new";
+type SortKey = "budget" | "mrr" | "leads" | "name" | "newest";
+const SORTS: Record<SortKey, { label: string; cmp: (a: ClientListRow, b: ClientListRow) => number }> = {
+  budget: { label: "clients.sortBudget", cmp: (a, b) => b.spend30d - a.spend30d },
+  mrr: { label: "clients.sortMrr", cmp: (a, b) => b.mrr - a.mrr },
+  leads: { label: "clients.sortLeads", cmp: (a, b) => b.leads30d - a.leads30d },
+  name: { label: "clients.sortName", cmp: (a, b) => a.company.localeCompare(b.company) },
+  newest: { label: "clients.sortNewest", cmp: (a, b) => b.created_at.localeCompare(a.created_at) },
+};
 
 const PLAN_VARIANT: Record<string, "success" | "brand" | "neutral"> = {
   Growth: "success",
@@ -68,7 +78,11 @@ export function ClientsView({
   const t = useT();
   const [filter, setFilter] = useState<PlanFilter>("all");
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<SortKey>("budget");
+  const [member, setMember] = useState<string>("all");
+  const [activeOnly, setActiveOnly] = useState(false);
   const [showNewClient, setShowNewClient] = useState(false);
+  const extraFilters = (member !== "all" ? 1 : 0) + (activeOnly ? 1 : 0);
 
   const now = new Date();
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -77,10 +91,7 @@ export function ClientsView({
     (c) => c.created_at.slice(0, 7) === thisMonth,
   ).length;
 
-  const sorted = useMemo(
-    () => [...clients].sort((a, b) => b.spend30d - a.spend30d),
-    [clients],
-  );
+  const sorted = useMemo(() => [...clients].sort(SORTS[sort].cmp), [clients, sort]);
 
   const filtered = sorted
     .filter((c) => {
@@ -88,10 +99,13 @@ export function ClientsView({
       if (filter === "new") return c.created_at.slice(0, 7) === thisMonth;
       return c.plan === filter;
     })
+    .filter((c) => member === "all" || c.assignedTeam.some((m) => m.id === member))
+    .filter((c) => !activeOnly || c.spend30d > 0 || c.leads30d > 0)
     .filter(
       (c) =>
         !search ||
-        c.company.toLowerCase().includes(search.toLowerCase()),
+        c.company.toLowerCase().includes(search.toLowerCase()) ||
+        (c.name ?? "").toLowerCase().includes(search.toLowerCase()),
     );
 
   const planCounts = {
@@ -105,17 +119,17 @@ export function ClientsView({
         title={t("clients.title")}
         subtitle={`${clients.length} ${t("clients.accounts")} · ${planCounts.Growth} ${t("clients.onGrowth")} · ${planCounts.Scale} ${t("clients.onScale")}`}
       >
-        <div className="flex items-center gap-3">
-          <div className="relative">
+        <div className="flex w-full items-center gap-3 sm:w-auto">
+          <div className="relative min-w-0 flex-1 sm:flex-none">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
             <input
-              type="text"
+              type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t("clients.search")}
-              className="input-base h-10 w-[200px] pl-9 pr-10 text-sm"
+              className="input-base h-10 w-full pl-9 pr-3 text-sm sm:w-[200px] sm:pr-10"
             />
-            <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted">
+            <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted sm:block">
               ⌘K
             </kbd>
           </div>
@@ -130,7 +144,7 @@ export function ClientsView({
 
       {/* Filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1 rounded-xl border border-border bg-surface p-1">
+        <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-border bg-surface p-1">
           {(
             [
               { key: "all" as const, label: t("clients.all"), count: clients.length },
@@ -141,9 +155,10 @@ export function ClientsView({
           ).map((p) => (
             <button
               key={p.key}
+              type="button"
               onClick={() => setFilter(p.key)}
               className={cn(
-                "rounded-lg px-3 py-1.5 text-sm transition-colors",
+                "shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors",
                 filter === p.key
                   ? "bg-brand/10 font-medium text-foreground"
                   : "text-muted hover:text-foreground",
@@ -156,21 +171,88 @@ export function ClientsView({
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted hover:text-foreground transition-colors">
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            {t("clients.filter")}
-          </button>
-          <button className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted hover:text-foreground transition-colors">
-            <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M4 6l4 4 4-4" />
-            </svg>
-            {t("clients.sort")}
-          </button>
+          <Menu
+            width={230}
+            align="end"
+            trigger={({ toggle, open }) => (
+              <button
+                type="button"
+                onClick={toggle}
+                aria-expanded={open}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-lg border bg-surface px-3 py-1.5 text-sm transition-colors hover:text-foreground",
+                  extraFilters ? "border-brand/40 text-foreground" : "border-border text-muted",
+                )}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                {t("clients.filter")}
+                {extraFilters > 0 && (
+                  <span className="rounded-full bg-brand px-1.5 text-[10px] font-semibold text-brand-foreground">
+                    {extraFilters}
+                  </span>
+                )}
+              </button>
+            )}
+          >
+            {(close) => (
+              <>
+                <MenuItem selected={activeOnly} onSelect={() => setActiveOnly((v) => !v)}>
+                  {t("clients.withActivity")}
+                </MenuItem>
+                <MenuSeparator />
+                <MenuLabel>{t("clients.col.team")}</MenuLabel>
+                <MenuItem selected={member === "all"} onSelect={() => { setMember("all"); close(); }}>
+                  {t("clients.all")}
+                </MenuItem>
+                {team.map((m) => (
+                  <MenuItem
+                    key={m.id}
+                    icon={<Avatar name={m.name} size={18} />}
+                    selected={member === m.id}
+                    onSelect={() => { setMember(m.id); close(); }}
+                  >
+                    {m.name}
+                  </MenuItem>
+                ))}
+                {extraFilters > 0 && (
+                  <>
+                    <MenuSeparator />
+                    <MenuItem onSelect={() => { setMember("all"); setActiveOnly(false); close(); }}>
+                      {t("clients.resetFilters")}
+                    </MenuItem>
+                  </>
+                )}
+              </>
+            )}
+          </Menu>
+          <Menu
+            width={210}
+            align="end"
+            trigger={({ toggle, open }) => (
+              <button
+                type="button"
+                onClick={toggle}
+                aria-expanded={open}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted transition-colors hover:text-foreground"
+              >
+                <ArrowDownUp className="h-3.5 w-3.5" />
+                {t("clients.sortPrefix")} {t(SORTS[sort].label)}
+              </button>
+            )}
+          >
+            {(close) =>
+              (Object.keys(SORTS) as SortKey[]).map((k) => (
+                <MenuItem key={k} selected={sort === k} onSelect={() => { setSort(k); close(); }}>
+                  {t(SORTS[k].label)}
+                </MenuItem>
+              ))
+            }
+          </Menu>
         </div>
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-border bg-surface">
+      <div className="relative overflow-x-auto rounded-xl border border-border bg-surface">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">

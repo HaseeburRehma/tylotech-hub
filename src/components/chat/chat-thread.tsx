@@ -3,7 +3,10 @@
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AtSign,
+  ArrowDown,
   Check,
+  CheckCheck,
+  ChevronDown,
   Download,
   FileText,
   Loader2,
@@ -17,6 +20,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { Menu, MenuItem, MenuLabel } from "@/components/ui/menu";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -241,6 +245,7 @@ export function ChatThread({
   subtitle,
   className,
   internal = false,
+  initialSelected,
 }: {
   initialMessages: Message[];
   currentUserId: string;
@@ -252,10 +257,17 @@ export function ChatThread({
   subtitle?: string;
   className?: string;
   internal?: boolean;
+  /** Open a specific DM (peer id) instead of the group thread. */
+  initialSelected?: string | null;
 }) {
   const t = useT();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
-  const [selected, setSelected] = useState<string>(GROUP);
+  const [selected, setSelected] = useState<string>(
+    initialSelected && peers.some((p) => p.id === initialSelected) ? initialSelected : GROUP,
+  );
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
+  const [translating, setTranslating] = useState(false);
   const [unread, setUnread] = useState<Record<string, number>>({});
   const [val, setVal] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -288,6 +300,41 @@ export function ChatThread({
     () => messages.filter((m) => threadKeyOf(m) === selected && !m.parent_id),
     [messages, selected],
   );
+  const q = searchQ.trim().toLowerCase();
+  const shown = q
+    ? visible.filter(
+        (m) =>
+          m.content?.toLowerCase().includes(q) ||
+          m.content_translated?.toLowerCase().includes(q) ||
+          m.attachment_name?.toLowerCase().includes(q) ||
+          m.sender_name.toLowerCase().includes(q),
+      )
+    : visible;
+
+  useEffect(() => {
+    if (initialSelected && peers.some((p) => p.id === initialSelected)) setSelected(initialSelected);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSelected]);
+
+  async function translateDraft(target: "de" | "en") {
+    const text = val.trim();
+    if (!text || translating) return;
+    setTranslating(true);
+    try {
+      const res = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, target }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.translation) setVal(data.translation);
+      else setUploadError(t("chat.translateFailed"));
+    } catch {
+      setUploadError(t("chat.translateFailed"));
+    } finally {
+      setTranslating(false);
+    }
+  }
 
   const threadReplies = useMemo(
     () => threadParentId ? messages.filter((m) => m.parent_id === threadParentId) : [],
@@ -746,28 +793,151 @@ export function ChatThread({
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
-          <div className="flex items-center gap-3">
-            {selected === GROUP ? (
-              <div className="relative flex shrink-0">
-                {peers.slice(0, 3).map((p, i) => (
-                  <Avatar key={p.id} name={p.name} size={32} className={cn("ring-2 ring-bg", i > 0 && "-ml-2")} />
-                ))}
+          {(() => {
+            const identity = (
+              <div className="flex min-w-0 items-center gap-3">
+                {selected === GROUP ? (
+                  <div className="relative flex shrink-0">
+                    {peers.slice(0, 3).map((p, i) => (
+                      <Avatar key={p.id} name={p.name} size={32} className={cn("ring-2 ring-bg", i > 0 && "-ml-2")} />
+                    ))}
+                  </div>
+                ) : (
+                  <Avatar name={headerTitle} size={36} />
+                )}
+                <div className="min-w-0 text-left">
+                  <p className="truncate text-sm font-semibold text-foreground">{headerTitle}</p>
+                  <p className="truncate text-[11px] text-muted">{headerSubtitle}</p>
+                </div>
               </div>
-            ) : (
-              <Avatar name={headerTitle} size={36} />
-            )}
-            <div>
-              <p className="text-sm font-semibold text-foreground">{headerTitle}</p>
-              <p className="text-[11px] text-muted">{headerSubtitle}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <button className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground">
-              <Search className="h-4 w-4" />
+            );
+            if (searchOpen) {
+              return (
+                <div className="relative mr-2 min-w-0 flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                  <input
+                    autoFocus
+                    value={searchQ}
+                    onChange={(e) => setSearchQ(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        setSearchOpen(false);
+                        setSearchQ("");
+                      }
+                    }}
+                    placeholder={t("chat.searchPlaceholder")}
+                    className="h-9 w-full rounded-xl border border-border bg-surface pl-9 pr-16 text-sm outline-none focus:border-brand/50"
+                  />
+                  {q && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] tabular-nums text-muted">
+                      {shown.length}/{visible.length}
+                    </span>
+                  )}
+                </div>
+              );
+            }
+            return (
+              <>
+                <div className="hidden min-w-0 md:block">{identity}</div>
+                <div className="min-w-0 md:hidden">
+                  {peers.length > 0 ? (
+                    <Menu
+                      width={260}
+                      trigger={({ toggle, open }) => (
+                        <button type="button" onClick={toggle} aria-expanded={open} className="flex min-w-0 items-center gap-2">
+                          {identity}
+                          <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted transition-transform", open && "rotate-180")} />
+                        </button>
+                      )}
+                    >
+                      {(close) => (
+                        <>
+                          <MenuLabel>{t("chat.conversations")}</MenuLabel>
+                          {channelList.map((ch) => (
+                            <MenuItem
+                              key={ch.key}
+                              icon={<Avatar name={ch.name} size={18} />}
+                              selected={selected === ch.key}
+                              onSelect={() => {
+                                setSelected(ch.key);
+                                setThreadParentId(null);
+                                close();
+                              }}
+                            >
+                              <span className="flex items-center justify-between gap-2">
+                                <span className="truncate">{ch.name}</span>
+                                {(unread[ch.key] ?? 0) > 0 && (
+                                  <span className="rounded-full bg-brand px-1.5 text-[10px] font-bold text-brand-foreground">
+                                    {unread[ch.key]}
+                                  </span>
+                                )}
+                              </span>
+                            </MenuItem>
+                          ))}
+                        </>
+                      )}
+                    </Menu>
+                  ) : (
+                    identity
+                  )}
+                </div>
+              </>
+            );
+          })()}
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              aria-label={t("chat.search")}
+              aria-pressed={searchOpen}
+              onClick={() => {
+                setSearchOpen((o) => !o);
+                setSearchQ("");
+              }}
+              className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-surface-2 hover:text-foreground",
+                searchOpen ? "bg-surface-2 text-foreground" : "text-muted",
+              )}
+            >
+              {searchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
             </button>
-            <button className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground">
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
+            <Menu
+              width={220}
+              align="end"
+              trigger={({ toggle, open }) => (
+                <button
+                  type="button"
+                  aria-label={t("chat.more")}
+                  aria-expanded={open}
+                  onClick={toggle}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              )}
+            >
+              {(close) => (
+                <>
+                  <MenuItem
+                    icon={<ArrowDown className="h-4 w-4" />}
+                    onSelect={() => {
+                      close();
+                      endRef.current?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                  >
+                    {t("chat.jumpLatest")}
+                  </MenuItem>
+                  <MenuItem
+                    icon={<CheckCheck className="h-4 w-4" />}
+                    onSelect={() => {
+                      close();
+                      setUnread({});
+                    }}
+                  >
+                    {t("chat.markAllRead")}
+                  </MenuItem>
+                </>
+              )}
+            </Menu>
           </div>
         </div>
 
@@ -775,16 +945,25 @@ export function ChatThread({
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
-              {visible.length === 0 && (
+              {shown.length === 0 && (
                 <div className="flex h-full flex-col items-center justify-center text-center">
-                  <MessageCircle className="mb-3 h-10 w-10 text-muted/20" />
-                  <p className="text-sm font-medium text-foreground">{t("chat.noMessages")}</p>
-                  <p className="mt-1 text-xs text-muted">{t("chat.sayHello")}</p>
+                  {q ? (
+                    <>
+                      <Search className="mb-3 h-10 w-10 text-muted/20" />
+                      <p className="text-sm font-medium text-foreground">{t("chat.noSearchResults")}</p>
+                    </>
+                  ) : (
+                    <>
+                      <MessageCircle className="mb-3 h-10 w-10 text-muted/20" />
+                      <p className="text-sm font-medium text-foreground">{t("chat.noMessages")}</p>
+                      <p className="mt-1 text-xs text-muted">{t("chat.sayHello")}</p>
+                    </>
+                  )}
                 </div>
               )}
-              {visible.map((m, idx) => {
+              {shown.map((m, idx) => {
                 const mine = m.sender_id === currentUserId;
-                const prevMsg = idx > 0 ? visible[idx - 1] : null;
+                const prevMsg = idx > 0 ? shown[idx - 1] : null;
                 const sameSender = prevMsg?.sender_id === m.sender_id && !dateDividers[m.id];
                 const withinWindow = prevMsg && new Date(m.created_at).getTime() - new Date(prevMsg.created_at).getTime() < 300000;
                 const grouped = sameSender && withinWindow;
@@ -961,6 +1140,7 @@ export function ChatThread({
                     if (files.length) { e.preventDefault(); stageFiles(files); }
                   }}
                   rows={1}
+                  data-chat-composer
                   placeholder={selected === GROUP ? t("chat.writeTeam") : t("chat.messagePerson", { name: headerTitle })}
                   className="max-h-[160px] min-h-[44px] w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm leading-relaxed outline-none placeholder:text-muted/50"
                 />
@@ -970,9 +1150,30 @@ export function ChatThread({
                     <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50">
                       {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                     </button>
-                    <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground">
-                      <Sparkles className="h-4 w-4" />
-                    </button>
+                    <Menu
+                      width={220}
+                      trigger={({ toggle, open }) => (
+                        <button
+                          type="button"
+                          aria-label={t("chat.translateDraft")}
+                          title={t("chat.translateDraft")}
+                          aria-expanded={open}
+                          disabled={!val.trim() || translating}
+                          onClick={toggle}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
+                        >
+                          {translating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                        </button>
+                      )}
+                    >
+                      {(close) => (
+                        <>
+                          <MenuLabel>{t("chat.translateDraft")}</MenuLabel>
+                          <MenuItem onSelect={() => { close(); void translateDraft("de"); }}>Deutsch</MenuItem>
+                          <MenuItem onSelect={() => { close(); void translateDraft("en"); }}>English</MenuItem>
+                        </>
+                      )}
+                    </Menu>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="hidden text-[11px] text-muted/50 sm:block">{t("chat.composerHintFigma")}</span>

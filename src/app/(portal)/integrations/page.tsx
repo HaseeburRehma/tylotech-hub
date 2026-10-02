@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { PageHeader } from "@/components/ui/page-header";
 import { getAuthUser } from "@/lib/auth";
+import { activeClientRef } from "@/lib/active-client-server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getClientByRef } from "@/lib/data";
@@ -27,7 +28,8 @@ export default async function IntegrationsPage({
 
   // searchParams.client may be a slug (clean links) or a legacy UUID — resolve
   // it the same way the rest of the app does, so both keep working.
-  const requestedClient = isStaff && searchParams.client ? await getClientByRef(searchParams.client) : null;
+  const ref = isStaff ? activeClientRef(searchParams.client) : null;
+  const requestedClient = ref ? await getClientByRef(ref) : null;
   const clientId =
     user?.role === "client" ? user.client_id : requestedClient?.id ?? clients[0]?.id ?? null;
 

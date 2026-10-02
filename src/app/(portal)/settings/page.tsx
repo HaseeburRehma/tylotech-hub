@@ -8,6 +8,9 @@ export default async function SettingsPage() {
       name={user?.name ?? ""}
       email={user?.email ?? ""}
       role={user?.role === "admin" ? "Super Admin" : user?.role === "team" ? "Team" : "Client"}
+      title={user?.title ?? ""}
+      avatarUrl={user?.avatarUrl ?? null}
+      notifyEmail={user?.notifyEmail ?? true}
     />
   );
 }

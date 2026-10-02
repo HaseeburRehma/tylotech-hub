@@ -3,7 +3,7 @@ import { getAuthUser, isStaff } from "@/lib/auth";
 import { listInternalMessages, listTeamPeers } from "@/lib/data";
 import { TeamChatView } from "./view";
 
-export default async function TeamChatPage() {
+export default async function TeamChatPage({ searchParams }: { searchParams: { dm?: string } }) {
   const user = await getAuthUser();
   if (!isStaff(user)) redirect("/dashboard");
 
@@ -18,6 +18,7 @@ export default async function TeamChatPage() {
       currentUserId={user?.id ?? "demo"}
       currentName={user?.name ?? "You"}
       currentRole={user?.role ?? "team"}
+      initialSelected={searchParams.dm ?? null}
     />
   );
 }

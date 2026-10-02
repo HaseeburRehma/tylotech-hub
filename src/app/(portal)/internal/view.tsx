@@ -67,6 +67,14 @@ export function InternalView({
   const totalTeamClients = team.reduce((a, t) => a + t.clients, 0);
   const uniqueClients = new Set(pipeline.flatMap((c) => c.projects.map((p) => p.client)));
 
+  const mrrNow = mrrSeries[mrrSeries.length - 1]?.mrr ?? totalMrr;
+  const mrrPrev = mrrSeries[mrrSeries.length - 2]?.mrr ?? 0;
+  const mrrDeltaPct = mrrPrev > 0 ? ((mrrNow - mrrPrev) / mrrPrev) * 100 : null;
+  const mrrGrowth12m = mrrNow - (mrrSeries[0]?.mrr ?? 0);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const newClientsThisMonth = clients.filter((c) => new Date(c.created_at) >= monthStart).length;
+  const pct = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1, signDisplay: "always" });
+
   return (
     <div className="space-y-6">
       <PageHeader title={tr("hub.title")} subtitle={tr("hub.subtitle")}>
@@ -97,12 +105,15 @@ export function InternalView({
                 {tr("hub.live")}
               </span>
             ),
-            delta: (
-              <Badge variant="success" className="gap-0.5">
-                <ArrowUpRight className="h-3 w-3" />
-                +9,8 %
-              </Badge>
-            ),
+            delta:
+              mrrDeltaPct === null ? (
+                <span className="text-xs text-muted">{tr("hub.noPrevMonth")}</span>
+              ) : (
+                <Badge variant={mrrDeltaPct >= 0 ? "success" : "danger"} className="gap-0.5">
+                  <ArrowUpRight className={mrrDeltaPct >= 0 ? "h-3 w-3" : "h-3 w-3 rotate-90"} />
+                  {pct.format(mrrDeltaPct)} %
+                </Badge>
+              ),
           },
           {
             label: tr("hub.activeClients"),
@@ -113,12 +124,15 @@ export function InternalView({
                 {tr("hub.live")}
               </span>
             ),
-            delta: (
-              <Badge variant="success" className="gap-0.5">
-                <ArrowUpRight className="h-3 w-3" />
-                +1
-              </Badge>
-            ),
+            delta:
+              newClientsThisMonth > 0 ? (
+                <Badge variant="success" className="gap-0.5">
+                  <ArrowUpRight className="h-3 w-3" />
+                  +{newClientsThisMonth} {tr("hub.thisMonth")}
+                </Badge>
+              ) : (
+                <span className="text-xs text-muted">{tr("hub.noNewClients")}</span>
+              ),
           },
           {
             label: tr("hub.activeProjects"),
@@ -136,7 +150,7 @@ export function InternalView({
             badge: null,
             delta: (
               <span className="text-xs text-muted">
-                {utilization > 85 ? "High" : tr("hub.healthy")}
+                {utilization > 85 ? tr("hub.high") : tr("hub.healthy")}
               </span>
             ),
           },
@@ -169,7 +183,7 @@ export function InternalView({
               <p className="mt-0.5 text-xs text-muted">{tr("hub.revenueSub")}</p>
             </div>
             <Badge variant="success" className="gap-1">
-              <TrendingUp className="h-3 w-3" /> +{formatCurrency(totalMrr)} {tr("hub.perYear")}
+              <TrendingUp className="h-3 w-3" /> {mrrGrowth12m >= 0 ? "+" : ""}{formatCurrency(mrrGrowth12m)} {tr("hub.perYear")}
             </Badge>
           </CardHeader>
           <MrrBars data={mrrSeries} />

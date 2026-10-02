@@ -68,8 +68,17 @@ export function Logo({
           src={theme.fullLogo}
           alt={theme.company}
           style={{ height: size, filter: invert ? "brightness(0) invert(1)" : undefined }}
-          className="w-auto object-contain"
+          className={cn("w-auto object-contain", !invert && theme.fullLogoDark && "dark:hidden")}
         />
+        {!invert && theme.fullLogoDark && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={theme.fullLogoDark}
+            alt={theme.company}
+            style={{ height: size }}
+            className="hidden w-auto object-contain dark:block"
+          />
+        )}
       </div>
     );
   }
