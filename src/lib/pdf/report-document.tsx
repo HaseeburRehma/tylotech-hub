@@ -61,7 +61,9 @@ export function ReportDocument(props: ReportProps) {
                   <View style={styles.kpiInner}>
                     <Text style={styles.kpiLabel}>{k.label}</Text>
                     <Text style={styles.kpiValue}>{k.value}</Text>
-                    <Text style={[styles.kpiDelta, { color: brandColor }]}>{k.delta} vs last period</Text>
+                    {k.delta !== "—" && (
+                      <Text style={[styles.kpiDelta, { color: brandColor }]}>{k.delta} vs previous 30 days</Text>
+                    )}
                   </View>
                 </View>
               ))}

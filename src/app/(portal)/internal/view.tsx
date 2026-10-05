@@ -58,13 +58,12 @@ export function InternalView({
 }) {
   const tr = useT();
   const totalMrr = clients.reduce((a, c) => a + (c.mrr ?? 0), 0);
-  const utilization = team.length
-    ? Math.round(team.reduce((a, t) => a + t.load, 0) / team.length)
-    : 0;
+  const teamActive = team.reduce((a, t) => a + t.activeProjects, 0);
+  const avgActive = team.length ? teamActive / team.length : 0;
   const activeProjects = pipeline
     .filter((c) => c.stageKey !== "done")
     .reduce((a, c) => a + c.projects.length, 0);
-  const totalTeamClients = team.reduce((a, t) => a + t.clients, 0);
+  const managedClients = new Set(pipeline.flatMap((c) => (c.stageKey === "done" ? [] : c.projects.map((p) => p.client)))).size;
   const uniqueClients = new Set(pipeline.flatMap((c) => c.projects.map((p) => p.client)));
 
   const mrrNow = mrrSeries[mrrSeries.length - 1]?.mrr ?? totalMrr;
@@ -136,23 +135,19 @@ export function InternalView({
           },
           {
             label: tr("hub.activeProjects"),
-            value: String(projectCount),
+            value: String(activeProjects),
             badge: null,
             delta: (
               <span className="text-xs text-muted">
-                {activeProjects} {tr("hub.inWork")}
+                {tr("hub.projectsTotal", { n: projectCount })}
               </span>
             ),
           },
           {
             label: tr("hub.teamUtil"),
-            value: `${utilization} %`,
+            value: new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 }).format(avgActive),
             badge: null,
-            delta: (
-              <span className="text-xs text-muted">
-                {utilization > 85 ? tr("hub.high") : tr("hub.healthy")}
-              </span>
-            ),
+            delta: <span className="text-xs text-muted">{tr("hub.perPerson", { n: team.length })}</span>,
           },
         ].map((s, i) => (
           <motion.div
@@ -182,8 +177,9 @@ export function InternalView({
               <CardTitle>{tr("hub.revenueTitle")}</CardTitle>
               <p className="mt-0.5 text-xs text-muted">{tr("hub.revenueSub")}</p>
             </div>
-            <Badge variant="success" className="gap-1">
-              <TrendingUp className="h-3 w-3" /> {mrrGrowth12m >= 0 ? "+" : ""}{formatCurrency(mrrGrowth12m)} {tr("hub.perYear")}
+            <Badge variant={mrrGrowth12m > 0 ? "success" : mrrGrowth12m < 0 ? "danger" : "neutral"} className="gap-1">
+              <TrendingUp className={mrrGrowth12m < 0 ? "h-3 w-3 rotate-180" : "h-3 w-3"} /> {mrrGrowth12m > 0 ? "+" : ""}
+              {formatCurrency(mrrGrowth12m)} {tr("hub.perYear")}
             </Badge>
           </CardHeader>
           <MrrBars data={mrrSeries} />
@@ -194,7 +190,7 @@ export function InternalView({
             <div>
               <CardTitle>{tr("hub.teamTitle")}</CardTitle>
               <p className="mt-0.5 text-xs text-muted">
-                {tr("hub.teamMembers", { n: team.length, m: totalTeamClients })}
+                {tr("hub.teamMembers", { n: team.length, m: managedClients })}
               </p>
             </div>
             <Link href="/internal/team" className="text-xs font-medium text-brand hover:underline">
@@ -212,9 +208,12 @@ export function InternalView({
                       {t.role} · {t.clients} {tr("hub.accounts")}
                     </p>
                   </div>
-                  <span className="text-xs font-semibold text-foreground">{t.load} %</span>
+                  <span className="text-xs font-semibold tabular-nums text-foreground">
+                    {tr("hub.activeCount", { n: t.activeProjects })}
+                  </span>
                 </div>
-                <Progress value={t.load} tone={t.load > 85 ? "warning" : "brand"} />
+                {/* Share of all active projects carried by this member. */}
+                <Progress value={teamActive ? (t.activeProjects / teamActive) * 100 : 0} tone="brand" />
               </div>
             ))}
           </div>

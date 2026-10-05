@@ -111,9 +111,10 @@ export interface Kpi {
   label: string;
   value: number;
   unit: "currency" | "number" | "percent" | "ratio" | "rank";
-  delta: number; // % change vs previous period
+  /** % change vs the previous period; null when there's nothing to compare. */
+  delta: number | null;
   period: string;
-  source: "Meta Ads" | "Google Ads" | "SEO" | "Manual";
+  source: string;
 }
 
 export interface AiTool {

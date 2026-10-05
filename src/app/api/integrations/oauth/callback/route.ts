@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { META_GRAPH_VERSION } from "@/lib/integrations/fetchers";
 import { oauthConfig } from "@/lib/integrations/oauth";
 
 export const runtime = "nodejs";
@@ -60,6 +61,23 @@ export async function GET(req: Request) {
 
   const token = tokenRes ? await tokenRes.json().catch(() => null) : null;
   if (!token?.access_token) return done("error=token_exchange");
+
+  // Meta's OAuth code yields a ~1-2h user token; swap it for the long-lived
+  // (~60 day) one so the daily sync keeps working.
+  if (provider === "meta_ads") {
+    const ll = await fetch(
+      `https://graph.facebook.com/${META_GRAPH_VERSION}/oauth/access_token?${new URLSearchParams({
+        grant_type: "fb_exchange_token",
+        client_id: cfg.clientId,
+        client_secret: cfg.clientSecret,
+        fb_exchange_token: token.access_token,
+      })}`,
+      { cache: "no-store" },
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
+    if (ll?.access_token) token.access_token = ll.access_token;
+  }
 
   const { data: existing } = await admin
     .from("integrations")

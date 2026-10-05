@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { fetchGa4, fetchGoogleAds, fetchSearchConsole, type FetchedData } from "@/lib/integrations/fetchers";
+import { fetchGa4, fetchGoogleAds, fetchSearchConsole, isFetchError, type FetchResult } from "@/lib/integrations/fetchers";
 import { fetchMetaAdsKpis } from "@/lib/integrations/meta-ads-adapter";
 import { refreshGoogleAccessToken } from "@/lib/integrations/oauth";
 import { notifyClientUsers } from "@/lib/notify";
@@ -55,7 +55,7 @@ export async function syncClient(
       continue;
     }
 
-    const cfg = (row.meta ?? {}) as { accountId?: string; siteUrl?: string; propertyId?: string };
+    const cfg = (row.meta ?? {}) as { accountId?: string; siteUrl?: string; propertyId?: string; [k: string]: unknown };
 
     // Google access tokens expire hourly → refresh from the stored refresh_token first.
     let accessToken: string | null = row.access_token;
@@ -67,22 +67,38 @@ export async function syncClient(
       }
     }
 
-    let data: FetchedData | null = null;
+    let data: FetchResult = null;
     if (row.provider === "meta_ads") data = await fetchMetaAdsKpis(accessToken ?? "", cfg.accountId ?? "");
     else if (row.provider === "google_ads") data = await fetchGoogleAds(accessToken ?? "", cfg.accountId ?? "");
     else if (row.provider === "ga4") data = await fetchGa4(accessToken ?? "", cfg.propertyId ?? "");
     else if (row.provider === "search_console") data = await fetchSearchConsole(accessToken ?? "", cfg.siteUrl ?? "");
 
+    if (isFetchError(data)) {
+      // A rejected token can't recover on its own — flag the integration so the
+      // dashboards show "needs reconnect" instead of a stale "connected".
+      const meta = { ...cfg, lastError: data.error, lastErrorAt: nowIso };
+      await admin
+        .from("integrations")
+        .update(data.error === "auth" ? { status: "error", meta } : { meta })
+        .eq("id", row.id);
+      results.push({ provider: row.provider, synced: false, reason: data.error === "auth" ? "token rejected — reconnect" : "provider error" });
+      continue;
+    }
     if (!data) {
       results.push({ provider: row.provider, synced: false, reason: "no data (connect API / set account, or empty result)" });
       continue;
     }
 
-    // Replace only this source's KPIs (preserves manual + other sources).
+    // Replace only this source's KPIs (preserves manual + other sources). Insert
+    // the new set first and remove the old rows only once that succeeded.
     const source = data.kpis[0]?.source;
-    if (source) {
-      await admin.from("kpis").delete().eq("client_id", clientId).eq("source", source);
-      if (data.kpis.length) await admin.from("kpis").insert(data.kpis.map((k) => ({ ...k, client_id: clientId })));
+    if (source && data.kpis.length) {
+      const { data: old } = await admin.from("kpis").select("id").eq("client_id", clientId).eq("source", source);
+      const rowsToInsert = data.kpis.map((k) => ({ ...k, client_id: clientId }));
+      let ins = await admin.from("kpis").insert(rowsToInsert);
+      // Pre-0027 schema: delta is NOT NULL — store "no comparison" as 0 (the UI hides 0).
+      if (ins.error?.code === "23502") ins = await admin.from("kpis").insert(rowsToInsert.map((k) => ({ ...k, delta: k.delta ?? 0 })));
+      if (!ins.error && old?.length) await admin.from("kpis").delete().in("id", old.map((o: { id: string }) => o.id));
     }
     const byDate = (pointsByProviderDate[row.provider] = pointsByProviderDate[row.provider] || {});
     for (const p of data.series) {
@@ -91,7 +107,8 @@ export async function syncClient(
       cur.leads += p.leads;
       if (p.roas) cur.roas = p.roas;
     }
-    await admin.from("integrations").update({ last_synced_at: nowIso, meta: cfg }).eq("id", row.id);
+    const { lastError: _e, lastErrorAt: _a, ...cleanMeta } = cfg as Record<string, unknown>;
+    await admin.from("integrations").update({ last_synced_at: nowIso, status: "connected", meta: cleanMeta }).eq("id", row.id);
     results.push({ provider: row.provider, synced: true, kpis: data.kpis.length });
     populated = true;
   }

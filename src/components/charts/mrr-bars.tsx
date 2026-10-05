@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCurrency } from "@/lib/utils";
 import {
   Bar,
   BarChart,
@@ -17,7 +18,7 @@ function Tip({ active, payload, label }: any) {
     <div className="glass rounded-xl border border-border px-3 py-2 text-xs shadow-float">
       <p className="font-medium text-foreground">{label}</p>
       <p className="text-muted">
-        MRR <span className="font-semibold text-brand">€{payload[0].value.toLocaleString()}</span>
+        MRR <span className="font-semibold text-brand">{formatCurrency(Number(payload[0].value))}</span>
       </p>
     </div>
   );

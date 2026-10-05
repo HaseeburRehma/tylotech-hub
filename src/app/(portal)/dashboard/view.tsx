@@ -28,6 +28,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AutoRefresh } from "@/components/integrations/auto-refresh";
 import { useT } from "@/lib/i18n/provider";
+import { LOWER_IS_BETTER, shownDelta } from "@/lib/status";
 import { useActiveClient } from "@/components/providers/active-client-provider";
 import type { Kpi, Project, SeriesPoint, Update } from "@/types";
 import type { IntegrationHealthRow, PortfolioSummary } from "@/lib/data";
@@ -174,9 +175,9 @@ export function ClientDashboardView({
               index={i}
               label={kpi.label}
               value={formatKpiValue(kpi)}
-              delta={kpi.delta}
+              delta={shownDelta(kpi.delta)}
               suffix={t("dash.vsPrevMonth")}
-              goodWhenDown={kpi.metric_name === "cpl"}
+              goodWhenDown={LOWER_IS_BETTER.has(kpi.metric_name)}
             />
           ))}
         </div>
@@ -326,8 +327,9 @@ interface StaffUpdate extends Update {
   clientName: string;
 }
 
-function pctDelta(current: number, previous: number): number {
-  if (!previous) return current > 0 ? 100 : 0;
+/** % change, or undefined (no badge) when there's nothing real to compare to. */
+function pctDelta(current: number, previous: number | null): number | undefined {
+  if (previous == null || previous <= 0) return undefined;
   return Number((((current - previous) / previous) * 100).toFixed(1));
 }
 
@@ -408,7 +410,7 @@ export function StaffDashboardView({
               label={t("dash.staff.costPerLead")}
               value={portfolio.leads30d > 0 ? formatCurrency(portfolio.spend30d / portfolio.leads30d) : "—"}
               delta={
-                portfolio.leadsPrev30d > 0 && portfolio.leads30d > 0
+                portfolio.leadsPrev30d && portfolio.spendPrev30d && portfolio.leads30d > 0
                   ? pctDelta(
                       portfolio.spend30d / portfolio.leads30d,
                       portfolio.spendPrev30d / portfolio.leadsPrev30d,

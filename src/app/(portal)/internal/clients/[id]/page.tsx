@@ -3,9 +3,9 @@ import { getAuthUser, isStaff } from "@/lib/auth";
 import {
   getClientByRef,
   getKpis,
+  getPortfolioSummary,
   getSeries,
   listClientUsers,
-  listClients,
   listDocuments,
   listMessages,
   listProjects,
@@ -22,7 +22,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   if (!isStaff(user)) notFound();
 
   const admin = createAdminClient();
-  const [messages, updates, documents, projects, kpis, peers, integrationsRes, teamMembers, allClients, series] =
+  const [messages, updates, documents, projects, kpis, peers, integrationsRes, teamMembers, portfolio, series] =
     await Promise.all([
       listMessages(client.id),
       listUpdates(client.id),
@@ -34,14 +34,17 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         ? admin.from("integrations").select("*").eq("client_id", client.id)
         : Promise.resolve({ data: [] as any[] }),
       listTeamMembers(),
-      listClients(),
+      getPortfolioSummary(),
       getSeries(client.id),
     ]);
 
-  const since30d = new Date();
-  since30d.setDate(since30d.getDate() - 30);
-  const sinceStr = since30d.toISOString().slice(0, 10);
-  const recent = series.filter((s) => s.date >= sinceStr);
+  // Same window as the portfolio summary: 30 complete days ending yesterday.
+  const day = (offset: number) => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - offset);
+    return d.toISOString().slice(0, 10);
+  };
+  const recent = series.filter((s) => s.date >= day(30) && s.date <= day(1));
   const spend30d = recent.reduce((s, p) => s + p.spend, 0);
   const leads30d = recent.reduce((s, p) => s + p.leads, 0);
 
@@ -69,7 +72,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       teamMembers={teamMembers}
       spend30d={Number(spend30d.toFixed(2))}
       leads30d={leads30d}
-      totalClients={allClients.length}
+      portfolioSpend30d={portfolio.spend30d}
     />
   );
 }

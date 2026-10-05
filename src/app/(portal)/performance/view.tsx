@@ -72,7 +72,8 @@ const SOURCE_METRICS: Record<string, MetricDef[]> = {
     { key: "roas", label: "perf.metricImpressions", metricName: "impressions", agg: "sum", unit: "number" },
   ],
   ga4: [
-    { key: "leads", label: "perf.metricUsers", metricName: "users", agg: "sum", unit: "number" },
+    // Daily active users can't be summed into unique users — show the daily average.
+    { key: "leads", label: "perf.metricDailyUsers", metricName: "users", agg: "avg", unit: "number" },
     { key: "roas", label: "perf.metricSessions", metricName: "sessions", agg: "sum", unit: "number" },
   ],
 };
@@ -107,16 +108,13 @@ function kpiValue(k: Kpi) {
 }
 
 function combineSeries(points: ProviderSeriesPoint[]): (SeriesPoint & { provider?: string })[] {
-  const byDate = new Map<string, { spend: number; leads: number; roasTotal: number; roasCount: number }>();
+  const byDate = new Map<string, { spend: number; leads: number; value: number }>();
   for (const p of points) {
     if (!AD_PROVIDERS.has(p.provider)) continue;
-    const cur = byDate.get(p.date) ?? { spend: 0, leads: 0, roasTotal: 0, roasCount: 0 };
+    const cur = byDate.get(p.date) ?? { spend: 0, leads: 0, value: 0 };
     cur.spend += p.spend;
     cur.leads += p.leads;
-    if (p.roas) {
-      cur.roasTotal += p.roas;
-      cur.roasCount += 1;
-    }
+    cur.value += p.roas * p.spend; // purchase value → spend-weighted ROAS
     byDate.set(p.date, cur);
   }
   return Array.from(byDate.entries())
@@ -125,7 +123,7 @@ function combineSeries(points: ProviderSeriesPoint[]): (SeriesPoint & { provider
       date,
       spend: v.spend,
       leads: v.leads,
-      roas: v.roasCount ? Number((v.roasTotal / v.roasCount).toFixed(2)) : 0,
+      roas: v.spend ? Number((v.value / v.spend).toFixed(2)) : 0,
     }));
 }
 
@@ -142,7 +140,13 @@ function rangeDayCount(days: number | "ytd", anchorDate: string) {
   return Math.floor((anchor.getTime() - jan1.getTime()) / 86_400_000) + 1;
 }
 
-function aggregate(points: SeriesPoint[], key: MetricKey, agg: Agg) {
+function aggregate(points: SeriesPoint[], key: MetricKey, agg: Agg, spendWeighted = false) {
+  if (!points.length) return 0;
+  if (spendWeighted) {
+    // ROAS over a range = total purchase value / total spend, not a mean of days.
+    const spend = points.reduce((a, p) => a + p.spend, 0);
+    return spend ? points.reduce((a, p) => a + p.roas * p.spend, 0) / spend : 0;
+  }
   const values = points.map((p) => p[key]).filter((v) => v !== undefined) as number[];
   if (!values.length) return 0;
   const total = values.reduce((a, v) => a + v, 0);
@@ -229,7 +233,11 @@ export function PerformanceView({
   const activeDef = metricOptions.find((m) => m.key === activeMetric);
 
   const rangeDef = RANGES.find((r) => r.id === range) ?? RANGES[1];
-  const anchorDate = fullSeries.length ? fullSeries[fullSeries.length - 1].date : null;
+  // Anchor on yesterday so a stalled sync shows up as missing days instead of
+  // looking current; tolerate a few days' reporting lag (Search Console ~2-3 d).
+  const yesterday = daysAgo(new Date().toISOString().slice(0, 10), 1);
+  const lastDataDate = fullSeries.length ? fullSeries[fullSeries.length - 1].date : null;
+  const anchorDate = lastDataDate ? (lastDataDate >= daysAgo(yesterday, 4) ? lastDataDate : yesterday) : null;
   const dayCount = anchorDate ? rangeDayCount(rangeDef.days, anchorDate) : 0;
 
   // Slice the full series into "currently visible" and "the equal-length
@@ -259,9 +267,13 @@ export function PerformanceView({
   const snapshotKpis = filteredKpis.filter((k) => !seriesBackedNames.has(k.metric_name));
 
   const metricStats = (def: MetricDef) => {
-    const total = aggregate(currentPeriod, def.key, def.agg);
-    const prevTotal = aggregate(previousPeriod, def.key, def.agg);
-    const delta = previousPeriod.length && prevTotal !== 0 ? ((total - prevTotal) / prevTotal) * 100 : null;
+    const weighted = def.key === "roas" && def.unit === "ratio";
+    const total = aggregate(currentPeriod, def.key, def.agg, weighted);
+    const prevTotal = aggregate(previousPeriod, def.key, def.agg, weighted);
+    // Compare only against a mostly-populated prior window — one day of history
+    // against thirty would fake a huge change.
+    const prevCoverage = new Set(previousPeriod.map((p) => p.date)).size;
+    const delta = prevCoverage >= Math.ceil(dayCount * 0.8) && prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : null;
     const peak = currentPeriod.reduce<SeriesPoint | null>(
       (best, p) => (best === null || p[def.key] > best[def.key] ? p : best),
       null,

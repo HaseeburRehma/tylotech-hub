@@ -18,3 +18,11 @@ export const UPDATE_META: Record<UpdateType, { label: string; variant: "brand" |
   note: { label: "Note", variant: "neutral" as never },
   alert: { label: "Alert", variant: "warning" },
 };
+
+/** KPIs where a decrease is an improvement (cheaper leads, better ranking). */
+export const LOWER_IS_BETTER = new Set(["cpl", "avg_position"]);
+
+/** A KPI change worth showing as a badge — hides "no comparison" and 0 %. */
+export function shownDelta(delta: number | null | undefined): number | undefined {
+  return delta == null || delta === 0 || !Number.isFinite(delta) ? undefined : delta;
+}

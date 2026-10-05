@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCurrency } from "@/lib/utils";
 import {
   Area,
   AreaChart,
@@ -25,7 +26,7 @@ function ChartTooltip({ active, payload, label, labels }: any) {
           <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
           <span>{labels?.[p.dataKey] ?? (p.dataKey.charAt(0).toUpperCase() + p.dataKey.slice(1))}</span>
           <span className="ml-auto font-semibold text-foreground">
-            {p.dataKey === "spend" ? `€${p.value}` : p.value}
+            {p.dataKey === "spend" ? formatCurrency(Number(p.value)) : new Intl.NumberFormat("de-DE", { maximumFractionDigits: 2 }).format(Number(p.value))}
           </span>
         </p>
       ))}

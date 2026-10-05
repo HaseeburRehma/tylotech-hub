@@ -1,5 +1,5 @@
 import { fetchMetaAds } from "@/lib/integrations/fetchers";
-import type { FetchedData } from "@/lib/integrations/fetchers";
+import type { FetchResult } from "@/lib/integrations/fetchers";
 
 /**
  * Meta Ads reporting adapter — the ONE seam for how TyloHub pulls Meta KPIs.
@@ -37,7 +37,7 @@ const USE_MCP = false;
  * Pull Meta Ads KPIs for an ad account. Returns null on no-token / bad-config /
  * false-zero (see fetchMetaAds), so a failed pull never overwrites good data.
  */
-export async function fetchMetaAdsKpis(accessToken: string, accountId: string): Promise<FetchedData | null> {
+export async function fetchMetaAdsKpis(accessToken: string, accountId: string): Promise<FetchResult> {
   if (USE_MCP) return fetchViaMcp(accessToken, accountId);
   return fetchMetaAds(accessToken, accountId);
 }
@@ -49,6 +49,6 @@ export async function fetchMetaAdsKpis(accessToken: string, accountId: string): 
  * guard, so the rest of TyloHub is unchanged. Intentionally not stubbed with a
  * fabricated protocol.
  */
-async function fetchViaMcp(_accessToken: string, _accountId: string): Promise<FetchedData | null> {
+async function fetchViaMcp(_accessToken: string, _accountId: string): Promise<FetchResult> {
   throw new Error("Meta MCP backend not implemented yet — set USE_MCP=false or implement fetchViaMcp().");
 }

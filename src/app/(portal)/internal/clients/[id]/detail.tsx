@@ -23,7 +23,7 @@ import { EditClientModal } from "@/components/modals/edit-client-modal";
 import { useTheme } from "@/lib/theme/theme-provider";
 import { buildClientTheme } from "@/lib/theme/themes";
 import { PROVIDERS } from "@/lib/integrations/providers";
-import { PROJECT_STATUS } from "@/lib/status";
+import { LOWER_IS_BETTER, PROJECT_STATUS } from "@/lib/status";
 import { useT } from "@/lib/i18n/provider";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { ChatPeer, Client, DocItem, Kpi, Message, Project, Role, Update } from "@/types";
@@ -61,7 +61,7 @@ export function ClientDetail({
   teamMembers = [],
   spend30d = 0,
   leads30d = 0,
-  totalClients = 0,
+  portfolioSpend30d = 0,
 }: {
   client: Client;
   messages: Message[];
@@ -76,7 +76,7 @@ export function ClientDetail({
   teamMembers?: TeamMember[];
   spend30d?: number;
   leads30d?: number;
-  totalClients?: number;
+  portfolioSpend30d?: number;
 }) {
   const t = useT();
   const [tab, setTab] = useState<TabKey>("overview");
@@ -221,7 +221,11 @@ export function ClientDetail({
                 {formatCurrency(spend30d)}
               </p>
               <p className="mt-1 text-xs text-muted">
-                {totalClients > 0 ? t("cd.ofAllAccounts", { pct: Math.round((1 / totalClients) * 100) }) : ""}
+                {portfolioSpend30d > 0 && spend30d > 0
+                  ? t("cd.shareOfBudget", {
+                      pct: new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 }).format((spend30d / portfolioSpend30d) * 100),
+                    })
+                  : ""}
               </p>
             </div>
             <div className="rounded-xl border border-border bg-surface p-4">
@@ -583,15 +587,23 @@ export function ClientDetail({
                             </td>
                             <td className="py-3 text-right text-muted">{k.unit}</td>
                             <td className="py-3 text-right">
-                              <span
-                                className={cn(
-                                  "inline-flex items-center gap-0.5 text-xs font-medium",
-                                  k.delta > 0 ? "text-success" : k.delta < 0 ? "text-danger" : "text-muted",
-                                )}
-                              >
-                                {k.delta > 0 ? "+" : ""}
-                                {k.delta}%
-                              </span>
+                              {k.delta == null ? (
+                                <span className="text-xs text-muted">—</span>
+                              ) : (
+                                <span
+                                  className={cn(
+                                    "inline-flex items-center gap-0.5 text-xs font-medium",
+                                    k.delta === 0
+                                      ? "text-muted"
+                                      : (k.delta > 0) !== LOWER_IS_BETTER.has(k.metric_name)
+                                        ? "text-success"
+                                        : "text-danger",
+                                  )}
+                                >
+                                  {k.delta > 0 ? "+" : ""}
+                                  {k.delta}%
+                                </span>
+                              )}
                             </td>
                             <td className="py-3 text-right text-muted">{k.source}</td>
                           </tr>

@@ -1,29 +1,48 @@
 /**
  * Real provider data fetchers. Given the OAuth access token stored on an integration
- * row (from the OAuth callback) plus its account config (ad-account id / GSC site url),
- * these call the live provider APIs and return normalized KPIs + a daily series.
+ * row plus its account config (ad-account id / GSC site url / GA4 property), these
+ * call the live provider APIs and return normalized KPIs + a daily series.
  *
- * They return null when credentials/config are missing — the sync then writes nothing
- * (no dummy data). Wire real credentials via the admin Integrations panel + OAuth.
+ * Each fetch covers two full 30-day windows ending yesterday (complete days only):
+ * the latest window feeds the KPI values, the one before it the real % change.
+ * When the previous window has no data the change is null (shown as no badge),
+ * never a fabricated 0 % / +100 %.
+ *
+ * Return values:
+ *  - FetchedData            → data landed
+ *  - { error: "auth" }      → token rejected (expired/revoked) — needs reconnect
+ *  - { error: "api" }       → provider error; keep existing data, retry later
+ *  - null                   → missing token/config, or an empty result (false-zero
+ *                             guard) — write nothing, preserve what's stored
  */
+export interface FetchedKpi {
+  metric_name: string;
+  label: string;
+  value: number;
+  unit: "currency" | "number" | "percent" | "ratio";
+  delta: number | null;
+  period: string;
+  source: string;
+}
+
 export interface FetchedData {
   series: { date: string; spend: number; leads: number; roas: number }[];
-  kpis: {
-    metric_name: string;
-    label: string;
-    value: number;
-    unit: "currency" | "number" | "percent" | "ratio";
-    delta: number;
-    period: string;
-    source: string;
-  }[];
+  kpis: FetchedKpi[];
 }
+
+export type FetchError = { error: "auth" | "api" };
+export type FetchResult = FetchedData | FetchError | null;
+
+export const isFetchError = (r: FetchResult): r is FetchError => !!r && "error" in r;
+
+export const META_GRAPH_VERSION = "v25.0";
+const GOOGLE_ADS_VERSION = "v25";
+const WINDOW_DAYS = 30;
+const PERIOD = "Last 30d";
 
 // Unambiguous AI-answer-engine referrer hostnames, as GA4's sessionSource
 // reports them. Deliberately excludes bing.com/google.com — those serve both
-// regular search and AI answers indistinguishably in GA4's source field, so
-// including them would overcount and misrepresent this as more precise than
-// it is.
+// regular search and AI answers indistinguishably in GA4's source field.
 const AI_REFERRAL_SOURCES = [
   "chatgpt.com",
   "chat.openai.com",
@@ -35,168 +54,186 @@ const AI_REFERRAL_SOURCES = [
   "phind.com",
 ];
 
-function dateRange(days: number) {
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+/** Two consecutive 30-day windows ending yesterday (UTC). */
+function windows() {
   const end = new Date();
-  const start = new Date();
-  start.setDate(end.getDate() - (days - 1));
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
-  return { start: iso(start), end: iso(end) };
+  end.setUTCDate(end.getUTCDate() - 1);
+  const curStart = new Date(end);
+  curStart.setUTCDate(end.getUTCDate() - (WINDOW_DAYS - 1));
+  const prevEnd = new Date(curStart);
+  prevEnd.setUTCDate(curStart.getUTCDate() - 1);
+  const prevStart = new Date(prevEnd);
+  prevStart.setUTCDate(prevEnd.getUTCDate() - (WINDOW_DAYS - 1));
+  return { start: iso(prevStart), prevEnd: iso(prevEnd), curStart: iso(curStart), end: iso(end) };
 }
 
+/** % change, or null when there's no previous value to compare against. */
+function change(cur: number, prev: number | null | undefined): number | null {
+  if (prev == null || !Number.isFinite(prev) || prev <= 0 || !Number.isFinite(cur)) return null;
+  return Number((((cur - prev) / prev) * 100).toFixed(1));
+}
+
+function errorFor(res: Response | null): FetchError {
+  return { error: res && (res.status === 401 || res.status === 403) ? "auth" : "api" };
+}
+
+const sum = <T,>(rows: T[], f: (r: T) => number) => rows.reduce((a, r) => a + f(r), 0);
+
 /** Meta Marketing API — daily ad insights for an ad account. */
-export async function fetchMetaAds(
-  accessToken: string,
-  accountId: string,
-  days = 30,
-): Promise<FetchedData | null> {
+export async function fetchMetaAds(accessToken: string, accountId: string): Promise<FetchResult> {
   if (!accessToken || !accountId) return null;
   const acct = accountId.startsWith("act_") ? accountId : `act_${accountId}`;
-  const url = `https://graph.facebook.com/v19.0/${acct}/insights?fields=spend,actions,purchase_roas&time_increment=1&date_preset=last_30d&access_token=${encodeURIComponent(accessToken)}`;
-  const res = await fetch(url, { cache: "no-store" }).catch(() => null);
-  if (!res?.ok) return null;
-  const json: any = await res.json().catch(() => null);
-  if (!json) return null;
-  const rows: any[] = json.data ?? [];
-
-  // False-zero guard (Meta reporting change, 6 Aug 2026): non-opted breakdowns —
-  // and, in practice, some accounts/date-ranges — return HTTP 200 with an EMPTY
-  // `data` array rather than an error. Ingesting that would silently overwrite good
-  // KPIs with zeros. Treat "200 but no rows" as "no data" and skip, preserving
-  // whatever is already stored. (Genuine zero-delivery still returns dated rows.)
-  if (!rows.length) return null;
-
-  const series = rows.map((r) => {
-    const leads = Number(
-      (r.actions ?? []).find((a: any) => /lead/i.test(a.action_type))?.value ?? 0,
-    );
-    const roas = Number(r.purchase_roas?.[0]?.value ?? 0);
-    return { date: r.date_start, spend: Number(r.spend ?? 0), leads, roas };
+  const w = windows();
+  const params = new URLSearchParams({
+    fields: "spend,actions,purchase_roas",
+    time_increment: "1",
+    time_range: JSON.stringify({ since: w.start, until: w.end }),
+    limit: "100",
+    access_token: accessToken,
   });
 
-  const totalSpend = series.reduce((a, p) => a + p.spend, 0);
-  const totalLeads = series.reduce((a, p) => a + p.leads, 0);
-  const avgRoas = series.length ? series.reduce((a, p) => a + p.roas, 0) / series.length : 0;
-  // Cost per Lead — the metric the partner dashboard needs alongside Leads.
-  const cpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
+  // Follow pagination — the default page size would otherwise truncate the range.
+  const rows: any[] = [];
+  let next: string | null = `https://graph.facebook.com/${META_GRAPH_VERSION}/${acct}/insights?${params}`;
+  for (let page = 0; next && page < 10; page++) {
+    const res: Response | null = await fetch(next, { cache: "no-store" }).catch(() => null);
+    if (!res?.ok) return errorFor(res);
+    const json: any = await res.json().catch(() => null);
+    if (!json) return { error: "api" };
+    rows.push(...(json.data ?? []));
+    next = json.paging?.next ?? null;
+  }
+
+  const series = rows.map((r) => {
+    const leads = Number((r.actions ?? []).find((a: any) => /lead/i.test(a.action_type))?.value ?? 0);
+    const roas = Number(r.purchase_roas?.[0]?.value ?? 0);
+    return { date: r.date_start as string, spend: Number(r.spend ?? 0), leads, roas };
+  });
+
+  const cur = series.filter((p) => p.date >= w.curStart);
+  const prev = series.filter((p) => p.date < w.curStart);
+  // False-zero guard: a 200 with no rows for the current window means "no data",
+  // not "zero delivery" (Meta returns dated rows for genuine zero days).
+  if (!cur.length) return null;
+
+  const agg = (rs: typeof series) => {
+    const spend = sum(rs, (p) => p.spend);
+    const leads = sum(rs, (p) => p.leads);
+    const value = sum(rs, (p) => p.roas * p.spend); // purchase value, so ROAS is spend-weighted
+    return { spend, leads, cpl: leads > 0 ? spend / leads : 0, roas: spend > 0 ? value / spend : 0 };
+  };
+  const c = agg(cur);
+  const p = prev.length ? agg(prev) : null;
 
   return {
     series,
     kpis: [
-      { metric_name: "ad_spend", label: "Monthly Ad Spend", value: Math.round(totalSpend), unit: "currency", delta: 0, period: "Last 30d", source: "Meta Ads" },
-      { metric_name: "leads", label: "Leads Generated", value: totalLeads, unit: "number", delta: 0, period: "Last 30d", source: "Meta Ads" },
-      { metric_name: "cpl", label: "Cost per Lead", value: Number(cpl.toFixed(2)), unit: "currency", delta: 0, period: "Last 30d", source: "Meta Ads" },
-      { metric_name: "roas", label: "ROAS", value: Number(avgRoas.toFixed(1)), unit: "ratio", delta: 0, period: "Last 30d", source: "Meta Ads" },
+      { metric_name: "ad_spend", label: "Monthly Ad Spend", value: Number(c.spend.toFixed(2)), unit: "currency", delta: change(c.spend, p?.spend), period: PERIOD, source: "Meta Ads" },
+      { metric_name: "leads", label: "Leads Generated", value: c.leads, unit: "number", delta: change(c.leads, p?.leads), period: PERIOD, source: "Meta Ads" },
+      { metric_name: "cpl", label: "Cost per Lead", value: Number(c.cpl.toFixed(2)), unit: "currency", delta: c.cpl && p?.cpl ? change(c.cpl, p.cpl) : null, period: PERIOD, source: "Meta Ads" },
+      { metric_name: "roas", label: "ROAS", value: Number(c.roas.toFixed(2)), unit: "ratio", delta: c.roas && p?.roas ? change(c.roas, p.roas) : null, period: PERIOD, source: "Meta Ads" },
     ],
   };
+}
+
+async function ga4Report(accessToken: string, propertyId: string, body: unknown): Promise<{ res: Response | null; json: any }> {
+  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  }).catch(() => null);
+  const json = res?.ok ? await res.json().catch(() => null) : null;
+  return { res, json };
 }
 
 /** Google Analytics 4 — Data API runReport for a property (needs numeric propertyId). */
-export async function fetchGa4(
-  accessToken: string,
-  propertyId: string,
-  days = 30,
-): Promise<FetchedData | null> {
+export async function fetchGa4(accessToken: string, propertyId: string): Promise<FetchResult> {
   if (!accessToken || !propertyId) return null;
   const id = propertyId.replace(/[^0-9]/g, ""); // Data API needs the numeric property id, not "G-..."
   if (!id) return null;
-  const { start, end } = dateRange(days);
-  const res = await fetch(
-    `https://analyticsdata.googleapis.com/v1beta/properties/${id}:runReport`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        dateRanges: [{ startDate: start, endDate: end }],
-        dimensions: [{ name: "date" }],
-        // sessionConversionRate (fraction of sessions with a conversion) instead of
-        // raw conversions/sessions — GA4 sessions can log multiple conversion events
-        // each, so that ratio can exceed 100% and isn't a real "rate".
-        metrics: [{ name: "activeUsers" }, { name: "sessions" }, { name: "sessionConversionRate" }],
-        orderBys: [{ dimension: { dimensionName: "date" } }],
-      }),
-      cache: "no-store",
-    },
-  ).catch(() => null);
-  if (!res?.ok) return null;
-  const json: any = await res.json().catch(() => null);
-  if (!json) return null;
-  const rows: any[] = json.rows ?? [];
+  const w = windows();
+  const ranges = [
+    { startDate: w.curStart, endDate: w.end, name: "cur" },
+    { startDate: w.start, endDate: w.prevEnd, name: "prev" },
+  ];
 
-  const users = rows.reduce((a, r) => a + Number(r.metricValues?.[0]?.value ?? 0), 0);
-  const sessions = rows.reduce((a, r) => a + Number(r.metricValues?.[1]?.value ?? 0), 0);
-  // Weighted average across days so a low-traffic day's rate doesn't count as
-  // much as a high-traffic one.
-  const weightedRate = rows.reduce((a, r) => {
-    const s = Number(r.metricValues?.[1]?.value ?? 0);
-    const rate = Number(r.metricValues?.[2]?.value ?? 0);
-    return a + rate * s;
-  }, 0);
-  const convRate = sessions ? Number(((weightedRate / sessions) * 100).toFixed(2)) : 0;
+  // Daily trend: `leads` holds daily active users, `roas` daily sessions (spend
+  // doesn't apply to GA4) — reuses the shared series shape.
+  const daily = await ga4Report(accessToken, id, {
+    dateRanges: [{ startDate: w.start, endDate: w.end }],
+    dimensions: [{ name: "date" }],
+    metrics: [{ name: "activeUsers" }, { name: "sessions" }],
+    orderBys: [{ dimension: { dimensionName: "date" } }],
+  });
+  if (!daily.json) return errorFor(daily.res);
+  const series = ((daily.json.rows ?? []) as any[])
+    .map((r) => ({
+      date: String(r.dimensionValues?.[0]?.value ?? "").replace(/^(\d{4})(\d{2})(\d{2})$/, "$1-$2-$3"),
+      spend: 0,
+      leads: Number(r.metricValues?.[0]?.value ?? 0),
+      roas: Number(r.metricValues?.[1]?.value ?? 0),
+    }))
+    .filter((p) => p.date);
+  if (!series.some((p) => p.date >= w.curStart)) return null;
 
-  // GA4's own daily trend — reuses the shared {spend,leads,roas} series shape:
-  // `leads` holds daily active users, `roas` holds daily sessions (spend
-  // doesn't apply to GA4). Two real metrics instead of one lets the Performance
-  // page give GA4 its own Users/Sessions toggle instead of a single flat line.
-  const series = rows.map((r) => ({
-    date: (r.dimensionValues?.[0]?.value ?? "").replace(/^(\d{4})(\d{2})(\d{2})$/, "$1-$2-$3"),
-    spend: 0,
-    leads: Number(r.metricValues?.[0]?.value ?? 0),
-    roas: Number(r.metricValues?.[1]?.value ?? 0),
-  })).filter((p) => p.date);
-
-  // AI answer-engine referral traffic — a separate request (own dimension
-  // breakdown) so it can't skew the activeUsers/sessions totals above.
-  // Zero external cost: this is traffic GA4 already recorded, just grouped by
-  // source. Returns 0 (not null) on failure so a transient error here never
-  // blanks out the real users/sessions/convRate KPIs already computed.
-  let aiSessions = 0;
-  const sourceRes = await fetch(
-    `https://analyticsdata.googleapis.com/v1beta/properties/${id}:runReport`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        dateRanges: [{ startDate: start, endDate: end }],
-        dimensions: [{ name: "sessionSource" }],
-        metrics: [{ name: "sessions" }],
-      }),
-      cache: "no-store",
-    },
-  ).catch(() => null);
-  if (sourceRes?.ok) {
-    const sourceJson: any = await sourceRes.json().catch(() => null);
-    const sourceRows: any[] = sourceJson?.rows ?? [];
-    for (const r of sourceRows) {
-      const src = String(r.dimensionValues?.[0]?.value ?? "").toLowerCase();
-      if (AI_REFERRAL_SOURCES.some((known) => src.includes(known))) {
-        aiSessions += Number(r.metricValues?.[0]?.value ?? 0);
-      }
-    }
+  // Window totals in one request without a date dimension: GA4 de-duplicates
+  // users across the range (summing daily users would recount returning visitors)
+  // and returns the session conversion rate over the whole window.
+  const totals = await ga4Report(accessToken, id, {
+    dateRanges: ranges,
+    metrics: [{ name: "activeUsers" }, { name: "sessions" }, { name: "sessionConversionRate" }],
+  });
+  if (!totals.json) return errorFor(totals.res);
+  const byRange: Record<string, { users: number; sessions: number; conv: number }> = {};
+  for (const r of (totals.json.rows ?? []) as any[]) {
+    const key = String(r.dimensionValues?.[0]?.value ?? "cur");
+    byRange[key] = {
+      users: Number(r.metricValues?.[0]?.value ?? 0),
+      sessions: Number(r.metricValues?.[1]?.value ?? 0),
+      conv: Number(r.metricValues?.[2]?.value ?? 0) * 100,
+    };
   }
-  const aiReferralShare = sessions ? Number(((aiSessions / sessions) * 100).toFixed(2)) : 0;
+  const c = byRange.cur ?? { users: 0, sessions: 0, conv: 0 };
+  const p = byRange.prev;
+
+  // AI answer-engine referral sessions, per window. Best-effort: a failure here
+  // leaves these at 0 instead of blanking the core KPIs.
+  const ai: Record<string, number> = { cur: 0, prev: 0 };
+  const sources = await ga4Report(accessToken, id, {
+    dateRanges: ranges,
+    dimensions: [{ name: "sessionSource" }],
+    metrics: [{ name: "sessions" }],
+  });
+  for (const r of (sources.json?.rows ?? []) as any[]) {
+    const src = String(r.dimensionValues?.[0]?.value ?? "").toLowerCase();
+    const key = String(r.dimensionValues?.[1]?.value ?? "cur");
+    if (AI_REFERRAL_SOURCES.some((known) => src.includes(known))) ai[key] = (ai[key] ?? 0) + Number(r.metricValues?.[0]?.value ?? 0);
+  }
+  const share = (n: number, s: number) => (s ? Number(((n / s) * 100).toFixed(2)) : 0);
+  const aiShareCur = share(ai.cur, c.sessions);
+  const aiSharePrev = p ? share(ai.prev, p.sessions) : null;
 
   return {
     series,
     kpis: [
-      { metric_name: "users", label: "Users", value: Math.round(users), unit: "number", delta: 0, period: "Last 30d", source: "GA4" },
-      { metric_name: "sessions", label: "Sessions", value: Math.round(sessions), unit: "number", delta: 0, period: "Last 30d", source: "GA4" },
-      { metric_name: "conv_rate", label: "Conversion Rate", value: convRate, unit: "percent", delta: 0, period: "Last 30d", source: "GA4" },
-      { metric_name: "ai_referral_sessions", label: "AI Referral Sessions", value: Math.round(aiSessions), unit: "number", delta: 0, period: "Last 30d", source: "GA4" },
-      { metric_name: "ai_referral_share", label: "AI Referral Share", value: aiReferralShare, unit: "percent", delta: 0, period: "Last 30d", source: "GA4" },
+      { metric_name: "users", label: "Users", value: Math.round(c.users), unit: "number", delta: change(c.users, p?.users), period: PERIOD, source: "GA4" },
+      { metric_name: "sessions", label: "Sessions", value: Math.round(c.sessions), unit: "number", delta: change(c.sessions, p?.sessions), period: PERIOD, source: "GA4" },
+      { metric_name: "conv_rate", label: "Conversion Rate", value: Number(c.conv.toFixed(2)), unit: "percent", delta: change(c.conv, p?.conv), period: PERIOD, source: "GA4" },
+      { metric_name: "ai_referral_sessions", label: "AI Referral Sessions", value: Math.round(ai.cur), unit: "number", delta: p ? change(ai.cur, ai.prev) : null, period: PERIOD, source: "GA4" },
+      { metric_name: "ai_referral_share", label: "AI Referral Share", value: aiShareCur, unit: "percent", delta: change(aiShareCur, aiSharePrev), period: PERIOD, source: "GA4" },
     ],
   };
 }
 
-/** Google Ads — daily campaign metrics for a customer (needs approved developer token). */
-export async function fetchGoogleAds(
-  accessToken: string,
-  customerId: string,
-  days = 30,
-): Promise<FetchedData | null> {
+/** Google Ads — daily account metrics for a customer (needs approved developer token). */
+export async function fetchGoogleAds(accessToken: string, customerId: string): Promise<FetchResult> {
   const devToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
   const cid = (customerId ?? "").replace(/[^0-9]/g, "");
   if (!accessToken || !cid || !devToken) return null;
-  const { start, end } = dateRange(days);
+  const w = windows();
   const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
     "developer-token": devToken,
@@ -205,104 +242,122 @@ export async function fetchGoogleAds(
   const loginCid = (process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID ?? "").replace(/[^0-9]/g, "");
   if (loginCid) headers["login-customer-id"] = loginCid;
 
-  const query = `SELECT segments.date, metrics.cost_micros, metrics.conversions, metrics.conversions_value, metrics.clicks FROM customer WHERE segments.date BETWEEN '${start}' AND '${end}'`;
-  const res = await fetch(`https://googleads.googleapis.com/v17/customers/${cid}/googleAds:searchStream`, {
+  const query = `SELECT segments.date, metrics.cost_micros, metrics.conversions, metrics.conversions_value FROM customer WHERE segments.date BETWEEN '${w.start}' AND '${w.end}'`;
+  const res = await fetch(`https://googleads.googleapis.com/${GOOGLE_ADS_VERSION}/customers/${cid}/googleAds:searchStream`, {
     method: "POST",
     headers,
     body: JSON.stringify({ query }),
     cache: "no-store",
   }).catch(() => null);
-  if (!res?.ok) return null;
+  if (!res?.ok) return errorFor(res);
   const json: any = await res.json().catch(() => null);
-  if (!json) return null;
+  if (!json) return { error: "api" };
   // searchStream returns an array of batches, each with a results[] array.
   const batches: any[] = Array.isArray(json) ? json : [json];
   const results: any[] = batches.flatMap((b) => b.results ?? []);
 
-  const byDate: Record<string, { spend: number; leads: number; value: number }> = {};
+  const byDate: Record<string, { spend: number; conv: number; value: number }> = {};
   for (const r of results) {
     const d = r.segments?.date;
     if (!d) continue;
-    const spend = Number(r.metrics?.costMicros ?? 0) / 1_000_000;
-    const leads = Number(r.metrics?.conversions ?? 0);
-    const value = Number(r.metrics?.conversionsValue ?? 0);
-    byDate[d] = byDate[d] || { spend: 0, leads: 0, value: 0 };
-    byDate[d].spend += spend;
-    byDate[d].leads += leads;
-    byDate[d].value += value;
+    const e = (byDate[d] = byDate[d] || { spend: 0, conv: 0, value: 0 });
+    e.spend += Number(r.metrics?.costMicros ?? 0) / 1_000_000;
+    e.conv += Number(r.metrics?.conversions ?? 0);
+    e.value += Number(r.metrics?.conversionsValue ?? 0);
   }
-  const series = Object.entries(byDate)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, v]) => ({ date, spend: Math.round(v.spend), leads: Math.round(v.leads), roas: v.spend ? Number((v.value / v.spend).toFixed(2)) : 0 }));
+  const days = Object.entries(byDate).sort(([a], [b]) => a.localeCompare(b));
+  const cur = days.filter(([d]) => d >= w.curStart).map(([, v]) => v);
+  const prev = days.filter(([d]) => d < w.curStart).map(([, v]) => v);
+  if (!cur.length) return null;
 
-  const totalSpend = series.reduce((a, p) => a + p.spend, 0);
-  const totalLeads = series.reduce((a, p) => a + p.leads, 0);
-  const totalValue = Object.values(byDate).reduce((a, v) => a + v.value, 0);
-  const roas = totalSpend ? Number((totalValue / totalSpend).toFixed(1)) : 0;
+  // Stored daily leads are whole numbers (integer column); totals use the exact,
+  // possibly fractional, conversion counts so small daily values aren't lost.
+  const series = days.map(([date, v]) => ({
+    date,
+    spend: Number(v.spend.toFixed(2)),
+    leads: Math.round(v.conv),
+    roas: v.spend ? Number((v.value / v.spend).toFixed(2)) : 0,
+  }));
+  const agg = (rs: typeof cur) => {
+    const spend = sum(rs, (v) => v.spend);
+    const conv = sum(rs, (v) => v.conv);
+    const value = sum(rs, (v) => v.value);
+    return { spend, conv, roas: spend ? value / spend : 0 };
+  };
+  const c = agg(cur);
+  const p = prev.length ? agg(prev) : null;
 
   return {
     series,
     kpis: [
-      { metric_name: "ad_spend", label: "Monthly Ad Spend", value: Math.round(totalSpend), unit: "currency", delta: 0, period: "Last 30d", source: "Google Ads" },
-      { metric_name: "leads", label: "Conversions", value: Math.round(totalLeads), unit: "number", delta: 0, period: "Last 30d", source: "Google Ads" },
-      { metric_name: "roas", label: "ROAS", value: roas, unit: "ratio", delta: 0, period: "Last 30d", source: "Google Ads" },
+      { metric_name: "ad_spend", label: "Monthly Ad Spend", value: Number(c.spend.toFixed(2)), unit: "currency", delta: change(c.spend, p?.spend), period: PERIOD, source: "Google Ads" },
+      { metric_name: "leads", label: "Conversions", value: Number(c.conv.toFixed(1)), unit: "number", delta: change(c.conv, p?.conv), period: PERIOD, source: "Google Ads" },
+      { metric_name: "roas", label: "ROAS", value: Number(c.roas.toFixed(2)), unit: "ratio", delta: c.roas && p?.roas ? change(c.roas, p.roas) : null, period: PERIOD, source: "Google Ads" },
     ],
   };
 }
 
 /** Google Search Console — daily search analytics for a verified property. */
-export async function fetchSearchConsole(
-  accessToken: string,
-  siteUrl: string,
-  days = 30,
-): Promise<FetchedData | null> {
+export async function fetchSearchConsole(accessToken: string, siteUrl: string): Promise<FetchResult> {
   if (!accessToken || !siteUrl) return null;
-  const { start, end } = dateRange(days);
+  const w = windows();
 
   // A property can be a URL-prefix ("https://site/") or a Domain property
-  // ("sc-domain:site"). They are distinct in Search Console, so if the stored
-  // one 403s, fall back to the Domain variant of the same host.
+  // ("sc-domain:site"). If the stored one fails, try the Domain variant.
   const candidates = [siteUrl];
   const host = siteUrl.match(/^https?:\/\/([^/]+)/i)?.[1]?.replace(/^www\./i, "");
   if (host && !siteUrl.startsWith("sc-domain:")) candidates.push(`sc-domain:${host}`);
 
   let rows: any[] | null = null;
+  let lastRes: Response | null = null;
   for (const prop of candidates) {
     const res = await fetch(
       `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(prop)}/searchAnalytics/query`,
       {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ startDate: start, endDate: end, dimensions: ["date"], rowLimit: days }),
+        body: JSON.stringify({ startDate: w.start, endDate: w.end, dimensions: ["date"], rowLimit: 1000 }),
         cache: "no-store",
       },
     ).catch(() => null);
+    lastRes = res;
     if (!res?.ok) continue;
     const json: any = await res.json().catch(() => null);
     if (!json) continue;
     rows = json.rows ?? [];
-    if (rows && rows.length) break; // got data — stop; otherwise try the next candidate
+    if (rows && rows.length) break;
   }
-  if (rows == null) return null;
+  if (rows == null) return errorFor(lastRes);
 
-  // Daily clicks and impressions, both real — reuses the shared series shape:
-  // `leads` holds clicks, `roas` holds impressions (spend doesn't apply here).
-  const series = rows.map((r) => ({
-    date: r.keys?.[0],
-    spend: 0,
-    leads: Math.round(Number(r.clicks ?? 0)),
-    roas: Math.round(Number(r.impressions ?? 0)),
+  // `leads` holds clicks, `roas` impressions (spend doesn't apply here).
+  const typed = rows.map((r) => ({
+    date: String(r.keys?.[0] ?? ""),
+    clicks: Number(r.clicks ?? 0),
+    impressions: Number(r.impressions ?? 0),
+    position: Number(r.position ?? 0),
   }));
-  const totalClicks = rows.reduce((a, r) => a + Number(r.clicks ?? 0), 0);
-  const totalImpr = rows.reduce((a, r) => a + Number(r.impressions ?? 0), 0);
-  const avgPos = rows.length ? rows.reduce((a, r) => a + Number(r.position ?? 0), 0) / rows.length : 0;
+  const cur = typed.filter((r) => r.date >= w.curStart);
+  const prev = typed.filter((r) => r.date && r.date < w.curStart);
+  if (!cur.length) return null;
+
+  const agg = (rs: typeof typed) => {
+    const clicks = sum(rs, (r) => r.clicks);
+    const impressions = sum(rs, (r) => r.impressions);
+    // Average position weighted by impressions, like Search Console itself.
+    const position = impressions ? sum(rs, (r) => r.position * r.impressions) / impressions : 0;
+    return { clicks, impressions, position };
+  };
+  const c = agg(cur);
+  const p = prev.length ? agg(prev) : null;
 
   return {
-    series,
+    series: typed.map((r) => ({ date: r.date, spend: 0, leads: Math.round(r.clicks), roas: Math.round(r.impressions) })),
     kpis: [
-      { metric_name: "clicks", label: "Organic Clicks", value: Math.round(totalClicks), unit: "number", delta: 0, period: "Last 30d", source: "Search Console" },
-      { metric_name: "impressions", label: "Impressions", value: Math.round(totalImpr), unit: "number", delta: 0, period: "Last 30d", source: "Search Console" },
-      { metric_name: "avg_position", label: "Avg. Position", value: Number(avgPos.toFixed(1)), unit: "number", delta: 0, period: "Last 30d", source: "Search Console" },
+      { metric_name: "clicks", label: "Organic Clicks", value: Math.round(c.clicks), unit: "number", delta: change(c.clicks, p?.clicks), period: PERIOD, source: "Search Console" },
+      { metric_name: "impressions", label: "Impressions", value: Math.round(c.impressions), unit: "number", delta: change(c.impressions, p?.impressions), period: PERIOD, source: "Search Console" },
+      // Lower position is better, so the change is reported as-is and the UI
+      // treats a negative change as an improvement.
+      { metric_name: "avg_position", label: "Avg. Position", value: Number(c.position.toFixed(1)), unit: "number", delta: c.position && p?.position ? change(c.position, p.position) : null, period: PERIOD, source: "Search Console" },
     ],
   };
 }

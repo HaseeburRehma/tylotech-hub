@@ -1,4 +1,7 @@
+import { cookies } from "next/headers";
 import { listClients, listProjects, listTeamLoad } from "@/lib/data";
+import { createClient } from "@/lib/supabase/server";
+import { LOCALE_COOKIE } from "@/lib/i18n/dictionary";
 import { InternalView, type PipelineColumn } from "./view";
 import type { ProjectStatus } from "@/types";
 
@@ -33,14 +36,35 @@ export default async function InternalPage() {
       })),
   }));
 
-  // Real MRR history: cumulative MRR of clients onboarded on/before each month.
+  // MRR per month from the recorded history (each client's latest MRR change on
+  // or before that month's end). Clients without history rows (pre-0028) fall
+  // back to their current MRR from their start date.
+  const sb = createClient();
+  const { data: historyRows } = sb
+    ? await sb.from("client_mrr_history").select("client_id,mrr,effective_from").order("effective_from")
+    : { data: null };
+  const history = new Map<string, { mrr: number; from: string }[]>();
+  for (const h of (historyRows ?? []) as { client_id: string; mrr: number; effective_from: string }[]) {
+    const list = history.get(h.client_id) ?? [];
+    list.push({ mrr: Number(h.mrr), from: h.effective_from });
+    history.set(h.client_id, list);
+  }
+  const mrrAt = (c: (typeof clients)[number], monthEnd: string) => {
+    const rows = history.get(c.id);
+    if (!rows?.length) return c.created_at.slice(0, 10) <= monthEnd ? c.mrr ?? 0 : 0;
+    let value = 0;
+    for (const r of rows) if (r.from <= monthEnd) value = r.mrr;
+    return value;
+  };
+
+  const cookieLocale = cookies().get(LOCALE_COOKIE)?.value;
+  const locale = cookieLocale === "en" ? "en-GB" : "de-DE";
   const now = new Date();
   const mrrSeries = Array.from({ length: 12 }).map((_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - (11 - i) + 1, 0); // end of that month
-    const mrr = clients
-      .filter((c) => new Date(c.created_at) <= d)
-      .reduce((a, c) => a + (c.mrr ?? 0), 0);
-    return { month: d.toLocaleDateString("en", { month: "short" }), mrr };
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (11 - i) + 1, 0)); // end of that month
+    const monthEnd = d.toISOString().slice(0, 10);
+    const mrr = clients.reduce((a, c) => a + mrrAt(c, monthEnd), 0);
+    return { month: d.toLocaleDateString(locale, { month: "short", timeZone: "UTC" }), mrr };
   });
 
   return (

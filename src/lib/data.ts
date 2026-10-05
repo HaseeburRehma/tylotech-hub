@@ -17,7 +17,9 @@ export interface TeamLoad {
   id: string;
   name: string;
   role: string;
-  load: number;
+  /** Projects in progress or in review assigned to this member. */
+  activeProjects: number;
+  /** Distinct clients across this member's unfinished projects. */
   clients: number;
   avatar: null;
 }
@@ -125,15 +127,15 @@ export async function getKpis(clientId: string | null): Promise<Kpi[]> {
 
 /**
  * Daily series for a client. Pass `provider` (e.g. "meta_ads", "search_console")
- * to get that source's own numbers untouched; omit it to get the combined view —
- * same-day rows from different sources summed (roas averaged) into one point,
- * matching the pre-multi-source shape callers like the dashboard already expect.
+ * to get that source's own numbers untouched; omit it to get the combined paid
+ * view — Meta + Google Ads only. GA4 and Search Console store users/clicks in the
+ * `leads` column, so mixing them in would count website traffic as leads.
  */
 export async function getSeries(clientId: string | null, provider?: string): Promise<SeriesPoint[]> {
   const sb = createClient();
   if (!sb || !clientId) return [];
   let query = sb.from("metric_points").select("date,spend,leads,roas,provider").eq("client_id", clientId);
-  if (provider) query = query.eq("provider", provider);
+  query = provider ? query.eq("provider", provider) : query.in("provider", Array.from(AD_PROVIDERS));
   const { data } = await query.order("date", { ascending: true });
   const rows = data ?? [];
 
@@ -141,25 +143,22 @@ export async function getSeries(clientId: string | null, provider?: string): Pro
     return rows.map((p: any) => ({ date: p.date, spend: Number(p.spend), leads: Number(p.leads), roas: Number(p.roas) }));
   }
 
-  const byDate = new Map<string, { spend: number; leads: number; roasTotal: number; roasCount: number }>();
+  const byDate = new Map<string, { spend: number; leads: number; value: number }>();
   for (const p of rows) {
-    const cur = byDate.get(p.date) ?? { spend: 0, leads: 0, roasTotal: 0, roasCount: 0 };
-    cur.spend += Number(p.spend);
+    const cur = byDate.get(p.date) ?? { spend: 0, leads: 0, value: 0 };
+    const spend = Number(p.spend);
+    cur.spend += spend;
     cur.leads += Number(p.leads);
-    const roas = Number(p.roas);
-    if (roas) {
-      cur.roasTotal += roas;
-      cur.roasCount += 1;
-    }
+    cur.value += Number(p.roas) * spend; // purchase value → spend-weighted ROAS
     byDate.set(p.date, cur);
   }
   return Array.from(byDate.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, v]) => ({
       date,
-      spend: v.spend,
+      spend: Number(v.spend.toFixed(2)),
       leads: v.leads,
-      roas: v.roasCount ? Number((v.roasTotal / v.roasCount).toFixed(2)) : 0,
+      roas: v.spend ? Number((v.value / v.spend).toFixed(2)) : 0,
     }));
 }
 
@@ -171,9 +170,10 @@ const AD_PROVIDERS = new Set(["meta_ads", "google_ads"]);
 
 export interface PortfolioSummary {
   spend30d: number;
-  spendPrev30d: number;
+  /** null when the previous window isn't populated enough to compare against. */
+  spendPrev30d: number | null;
   leads30d: number;
-  leadsPrev30d: number;
+  leadsPrev30d: number | null;
   series: SeriesPoint[];
 }
 
@@ -187,23 +187,28 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
   const sb = createClient();
   if (!sb) return empty;
 
-  const since = new Date();
-  since.setDate(since.getDate() - 60);
-  const sinceStr = since.toISOString().slice(0, 10);
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 30);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  // Two equal 30-day windows of complete days, ending yesterday.
+  const day = (offset: number) => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - offset);
+    return d.toISOString().slice(0, 10);
+  };
+  const end = day(1);
+  const cutoffStr = day(30);
+  const sinceStr = day(60);
 
   const { data } = await sb
     .from("metric_points")
     .select("date,spend,leads,provider")
     .in("provider", Array.from(AD_PROVIDERS))
     .gte("date", sinceStr)
+    .lte("date", end)
     .order("date", { ascending: true });
   const rows = data ?? [];
   if (!rows.length) return empty;
 
   const byDate = new Map<string, { spend: number; leads: number }>();
+  const prevDays = new Set<string>();
   let spend30d = 0, spendPrev30d = 0, leads30d = 0, leadsPrev30d = 0;
   for (const r of rows) {
     const spend = Number(r.spend);
@@ -218,8 +223,13 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
     } else {
       spendPrev30d += spend;
       leadsPrev30d += leads;
+      prevDays.add(r.date);
     }
   }
+
+  // Only compare against the previous window when it's actually populated —
+  // a half-empty window (recently connected account) would fake huge growth.
+  const prevComplete = prevDays.size >= 20;
 
   const series = Array.from(byDate.entries())
     .filter(([date]) => date >= cutoffStr)
@@ -228,9 +238,9 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
 
   return {
     spend30d: Number(spend30d.toFixed(2)),
-    spendPrev30d: Number(spendPrev30d.toFixed(2)),
+    spendPrev30d: prevComplete ? Number(spendPrev30d.toFixed(2)) : null,
     leads30d,
-    leadsPrev30d,
+    leadsPrev30d: prevComplete ? leadsPrev30d : null,
     series,
   };
 }
@@ -538,17 +548,13 @@ export async function listTeamLoad(): Promise<TeamLoad[]> {
   if (!users.length) return [];
   const { data: projects } = await sb.from("projects").select("assigned_to_id,client_id,status");
   return users.map((u: any) => {
-    const mine = (projects ?? []).filter((p: any) => p.assigned_to_id === u.id);
-    const active = mine.filter((p: any) => p.status === "in_progress" || p.status === "review").length;
-    const clients = new Set(mine.map((p: any) => p.client_id)).size;
+    const open = (projects ?? []).filter((p: any) => p.assigned_to_id === u.id && p.status !== "done");
     return {
       id: u.id,
       name: u.name,
       role: staffTitle(u),
-      // No fixed baseline — a member with zero assigned clients/projects is at
-      // 0% load, not a fabricated "healthy" floor.
-      load: Math.min(100, clients * 15 + active * 20),
-      clients,
+      activeProjects: open.filter((p: any) => p.status === "in_progress" || p.status === "review").length,
+      clients: new Set(open.map((p: any) => p.client_id)).size,
       avatar: null,
     };
   });

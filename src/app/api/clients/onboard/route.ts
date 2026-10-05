@@ -51,6 +51,8 @@ export async function POST(req: Request) {
   if (error || !client) {
     return NextResponse.json({ error: error?.message ?? "Could not create client." }, { status: 400 });
   }
+  // Best-effort until migration 0028 has run.
+  await admin.from("client_mrr_history").insert({ client_id: client.id, mrr: Number(body.mrr) || 0 });
 
   // Optionally provision the client's first login.
   let clientUser: string | null = null;

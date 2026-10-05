@@ -6,10 +6,13 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(value: number, currency = "EUR") {
+  // Small amounts (cost per lead, CPC) need cents; large ones read better rounded.
+  const small = Math.abs(value) > 0 && Math.abs(value) < 100;
   return new Intl.NumberFormat("en-DE", {
     style: "currency",
     currency,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: small ? 2 : 0,
+    maximumFractionDigits: small ? 2 : 0,
   }).format(value);
 }
 

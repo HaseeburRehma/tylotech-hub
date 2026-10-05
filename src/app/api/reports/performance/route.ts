@@ -33,14 +33,22 @@ export async function GET(request: Request) {
   const kpis = raw.map((k) => ({
     label: k.label,
     value: formatKpi(k.unit, k.value),
-    delta: `${k.delta > 0 ? "+" : ""}${k.delta}%`,
+    delta: k.delta == null || k.delta === 0 ? "—" : `${k.delta > 0 ? "+" : ""}${k.delta}%`,
     source: k.source,
   }));
 
   const props: ReportProps = {
     company: target?.company ?? user.company ?? "TyloTech Client",
     brandColor: target?.primary_color ?? user.primaryColor ?? "#C9A84C",
-    period: new Date().toLocaleDateString("en-DE", { month: "long", year: "numeric" }),
+    // KPIs cover the last 30 complete days (ending yesterday), not a calendar month.
+    period: (() => {
+      const end = new Date();
+      end.setDate(end.getDate() - 1);
+      const start = new Date(end);
+      start.setDate(end.getDate() - 29);
+      const f = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+      return `Last 30 days · ${f(start)} – ${f(end)}`;
+    })(),
     generatedAt: new Date().toLocaleString("en-DE"),
     kpis,
   };
