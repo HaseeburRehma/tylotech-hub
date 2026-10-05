@@ -21,6 +21,7 @@ import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { MetricsEditor } from "@/components/metrics/metrics-editor";
 import { IntegrationsBoard } from "@/app/(portal)/integrations/board";
 import { EditClientModal } from "@/components/modals/edit-client-modal";
+import { LiveFeedPanel } from "@/components/live-feed/live-feed-panel";
 import { useTheme } from "@/lib/theme/theme-provider";
 import { buildClientTheme } from "@/lib/theme/themes";
 import { PROVIDERS } from "@/lib/integrations/providers";
@@ -536,6 +537,9 @@ export function ClientDetail({
                   </div>
                 </div>
               </div>
+
+              {/* Live feed on the marketing website (LIVE_FEED.md) */}
+              <LiveFeedPanel clientId={client.id} />
 
               {/* Team */}
               <div className="rounded-xl border border-border bg-surface p-5">

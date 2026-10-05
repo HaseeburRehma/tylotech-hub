@@ -3,9 +3,23 @@ import { fetchGa4, fetchGoogleAds, fetchSearchConsole, isFetchError, type FetchR
 import { fetchMetaAdsKpis } from "@/lib/integrations/meta-ads-adapter";
 import { refreshGoogleAccessToken } from "@/lib/integrations/oauth";
 import { notifyClientUsers } from "@/lib/notify";
+import { CHANNEL_LABEL, emitActivity, joinDetail, leadsTitle } from "@/lib/live-feed";
 
 const GOOGLE_PROVIDERS = new Set(["google_ads", "ga4", "search_console"]);
 const AUTO_MIN_AGE_MS = 25 * 60 * 1000; // auto/cron skips rows synced < 25 min ago
+const LEAD_PROVIDERS = new Set(["meta_ads", "google_ads"]);
+
+/** Today's date in Germany (ad accounts report in local time). */
+function todayBerlin() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(new Date());
+}
+
+/** Epoch ms of the most recent midnight in Germany. */
+function berlinMidnight(now: number) {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).formatToParts(new Date(now));
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  return now - ((get("hour") * 60 + get("minute")) * 60 + get("second")) * 1000;
+}
 
 export interface SyncResult {
   provider: string;
@@ -51,6 +65,7 @@ export async function syncClient(
   // metric_points rows instead of clobbering another source's row for the
   // same date (metric_points is unique on client_id, date, provider).
   const pointsByProviderDate: Record<string, Record<string, { spend: number; leads: number; roas: number }>> = {};
+  const prevSyncAt: Record<string, string | null> = {};
   let populated = false;
 
   for (const row of rows) {
@@ -111,6 +126,7 @@ export async function syncClient(
       cur.leads += p.leads;
       if (p.roas) cur.roas = p.roas;
     }
+    prevSyncAt[row.provider] = row.last_synced_at ?? null;
     const { lastError: _e, lastErrorAt: _a, ...cleanMeta } = cfg as Record<string, unknown>;
     await admin.from("integrations").update({ last_synced_at: nowIso, status: "connected", meta: cleanMeta }).eq("id", row.id);
     results.push({ provider: row.provider, synced: true, kpis: data.kpis.length });
@@ -120,7 +136,41 @@ export async function syncClient(
   const points = Object.entries(pointsByProviderDate).flatMap(([provider, byDate]) =>
     Object.entries(byDate).map(([date, v]) => ({ client_id: clientId, date, provider, ...v })),
   );
+  // Live feed (LIVE_FEED.md §4): remember today's stored lead totals before overwriting them.
+  const today = todayBerlin();
+  const leadPoints = points.filter((p) => LEAD_PROVIDERS.has(p.provider) && p.date === today);
+  const previousLeads: Record<string, number> = {};
+  if (leadPoints.length) {
+    const { data: prev } = await admin
+      .from("metric_points")
+      .select("provider, leads")
+      .eq("client_id", clientId)
+      .eq("date", today)
+      .in("provider", leadPoints.map((p) => p.provider));
+    for (const r of prev ?? []) previousLeads[r.provider] = Number(r.leads) || 0;
+  }
+
   if (points.length) await admin.from("metric_points").upsert(points, { onConflict: "client_id,date,provider" });
+
+  // Emit only the increase since the last sync. The new total is part of the idempotency
+  // key, so re-running a sync never creates a duplicate. The event time is placed inside
+  // the window the leads actually arrived in (between the previous sync and now, today).
+  for (const p of leadPoints) {
+    const delta = p.leads - (previousLeads[p.provider] ?? 0);
+    if (delta <= 0) continue;
+    const midnight = berlinMidnight(now);
+    const from = Math.max(midnight, prevSyncAt[p.provider] ? new Date(prevSyncAt[p.provider] as string).getTime() : midnight);
+    const occurredAt = new Date(Math.min(now, from + Math.max(0, now - from) / 2));
+    await emitActivity(admin, {
+      clientId,
+      kind: "leads",
+      title: leadsTitle(delta),
+      detail: joinDetail(CHANNEL_LABEL[p.provider], client.public_feed_label),
+      occurredAt,
+      source: p.provider as "meta_ads" | "google_ads",
+      sourceRef: `metric_points:${clientId}:${today}:${p.provider}:leads=${p.leads}`,
+    });
+  }
 
   if (populated && opts.notify !== false) {
     await notifyClientUsers(clientId, {

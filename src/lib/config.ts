@@ -11,6 +11,8 @@ export const config = {
     ai: { limit: num(process.env.RL_AI_LIMIT, 20), windowSec: num(process.env.RL_AI_WINDOW, 60) },
     auth: { limit: num(process.env.RL_AUTH_LIMIT, 10), windowSec: num(process.env.RL_AUTH_WINDOW, 60) },
     api: { limit: num(process.env.RL_API_LIMIT, 120), windowSec: num(process.env.RL_API_WINDOW, 60) },
+    /** Public live-activity feed (server-to-server from the marketing website). */
+    feed: { limit: num(process.env.RL_FEED_LIMIT, 60), windowSec: num(process.env.RL_FEED_WINDOW, 60) },
   },
   ai: {
     model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6",

@@ -32,6 +32,14 @@ quiet.
 > is misleading advertising. Every event must trace back to something that
 > actually happened in TyloHQ, for a client who agreed to be shown.
 
+
+> **Status (Oct 2026): implemented.** Migration `0031_activity_events.sql`, `src/lib/live-feed.ts`,
+> `GET /api/public/live-feed`, staff API `/api/activity` (record / hide events), consent via
+> `PATCH /api/clients/[id]` (`publicFeedOptIn`, `publicFeedLabel`), the Internal Hub panel
+> (client detail → "Live-Feed auf der Website") and `leads` events from Meta / Google Ads syncs.
+> Not yet built: `ranking` (needs per-query Search Console data) and `visitors` (GA4 realtime).
+> The daily cron stays at 06:00 — a `*/15` schedule needs a Vercel plan that allows it.
+
 ---
 
 ## 1. Endpoint contract
@@ -96,7 +104,7 @@ Selection rules for the response:
 
 ## 2. Data model
 
-New migration `supabase/migrations/0025_activity_events.sql`:
+New migration `supabase/migrations/0031_activity_events.sql`:
 
 ```sql
 -- Public-safe activity stream for the marketing website's live bar.
@@ -210,7 +218,7 @@ Notes:
 
 | File | Change |
 |---|---|
-| `supabase/migrations/0025_activity_events.sql` | table, index, RLS, client consent columns (§2) |
+| `supabase/migrations/0031_activity_events.sql` | table, index, RLS, client consent columns (§2) |
 | `src/lib/live-feed.ts` | `LiveKind`, `emitActivity()`, `serializePublicFeed(rows)` (maps to the five public fields, trims, drops anything invalid) |
 | `src/app/api/public/live-feed/route.ts` | the endpoint (§1): token check with `timingSafeEqual`, rate limit, admin client query with join on `clients` where `public_feed_opt_in` and `not hidden`, last 24 h, limit 20 |
 | `src/lib/config.ts` | `rateLimit.feed` + `RL_FEED_LIMIT` / `RL_FEED_WINDOW` |

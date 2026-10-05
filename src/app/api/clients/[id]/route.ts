@@ -65,6 +65,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     patch.logo_url = url || null;
   }
 
+  // Live-feed consent (LIVE_FEED.md §3): only with the client's written agreement.
+  if (b.publicFeedOptIn !== undefined) {
+    if (typeof b.publicFeedOptIn !== "boolean") return NextResponse.json({ error: "publicFeedOptIn must be true or false." }, { status: 400 });
+    patch.public_feed_opt_in = b.publicFeedOptIn;
+  }
+  if (b.publicFeedLabel !== undefined) {
+    const label = String(b.publicFeedLabel ?? "").replace(/\s+/g, " ").trim();
+    if (label.length > 60) return NextResponse.json({ error: "Feed label must be at most 60 characters." }, { status: 400 });
+    patch.public_feed_label = label || null;
+  }
+
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
 
   const { data: before } = await admin.from("clients").select("mrr").eq("id", params.id).maybeSingle();
