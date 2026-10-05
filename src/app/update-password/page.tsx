@@ -1,8 +1,9 @@
 "use client";
 
-import { CheckCircle2, CheckSquare, Square } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { AlertCircle, CheckCircle2, CheckSquare, Loader2, Square } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/input";
 import { PasswordInput } from "@/components/auth/password-input";
@@ -60,8 +61,30 @@ function Rule({ met, label }: { met: boolean; label: string }) {
 }
 
 export default function UpdatePasswordPage() {
+  return (
+    <Suspense>
+      <UpdatePasswordForm />
+    </Suspense>
+  );
+}
+
+function UpdatePasswordForm() {
   const router = useRouter();
+  const params = useSearchParams();
   const t = useT();
+  const welcome = params.get("welcome") === "1";
+  const [session, setSession] = useState<"checking" | "ok" | "missing">(
+    params.get("error") ? "missing" : "checking",
+  );
+
+  // The reset/invite link signs the user in via /auth/confirm; without that
+  // session there's nothing to update, so explain instead of failing on submit.
+  useEffect(() => {
+    if (session !== "checking") return;
+    const supabase = createClient();
+    if (!supabase) return setSession("missing");
+    supabase.auth.getUser().then(({ data }) => setSession(data.user ? "ok" : "missing"));
+  }, [session]);
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [loading, setLoading] = useState(false);
@@ -77,9 +100,9 @@ export default function UpdatePasswordPage() {
     e.preventDefault();
     setError(null);
     if (!has12) return setError(t("auth.rule12"));
-    if (pw !== pw2) return setError("Passwords don't match.");
+    if (pw !== pw2) return setError(t("settings.pwMismatch"));
     const supabase = createClient();
-    if (!supabase) return setError("Backend not configured.");
+    if (!supabase) return setError(t("settings.backendError"));
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password: pw });
     setLoading(false);
@@ -97,17 +120,32 @@ export default function UpdatePasswordPage() {
       panelHeadline={t("auth.resetHeadline")}
       panelTagline={t("auth.resetTagline")}
     >
-      {done ? (
+      {session === "checking" ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted" />
+        </div>
+      ) : session === "missing" ? (
+        <div className="flex flex-col items-center gap-3 py-10 text-center">
+          <AlertCircle className="h-12 w-12 text-warning" />
+          <p className="text-lg font-semibold">{t("auth.linkInvalidTitle")}</p>
+          <p className="max-w-sm text-sm text-muted">{t("auth.linkInvalidBody")}</p>
+          <Link href="/reset" className="mt-2">
+            <Button>{t("auth.requestNewLink")}</Button>
+          </Link>
+        </div>
+      ) : done ? (
         <div className="flex flex-col items-center gap-3 py-10 text-center">
           <CheckCircle2 className="h-14 w-14 text-success" />
-          <p className="text-lg font-semibold">{t("auth.created")}</p>
-          <p className="text-sm text-muted">{t("auth.takingYou")}</p>
+          <p className="text-lg font-semibold">{welcome ? t("auth.welcomeReady") : t("settings.pwUpdated")}</p>
+          <p className="text-sm text-muted">{t("auth.redirectingDashboard")}</p>
         </div>
       ) : (
         <>
           <div className="mb-8">
-            <h1 className="font-display text-3xl font-semibold tracking-tight">{t("auth.newPwTitle")}</h1>
-            <p className="mt-2 text-sm text-muted">{t("auth.newPwSubtitle")}</p>
+            <h1 className="font-display text-3xl font-semibold tracking-tight">
+              {welcome ? t("auth.welcomeSetPwTitle") : t("auth.newPwTitle")}
+            </h1>
+            <p className="mt-2 text-sm text-muted">{welcome ? t("auth.welcomeSetPwBody") : t("auth.newPwSubtitle")}</p>
           </div>
 
           <form onSubmit={onSubmit} className="space-y-4">

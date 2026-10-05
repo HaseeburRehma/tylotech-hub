@@ -21,6 +21,7 @@ export async function POST(req: Request) {
   if (!text || !target) {
     return NextResponse.json({ error: "text and target (en|de) are required." }, { status: 400 });
   }
+  if (text.length > 5000) return NextResponse.json({ error: "Text is too long." }, { status: 413 });
 
   const translation = await translateMessage(text, target as Lang);
   // null = the translation service is unavailable (no key / API error / no credits).

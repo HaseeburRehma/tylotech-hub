@@ -31,7 +31,7 @@ interface Row {
   account_label: string | null;
   last_synced_at: string | null;
   has_token?: boolean;
-  meta: { accountId?: string; siteUrl?: string; propertyId?: string } | null;
+  meta: { accountId?: string; siteUrl?: string; propertyId?: string; tokenOwner?: "client" | "staff" } | null;
 }
 
 export function IntegrationsBoard({
@@ -136,6 +136,7 @@ export function IntegrationsBoard({
           const Icon = ICONS[p.id] ?? Plug;
           const row = rowFor(p.id);
           const connected = row?.status === "connected";
+          const canEditTarget = isStaff || row?.meta?.tokenOwner === "client";
           return (
             <motion.div
               key={p.id}
@@ -171,14 +172,18 @@ export function IntegrationsBoard({
 
                 {connected && (
                   <div className="mt-3">
+                    {!canEditTarget && (
+                      <p className="mb-2 text-[11px] text-muted/80">{t("integrations.managedByTeam")}</p>
+                    )}
                     {p.id === "meta_ads" && (
                       <label className="block text-[11px] text-muted">
                         {t("integrations.metaAccountId")}
                         <input
                           defaultValue={row?.meta?.accountId ?? ""}
-                          onBlur={(e) => e.target.value !== (row?.meta?.accountId ?? "") && configure(p.id, "accountId", e.target.value)}
+                          readOnly={!canEditTarget}
+                          onBlur={(e) => canEditTarget && e.target.value !== (row?.meta?.accountId ?? "") && configure(p.id, "accountId", e.target.value)}
                           placeholder="act_1234567890"
-                          className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50"
+                          className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50 read-only:opacity-70"
                         />
                       </label>
                     )}
@@ -187,9 +192,10 @@ export function IntegrationsBoard({
                         {t("integrations.googleCustomerId")}
                         <input
                           defaultValue={row?.meta?.accountId ?? ""}
-                          onBlur={(e) => e.target.value !== (row?.meta?.accountId ?? "") && configure(p.id, "accountId", e.target.value)}
+                          readOnly={!canEditTarget}
+                          onBlur={(e) => canEditTarget && e.target.value !== (row?.meta?.accountId ?? "") && configure(p.id, "accountId", e.target.value)}
                           placeholder="123-456-7890"
-                          className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50"
+                          className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50 read-only:opacity-70"
                         />
                       </label>
                     )}
@@ -198,9 +204,10 @@ export function IntegrationsBoard({
                         {t("integrations.ga4PropertyId")} <span className="text-muted/60">{t("integrations.ga4Hint")}</span>
                         <input
                           defaultValue={row?.meta?.propertyId ?? ""}
-                          onBlur={(e) => e.target.value !== (row?.meta?.propertyId ?? "") && configure(p.id, "propertyId", e.target.value)}
+                          readOnly={!canEditTarget}
+                          onBlur={(e) => canEditTarget && e.target.value !== (row?.meta?.propertyId ?? "") && configure(p.id, "propertyId", e.target.value)}
                           placeholder="123456789"
-                          className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50"
+                          className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50 read-only:opacity-70"
                         />
                       </label>
                     )}
@@ -209,7 +216,8 @@ export function IntegrationsBoard({
                         {t("integrations.siteUrl")}
                         <input
                           defaultValue={row?.meta?.siteUrl ?? ""}
-                          onBlur={(e) => e.target.value !== (row?.meta?.siteUrl ?? "") && configure(p.id, "siteUrl", e.target.value)}
+                          readOnly={!canEditTarget}
+                          onBlur={(e) => canEditTarget && e.target.value !== (row?.meta?.siteUrl ?? "") && configure(p.id, "siteUrl", e.target.value)}
                           placeholder="https://example.com/"
                           className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50"
                         />
@@ -254,10 +262,12 @@ export function IntegrationsBoard({
                       >
                         <Button size="sm" disabled={!clientId}>{t("common.connect")}</Button>
                       </a>
-                    ) : (
+                    ) : isStaff ? (
                       <Button size="sm" loading={busy === p.id} onClick={() => act(p.id, "connect")} disabled={!clientId}>
                         {t("common.connect")}
                       </Button>
+                    ) : (
+                      <span className="text-[11px] text-muted">{t("ob.viaTeam")}</span>
                     )}
                   </div>
                 </div>

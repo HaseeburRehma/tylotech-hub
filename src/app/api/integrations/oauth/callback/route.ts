@@ -61,6 +61,13 @@ export async function GET(req: Request) {
   const token = tokenRes ? await tokenRes.json().catch(() => null) : null;
   if (!token?.access_token) return done("error=token_exchange");
 
+  const { data: existing } = await admin
+    .from("integrations")
+    .select("meta")
+    .eq("client_id", clientId)
+    .eq("provider", provider)
+    .maybeSingle();
+
   const { error: upsertError } = await admin.from("integrations").upsert(
     {
       client_id: clientId,
@@ -69,6 +76,8 @@ export async function GET(req: Request) {
       account_label: `${provider} (live)`,
       access_token: token.access_token,
       refresh_token: token.refresh_token ?? null,
+      // Who authorised this token decides who may point it at other accounts.
+      meta: { ...(existing?.meta ?? {}), tokenOwner: user.role === "client" ? "client" : "staff" },
     },
     { onConflict: "client_id,provider" },
   );

@@ -50,6 +50,11 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
+  // Users with 2FA enrolled must complete it before any server code (pages or
+  // API routes) treats them as signed in — a password alone is not enough.
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") return null;
+
   const { data: profile } = await supabase
     .from("users")
     .select("id,email,name,role,client_id,title,avatar_url, clients(company,primary_color,secondary_color,logo_url)")

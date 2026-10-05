@@ -76,7 +76,7 @@ export function DocumentsPanel({
     setError(null);
     const fd = new FormData();
     fd.append("file", file);
-    fd.append("type", uploadType);
+    fd.append("type", user.role === "client" ? "asset" : uploadType);
     if (clientId) fd.append("clientId", clientId);
     const res = await fetch("/api/documents", { method: "POST", body: fd }).catch(() => null);
     setUploading(false);
@@ -91,9 +91,15 @@ export function DocumentsPanel({
   async function confirmRemove() {
     if (!pendingDelete) return;
     setDeleting(true);
-    await fetch(`/api/documents?id=${pendingDelete.id}`, { method: "DELETE" }).catch(() => null);
+    const res = await fetch(`/api/documents?id=${pendingDelete.id}`, { method: "DELETE" }).catch(() => null);
     setDeleting(false);
     setPendingDelete(null);
+    if (!res?.ok) {
+      const d = res ? await res.json().catch(() => ({})) : {};
+      setError(d.error ?? t("ait.actionFailed"));
+      return;
+    }
+    setError(null);
     router.refresh();
   }
 
@@ -117,7 +123,9 @@ export function DocumentsPanel({
           ))}
         </div>
         <div className="flex items-center gap-2">
+          {user.role !== "client" && (
           <select
+            aria-label={t("documents.typeLabel")}
             value={uploadType}
             onChange={(e) => setUploadType(e.target.value as DocType)}
             className="h-9 rounded-xl border border-border bg-surface-2 px-2 text-xs outline-none focus:border-brand/50"
@@ -127,6 +135,7 @@ export function DocumentsPanel({
             <option value="invoice" className="bg-surface">{t("documents.invoice")}</option>
             <option value="asset" className="bg-surface">{t("documents.asset")}</option>
           </select>
+          )}
           <button
             onClick={() => fileRef.current?.click()}
             disabled={uploading || !clientId}
@@ -227,13 +236,16 @@ export function DocumentsPanel({
                       <Download className="h-[18px] w-[18px]" />
                     </span>
                   )}
+                  {(user.role !== "client" || d.uploaded_by === user.id) && (
                   <button
+                    type="button"
                     onClick={() => setPendingDelete(d)}
                     className="flex h-9 w-9 items-center justify-center rounded-xl text-muted transition-colors hover:text-danger"
                     aria-label={`Delete ${d.name}`}
                   >
                     <Trash2 className="h-[18px] w-[18px]" />
                   </button>
+                  )}
                 </motion.li>
               );
             })}

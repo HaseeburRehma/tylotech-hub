@@ -37,12 +37,13 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { data, error } = await admin.auth.admin.generateLink({
-      type: "recovery",
-      email,
-      options: { redirectTo: `${APP_URL}/update-password` },
-    });
-    const link = data?.properties?.action_link;
+    const { data, error } = await admin.auth.admin.generateLink({ type: "recovery", email });
+    // Link to our own confirm route (server-side token verification) instead of
+    // Supabase's hash-fragment redirect, which the PKCE browser client rejects.
+    const hashed = data?.properties?.hashed_token;
+    const link = hashed
+      ? `${APP_URL}/auth/confirm?token_hash=${encodeURIComponent(hashed)}&type=recovery&next=/update-password`
+      : null;
     // A missing user surfaces as an error here — swallow it so we don't enumerate.
     if (!error && link) {
       await sendPasswordResetEmail(email, link);

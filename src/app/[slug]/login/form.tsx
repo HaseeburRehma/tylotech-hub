@@ -1,5 +1,6 @@
 "use client";
 
+import { safeRedirect } from "@/lib/safe-redirect";
 import { AlertCircle, ArrowRight, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -10,11 +11,6 @@ import { PasswordInput } from "@/components/auth/password-input";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { useT } from "@/lib/i18n/provider";
-
-function safeRedirect(raw: string | null): string {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return "/dashboard";
-  return raw;
-}
 
 export function ClientLoginForm({ slug }: { slug: string }) {
   const router = useRouter();

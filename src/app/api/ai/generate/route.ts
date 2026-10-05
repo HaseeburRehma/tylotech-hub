@@ -4,6 +4,7 @@ import { TOOL_DEFS } from "@/lib/ai/prompts";
 import { config } from "@/lib/config";
 import { getRateLimiter, rateLimitHeaders } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -12,9 +13,10 @@ const MODEL = config.ai.model;
 export async function POST(req: Request) {
   // Require an authenticated user — the AI endpoint calls the paid Anthropic API,
   // so it must never be callable anonymously.
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  const userId = user.id;
   const supabase = createClient();
-  const userId = supabase ? (await supabase.auth.getUser()).data.user?.id : null;
-  if (!userId) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
 
   // Rate limit per user — protects spend & abuse.
   const rl = await getRateLimiter().limit(`ai:${userId}`, config.rateLimit.ai);
@@ -33,6 +35,10 @@ export async function POST(req: Request) {
   }
 
   const { tool, inputs = {}, brand = "your brand" } = body;
+  const inputSize = Object.values(inputs).reduce((n, v) => n + String(v ?? "").length, 0);
+  if (inputSize > 6000 || String(brand).length > 120 || Object.keys(inputs).length > 12) {
+    return NextResponse.json({ error: "Input too long." }, { status: 413 });
+  }
   const def = tool ? TOOL_DEFS[tool] : undefined;
   if (!def) {
     return NextResponse.json({ error: "Unknown tool" }, { status: 404 });

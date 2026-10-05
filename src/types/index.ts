@@ -101,6 +101,7 @@ export interface DocItem {
   type: DocType;
   size: string;
   created_at: string;
+  uploaded_by?: string | null;
 }
 
 export interface Kpi {

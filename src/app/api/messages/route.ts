@@ -28,6 +28,7 @@ export async function POST(req: Request) {
   };
   const content = body.content?.trim();
   if (!content) return NextResponse.json({ error: "Message is empty." }, { status: 400 });
+  if (content.length > 5000) return NextResponse.json({ error: "Message is too long (max 5000 characters)." }, { status: 413 });
 
   const isClient = user.role === "client";
   // Internal (staff-only) workspace has no tenant → client_id null.
@@ -113,7 +114,19 @@ export async function POST(req: Request) {
   }
 
   // Record @mentions and notify mentioned users.
-  const mentionIds: string[] = body.mentions ?? [];
+  // Only people who belong in this conversation can be mentioned/notified —
+  // never users of another tenant.
+  let mentionIds: string[] = [];
+  const requested = Array.from(new Set((Array.isArray(body.mentions) ? body.mentions : []).filter((x) => typeof x === "string"))).slice(0, 20);
+  if (requested.length && data?.id) {
+    const lookup = createAdminClient();
+    const { data: people } = await (lookup ?? sb).from("users").select("id,role,client_id").in("id", requested);
+    mentionIds = (people ?? [])
+      .filter((p: { role: string; client_id: string | null }) =>
+        staffRoles.includes(p.role) || (!internal && p.role === "client" && p.client_id === clientId),
+      )
+      .map((p: { id: string }) => p.id);
+  }
   if (mentionIds.length > 0 && data?.id) {
     const mentionRows = mentionIds.map((uid) => ({ message_id: data.id, user_id: uid }));
     try { await sb.from("mentions").insert(mentionRows); } catch { /* tolerate missing table */ }

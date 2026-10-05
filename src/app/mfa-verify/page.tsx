@@ -1,5 +1,6 @@
 "use client";
 
+import { safeRedirect } from "@/lib/safe-redirect";
 import { AlertCircle, ArrowRight, ShieldCheck } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
@@ -8,11 +9,6 @@ import { Input, Label } from "@/components/ui/input";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { createClient } from "@/lib/supabase/client";
 import { useT } from "@/lib/i18n/provider";
-
-function safeRedirect(raw: string | null): string {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return "/dashboard";
-  return raw;
-}
 
 function MfaVerifyForm() {
   const router = useRouter();
