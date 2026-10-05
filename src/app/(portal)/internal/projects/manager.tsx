@@ -43,7 +43,7 @@ const STATUS_LABEL_KEY: Record<ProjectStatus, string> = {
   in_progress: "proj.inProgress",
   review: "proj.review",
   done: "proj.done",
-  blocked: "proj.planning",
+  blocked: "proj.blocked",
 };
 
 export function ProjectsManager({

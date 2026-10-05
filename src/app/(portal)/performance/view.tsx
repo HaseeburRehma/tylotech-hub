@@ -40,10 +40,10 @@ interface MetricDef {
 }
 
 const RANGES: { id: string; label: string; days: number | "ytd" }[] = [
-  { id: "7D", label: "7 T", days: 7 },
-  { id: "30D", label: "30 T", days: 30 },
-  { id: "90D", label: "90 T", days: 90 },
-  { id: "YTD", label: "Jahr", days: "ytd" },
+  { id: "7D", label: "perf.range7", days: 7 },
+  { id: "30D", label: "perf.range30", days: 30 },
+  { id: "90D", label: "perf.range90", days: 90 },
+  { id: "YTD", label: "perf.rangeYtd", days: "ytd" },
 ];
 
 // What each source's own trend chart is actually plotting — the shared
@@ -297,7 +297,7 @@ export function PerformanceView({
                 range === r.id ? "bg-brand text-brand-foreground" : "text-muted hover:text-foreground",
               )}
             >
-              {r.label}
+              {t(r.label)}
             </button>
           ))}
         </div>

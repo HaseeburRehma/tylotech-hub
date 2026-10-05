@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getClientBySlugPublic } from "@/lib/data";
 import { buildClientTheme } from "@/lib/theme/themes";
 import { ClientThemeApplier } from "@/components/auth/client-theme-applier";
+import { AuthShell } from "@/components/auth/auth-shell";
 import { ClientResetForm } from "./form";
 
 /**
@@ -22,7 +23,9 @@ export default async function ClientResetPage({ params }: { params: { slug: stri
   return (
     <>
       <ClientThemeApplier theme={theme} />
-      <ClientResetForm slug={params.slug} />
+      <AuthShell hideThemeSwitcher brand={{ company: client.company, logoUrl: client.logo_url, tagline: theme.tagline }}>
+        <ClientResetForm slug={params.slug} />
+      </AuthShell>
     </>
   );
 }

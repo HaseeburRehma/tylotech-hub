@@ -21,6 +21,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const patch: Record<string, unknown> = {};
 
+  if (b.archived !== undefined) {
+    if (user?.role !== "admin") return NextResponse.json({ error: "Only admins can archive clients." }, { status: 403 });
+    patch.archived_at = b.archived ? new Date().toISOString() : null;
+  }
+
   if (b.company !== undefined) {
     const company = String(b.company).trim();
     if (!company || company.length > 120) {

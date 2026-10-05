@@ -54,7 +54,7 @@ export function NewClientModal({
 
   async function submit() {
     if (!company.trim()) {
-      setError("Company name is required.");
+      setError(t("editClient.companyRequired"));
       return;
     }
     setSaving(true);

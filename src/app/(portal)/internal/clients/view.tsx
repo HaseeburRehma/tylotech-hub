@@ -10,7 +10,9 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { useUser } from "@/components/providers/user-provider";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +23,7 @@ import { useT } from "@/lib/i18n/provider";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { ClientListRow, TeamMember } from "@/lib/data";
 
-type PlanFilter = "all" | "Growth" | "Scale" | "new";
+type PlanFilter = "all" | "Growth" | "Scale" | "new" | "archived";
 type SortKey = "budget" | "mrr" | "leads" | "name" | "newest";
 const SORTS: Record<SortKey, { label: string; cmp: (a: ClientListRow, b: ClientListRow) => number }> = {
   budget: { label: "clients.sortBudget", cmp: (a, b) => b.spend30d - a.spend30d },
@@ -82,20 +84,35 @@ export function ClientsView({
   const [member, setMember] = useState<string>("all");
   const [activeOnly, setActiveOnly] = useState(false);
   const [showNewClient, setShowNewClient] = useState(false);
+  const router = useRouter();
+  const user = useUser();
+  const canArchive = user.role === "admin";
+
+  async function restore(id: string) {
+    const res = await fetch(`/api/clients/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ archived: false }),
+    }).catch(() => null);
+    if (res?.ok) router.refresh();
+  }
   const extraFilters = (member !== "all" ? 1 : 0) + (activeOnly ? 1 : 0);
 
   const now = new Date();
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-  const newCount = clients.filter(
-    (c) => c.created_at.slice(0, 7) === thisMonth,
-  ).length;
+  const archivedCount = clients.filter((c) => c.archived_at).length;
+  const active = clients.filter((c) => !c.archived_at);
+  const newCount = active.filter((c) => c.created_at.slice(0, 7) === thisMonth).length;
 
-  const sorted = useMemo(() => [...clients].sort(SORTS[sort].cmp), [clients, sort]);
+  const sorted = useMemo(
+    () => [...clients].filter((c) => (filter === "archived" ? !!c.archived_at : !c.archived_at)).sort(SORTS[sort].cmp),
+    [clients, sort, filter],
+  );
 
   const filtered = sorted
     .filter((c) => {
-      if (filter === "all") return true;
+      if (filter === "all" || filter === "archived") return true;
       if (filter === "new") return c.created_at.slice(0, 7) === thisMonth;
       return c.plan === filter;
     })
@@ -109,15 +126,15 @@ export function ClientsView({
     );
 
   const planCounts = {
-    Growth: clients.filter((c) => c.plan === "Growth").length,
-    Scale: clients.filter((c) => c.plan === "Scale").length,
+    Growth: active.filter((c) => c.plan === "Growth").length,
+    Scale: active.filter((c) => c.plan === "Scale").length,
   };
 
   return (
     <div className="space-y-6">
       <PageHeader
         title={t("clients.title")}
-        subtitle={`${clients.length} ${t("clients.accounts")} · ${planCounts.Growth} ${t("clients.onGrowth")} · ${planCounts.Scale} ${t("clients.onScale")}`}
+        subtitle={`${active.length} ${t("clients.accounts")} · ${planCounts.Growth} ${t("clients.onGrowth")} · ${planCounts.Scale} ${t("clients.onScale")}`}
       >
         <div className="flex w-full items-center gap-3 sm:w-auto">
           <div className="relative min-w-0 flex-1 sm:flex-none">
@@ -147,11 +164,12 @@ export function ClientsView({
         <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-border bg-surface p-1">
           {(
             [
-              { key: "all" as const, label: t("clients.all"), count: clients.length },
+              { key: "all" as const, label: t("clients.all"), count: active.length },
               { key: "Growth" as const, label: "Growth", count: planCounts.Growth },
               { key: "Scale" as const, label: "Scale", count: planCounts.Scale },
               { key: "new" as const, label: t("clients.newMonth"), count: newCount },
-            ] as const
+              ...(archivedCount ? [{ key: "archived" as const, label: t("clients.archived"), count: archivedCount }] : []),
+            ]
           ).map((p) => (
             <button
               key={p.key}
@@ -369,8 +387,17 @@ export function ClientsView({
                   })}
                 </td>
 
-                {/* Arrow */}
+                {/* Arrow / restore */}
                 <td className="px-4 py-3 text-right">
+                  {client.archived_at && canArchive ? (
+                    <button
+                      type="button"
+                      onClick={() => restore(client.id)}
+                      className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-surface-2"
+                    >
+                      {t("clients.restore")}
+                    </button>
+                  ) : null}
                   <Link
                     href={`/internal/clients/${client.id}`}
                     className="inline-flex items-center text-muted transition-colors group-hover:text-foreground"

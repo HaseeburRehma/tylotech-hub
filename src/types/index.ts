@@ -14,6 +14,8 @@ export interface Client {
   mrr: number;
   themeId: string;
   created_at: string;
+  /** Set when the client was archived (soft-deleted). */
+  archived_at?: string | null;
 }
 
 export interface User {

@@ -10,8 +10,8 @@ import {
   Search,
   type LucideIcon,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -50,46 +50,92 @@ export function IntegrationsBoard({
   liveProviders: string[];
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
   const t = useT();
   const [busy, setBusy] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const [confirmDisconnect, setConfirmDisconnect] = useState<string | null>(null);
+  const providerName = (id: string) => providers.find((p) => p.id === id)?.name ?? id;
+
+  // Result of the OAuth round-trip (?connected= / ?error=), shown once, then
+  // stripped from the URL so a reload doesn't repeat it.
+  useEffect(() => {
+    const connected = params.get("connected");
+    const error = params.get("error");
+    if (!connected && !error) return;
+    setNotice(
+      connected
+        ? { ok: true, text: t("integ.connectedOk", { name: providerName(connected) }) }
+        : { ok: false, text: t(`integ.err.${error}`) === `integ.err.${error}` ? t("integ.err.generic") : t(`integ.err.${error}`) },
+    );
+    const keep = new URLSearchParams(params.toString());
+    keep.delete("connected");
+    keep.delete("error");
+    router.replace(keep.toString() ? `${pathname}?${keep}` : pathname, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function post(url: string, body?: unknown) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    return { ok: !!res?.ok, data };
+  }
 
   const rowFor = (id: string) => rows.find((r) => r.provider === id);
 
   async function act(providerId: string, action: "connect" | "disconnect") {
+    if (action === "disconnect" && confirmDisconnect !== providerId) {
+      setConfirmDisconnect(providerId);
+      return;
+    }
+    setConfirmDisconnect(null);
     setBusy(providerId);
-    await fetch(`/api/integrations/${providerId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, clientId }),
-    });
+    const { ok, data } = await post(`/api/integrations/${providerId}`, { action, clientId });
     setBusy(null);
+    setNotice(
+      ok
+        ? { ok: true, text: t(action === "connect" ? "integ.connectedOk" : "integ.disconnectedOk", { name: providerName(providerId) }) }
+        : { ok: false, text: data.error ?? t("integ.err.generic") },
+    );
     router.refresh();
   }
 
   async function sync(providerId?: string) {
     setBusy(providerId ?? "all");
-    await fetch("/api/integrations/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId, provider: providerId }),
-    });
+    const { ok, data } = await post("/api/integrations/sync", { clientId, provider: providerId });
     setBusy(null);
+    if (!ok) {
+      setNotice({ ok: false, text: data.error ?? t("integ.err.generic") });
+    } else {
+      const results = (data.results ?? []) as { provider: string; synced: boolean; reason?: string }[];
+      const failed = results.filter((r) => !r.synced);
+      setNotice({
+        ok: failed.length === 0,
+        text: [
+          t("integ.syncedCount", { n: results.length - failed.length, total: results.length }),
+          ...failed.map((r) => `${providerName(r.provider)}: ${r.reason?.startsWith("token") ? t("integ.needsReconnect") : t("integ.noNewData")}`),
+        ].join(" · "),
+      });
+    }
     router.refresh();
   }
 
   async function syncAllClients() {
     setBusy("all-clients");
-    await fetch("/api/integrations/sync-all", { method: "POST" }).catch(() => null);
+    const { ok, data } = await post("/api/integrations/sync-all");
     setBusy(null);
+    setNotice(ok ? { ok: true, text: t("integ.syncAllDone") } : { ok: false, text: data.error ?? t("integ.err.generic") });
     router.refresh();
   }
 
   async function configure(providerId: string, field: "accountId" | "siteUrl" | "propertyId" | "accessToken", value: string) {
-    await fetch(`/api/integrations/${providerId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "configure", clientId, [field]: value }),
-    });
+    const { ok, data } = await post(`/api/integrations/${providerId}`, { action: "configure", clientId, [field]: value });
+    setNotice(ok ? { ok: true, text: t("integ.savedSetting") } : { ok: false, text: data.error ?? t("integ.err.generic") });
     router.refresh();
   }
 
@@ -97,6 +143,19 @@ export function IntegrationsBoard({
 
   return (
     <div className="space-y-5">
+      {notice && (
+        <div
+          role="status"
+          className={`flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm ${
+            notice.ok ? "border-success/30 bg-success/10 text-success" : "border-danger/30 bg-danger/10 text-danger"
+          }`}
+        >
+          <span>{notice.text}</span>
+          <button type="button" onClick={() => setNotice(null)} className="shrink-0 opacity-70 hover:opacity-100" aria-label={t("widget.close")}>
+            ×
+          </button>
+        </div>
+      )}
       {isStaff && clients.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-muted">{t("integ.managingFor")}</span>
@@ -225,12 +284,12 @@ export function IntegrationsBoard({
                     )}
                     {isStaff && (
                       <label className="mt-2 block text-[11px] text-muted">
-                        API access token {row?.has_token ? <span className="text-success">· set ✓</span> : null}
+                        {t("integ.apiToken")} {row?.has_token ? <span className="text-success">· {t("integ.tokenSet")}</span> : null}
                         <input
                           type="password"
                           defaultValue=""
                           onBlur={(e) => e.target.value && configure(p.id, "accessToken", e.target.value)}
-                          placeholder={row?.has_token ? "•••••••• (paste to replace)" : "Paste access token for live data"}
+                          placeholder={row?.has_token ? t("integ.tokenReplacePh") : t("integ.tokenPh")}
                           className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50"
                         />
                       </label>
@@ -242,7 +301,7 @@ export function IntegrationsBoard({
                   <span className="text-[11px] text-muted/70">
                     {connected
                       ? row?.last_synced_at
-                        ? `Synced ${new Date(row.last_synced_at).toLocaleString("en-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
+                        ? t("integ.syncedAt", { date: new Date(row.last_synced_at).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) })
                         : row?.account_label ?? t("common.connected")
                       : t("integ.pullLive")}
                   </span>
@@ -252,8 +311,14 @@ export function IntegrationsBoard({
                         <Button size="sm" variant="secondary" loading={busy === p.id} onClick={() => sync(p.id)}>
                           <RefreshCw className="h-4 w-4" /> {t("common.sync")}
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => act(p.id, "disconnect")}>
-                          {t("common.disconnect")}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => act(p.id, "disconnect")}
+                          onBlur={() => setConfirmDisconnect((c) => (c === p.id ? null : c))}
+                          className={confirmDisconnect === p.id ? "text-danger" : undefined}
+                        >
+                          {confirmDisconnect === p.id ? t("integ.confirmDisconnect") : t("common.disconnect")}
                         </Button>
                       </>
                     ) : liveProviders.includes(p.id) ? (
@@ -278,7 +343,7 @@ export function IntegrationsBoard({
       </div>
 
       {!clientId && (
-        <p className="text-center text-sm text-muted">No client selected. Onboard a client first.</p>
+        <p className="text-center text-sm text-muted">{t("integ.noClient")}</p>
       )}
     </div>
   );

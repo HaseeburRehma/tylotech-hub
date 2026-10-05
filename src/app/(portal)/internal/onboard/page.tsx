@@ -293,7 +293,7 @@ export default function OnboardPage() {
                   </div>
                   <div>
                     <Label htmlFor="cpass">{t("onb.tempPassword")}</Label>
-                    <Input id="cpass" value={form.clientPassword} onChange={(e) => set("clientPassword", e.target.value)} placeholder={t("onb.min8")} />
+                    <Input id="cpass" type="password" autoComplete="new-password" value={form.clientPassword} onChange={(e) => set("clientPassword", e.target.value)} placeholder={t("onb.min8")} />
                   </div>
                 </>
               )}

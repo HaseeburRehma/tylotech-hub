@@ -22,8 +22,8 @@ export default async function IntegrationsPage({
 
   let clients: { id: string; company: string; slug: string | null }[] = [];
   if (supabase && isStaff) {
-    const { data } = await supabase.from("clients").select("id,company,slug").order("company");
-    clients = data ?? [];
+    const { data } = await supabase.from("clients").select("*").order("company");
+    clients = (data ?? []).filter((c: any) => !c.archived_at).map((c: any) => ({ id: c.id, company: c.company, slug: c.slug ?? null }));
   }
 
   // searchParams.client may be a slug (clean links) or a legacy UUID — resolve

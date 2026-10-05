@@ -1,12 +1,12 @@
 "use client";
 
-import { Check, FileText, Plus, Rocket, Star, Zap } from "lucide-react";
+import { ModalShell } from "@/components/ui/modal";
+import { Check, FileText, Plus, Rocket, Star, X, Zap } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { ChatThread } from "@/components/chat/chat-thread";
-import { UPDATE_META } from "@/lib/status";
 import { ChatPeer, Message, Role, Update } from "@/types";
 import { formatRelativeTime } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
@@ -43,6 +43,7 @@ export function ChatView({
   const [requested, setRequested] = useState(false);
   const [requesting, setRequesting] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [showUpdates, setShowUpdates] = useState(false);
 
   async function requestTask() {
     setRequesting(true);
@@ -66,12 +67,26 @@ export function ChatView({
     <div className="flex h-[calc(100vh-7rem)] flex-col">
       <div className="mb-3 shrink-0">
         <PageHeader title={t("chat.title")} subtitle={t("chat.subtitle")}>
+          <Button size="sm" variant="outline" className="lg:hidden" onClick={() => setShowUpdates(true)}>
+            <Star className="h-4 w-4" /> {t("chat.updatesShort", { n: updates.length })}
+          </Button>
           <Button size="sm" onClick={requestTask} loading={requesting}>
             {requested ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
             {requested ? t("chat.requestSent") : t("chat.requestTask")}
           </Button>
         </PageHeader>
         {requestError && <p role="alert" className="mt-2 text-sm text-danger">{requestError}</p>}
+        <ModalShell open={showUpdates} onClose={() => setShowUpdates(false)}>
+          <div className="flex items-center justify-between border-b border-border px-5 py-4">
+            <p className="text-sm font-semibold text-foreground">{t("chat.thisMonthAt")}</p>
+            <button type="button" onClick={() => setShowUpdates(false)} aria-label={t("widget.close")} className="text-muted hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="max-h-[70vh] overflow-y-auto p-5">
+            <UpdatesList updates={updates} />
+          </div>
+        </ModalShell>
       </div>
 
       <div className="flex min-h-0 flex-1 gap-4">
@@ -98,7 +113,19 @@ export function ChatView({
           </div>
 
           <div className="flex-1 overflow-y-auto px-4">
-            {updates.length === 0 && (
+            <UpdatesList updates={updates} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UpdatesList({ updates }: { updates: Update[] }) {
+  const t = useT();
+  return (
+    <>
+      {updates.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Star className="mb-2 h-8 w-8 text-muted/20" />
                 <p className="text-sm text-muted">{t("chat.noUpdates")}</p>
@@ -123,9 +150,6 @@ export function ChatView({
                 );
               })}
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    </>
   );
 }

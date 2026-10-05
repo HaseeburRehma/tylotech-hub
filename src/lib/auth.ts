@@ -57,13 +57,18 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("id,email,name,role,client_id,title,avatar_url, clients(company,primary_color,secondary_color,logo_url)")
+    // `*` keeps this tolerant of columns added by later migrations (title, avatar_url, deactivated_at…).
+    .select("*, clients(*)")
     .eq("id", user.id)
     .single();
 
   if (!profile) return null;
 
   const client = Array.isArray(profile.clients) ? profile.clients[0] : profile.clients;
+
+  // Deactivated staff and users of archived clients lose access (columns from 0030).
+  if (profile.deactivated_at) return null;
+  if (profile.role === "client" && client?.archived_at) return null;
 
   return {
     id: profile.id,

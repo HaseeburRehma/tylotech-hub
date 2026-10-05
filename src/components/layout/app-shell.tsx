@@ -1,7 +1,10 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useState } from "react";
+import { X } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useT } from "@/lib/i18n/provider";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { CommandPalette } from "./command-palette";
@@ -28,6 +31,17 @@ export function AppShell({
   clients?: SidebarClient[];
 }) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  const t = useT();
+
+  // Close the mobile drawer on navigation and on Escape.
+  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-bg">
@@ -52,8 +66,18 @@ export function AppShell({
               animate={{ x: 0 }}
               exit={{ x: -300 }}
               transition={{ type: "spring", stiffness: 380, damping: 36 }}
+              role="dialog"
+              aria-modal="true"
               className="fixed inset-y-0 left-0 z-50 bg-surface lg:hidden"
             >
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label={t("nav.closeMenu")}
+                className="absolute -right-12 top-3 flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-surface text-muted shadow-float hover:text-foreground"
+              >
+                <X className="h-5 w-5" />
+              </button>
               <Sidebar canSeeInternal={canSeeInternal} userId={user.id} clients={clients} onNavigate={() => setOpen(false)} />
             </motion.div>
           </>

@@ -29,7 +29,7 @@ export async function GET(req: Request) {
     sb.from("projects").select("id,name,client_id").ilike("name", like).limit(5),
     sb.from("updates").select("id,title,client_id").ilike("title", like).limit(5),
     staff
-      ? sb.from("clients").select("id,company").ilike("company", like).limit(5)
+      ? sb.from("clients").select("*").ilike("company", like).limit(8)
       : Promise.resolve({ data: [] as any[] }),
   ]);
 
@@ -40,7 +40,7 @@ export async function GET(req: Request) {
     results.push({ type: "Project", label: p.name, href: staff ? "/internal/projects" : "/dashboard" });
   for (const u of ups.data ?? [])
     results.push({ type: "Update", label: u.title, href: staff ? `/internal/clients/${u.client_id}` : "/chat" });
-  for (const c of clis.data ?? [])
+  for (const c of (clis.data ?? []).filter((c: any) => !c.archived_at))
     results.push({ type: "Client", label: c.company, href: `/internal/clients/${c.id}` });
 
   return NextResponse.json({ results });

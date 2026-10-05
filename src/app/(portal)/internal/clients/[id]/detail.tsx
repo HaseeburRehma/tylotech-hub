@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Archive,
   ArrowLeft,
   ChevronRight,
   Eye,
@@ -25,6 +26,7 @@ import { buildClientTheme } from "@/lib/theme/themes";
 import { PROVIDERS } from "@/lib/integrations/providers";
 import { LOWER_IS_BETTER, PROJECT_STATUS } from "@/lib/status";
 import { useT } from "@/lib/i18n/provider";
+import { useUser } from "@/components/providers/user-provider";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { ChatPeer, Client, DocItem, Kpi, Message, Project, Role, Update } from "@/types";
 import type { TeamMember } from "@/lib/data";
@@ -39,13 +41,6 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"];
 
-const STATUS_LABEL: Record<string, string> = {
-  planning: "Planung",
-  in_progress: "In Arbeit",
-  review: "Review",
-  done: "Fertig",
-  blocked: "Blockiert",
-};
 
 export function ClientDetail({
   client,
@@ -82,6 +77,29 @@ export function ClientDetail({
   const [tab, setTab] = useState<TabKey>("overview");
   const [showKpiEditor, setShowKpiEditor] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const user = useUser();
+
+  async function toggleArchive() {
+    const archive = !client.archived_at;
+    if (archive && !confirmArchive) {
+      setConfirmArchive(true);
+      return;
+    }
+    setConfirmArchive(false);
+    setArchiving(true);
+    const res = await fetch(`/api/clients/${client.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ archived: archive }),
+    }).catch(() => null);
+    setArchiving(false);
+    if (res?.ok) {
+      if (archive) router.push("/internal/clients");
+      else router.refresh();
+    }
+  }
   const [chatWith, setChatWith] = useState<string | null>(null);
   const router = useRouter();
   const { setThemeOverride } = useTheme();
@@ -134,6 +152,12 @@ export function ClientDetail({
           {t("cd.allClients")}
         </Link>
 
+        {client.archived_at && (
+          <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+            {t("cd.archivedBanner")}
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -175,6 +199,19 @@ export function ClientDetail({
               <Pencil className="h-4 w-4" />
               {t("cd.edit")}
             </Button>
+            {user.role === "admin" && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={toggleArchive}
+                onBlur={() => setConfirmArchive(false)}
+                loading={archiving}
+                className={confirmArchive ? "text-danger" : undefined}
+              >
+                <Archive className="h-4 w-4" />
+                {client.archived_at ? t("clients.restore") : confirmArchive ? t("cd.confirmArchive") : t("cd.archive")}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -211,7 +248,7 @@ export function ClientDetail({
               <p className="mt-2 font-display text-2xl font-semibold tracking-tight">
                 {formatCurrency(client.mrr)}
               </p>
-              <p className="mt-1 text-xs text-muted">{client.plan}-Plan</p>
+              <p className="mt-1 text-xs text-muted">{t("cd.planName", { plan: client.plan })}</p>
             </div>
             <div className="rounded-xl border border-border bg-surface p-4">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">
@@ -299,7 +336,7 @@ export function ClientDetail({
                                 },
                               )}
                             />
-                            {STATUS_LABEL[p.status] ?? s.label}
+                            {t(s.label)}
                           </Badge>
                           {p.assigned_to && (
                             <Avatar

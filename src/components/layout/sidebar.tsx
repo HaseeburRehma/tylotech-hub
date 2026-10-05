@@ -8,6 +8,7 @@ import { CLIENT_NAV, INTERNAL_NAV } from "@/lib/nav";
 import { Logo } from "@/components/ui/logo";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { currentLoginPath } from "@/lib/login-brand";
 import { hexToRgb, isLight } from "@/lib/theme/themes";
 import {
   Check,
@@ -26,6 +27,7 @@ import { useUser } from "@/components/providers/user-provider";
 import { useActiveClient } from "@/components/providers/active-client-provider";
 import { createClient } from "@/lib/supabase/client";
 import { BrandPreview } from "./brand-preview";
+import { NotificationsBell } from "./notifications-bell";
 import type { SidebarClient } from "./app-shell";
 
 const ROLE_LABEL: Record<string, string> = {
@@ -303,7 +305,7 @@ function UserProfileDropdown({ canSeeInternal }: { canSeeInternal: boolean }) {
   async function signOut() {
     const supabase = createClient();
     if (supabase) await supabase.auth.signOut();
-    router.push("/login");
+    router.push(currentLoginPath());
   }
 
   const itemClass =
@@ -385,7 +387,19 @@ export function Sidebar({
     <aside className="flex h-full w-[260px] flex-col border-r border-border bg-surface">
       <div className="flex h-16 items-center gap-2 px-5">
         <Logo />
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event("open-command-palette"))}
+            aria-label={t("cmd.openSearch")}
+            title={t("cmd.openSearch")}
+            className="hidden h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground lg:flex"
+          >
+            <Search className="h-4 w-4" />
+          </button>
+          <div className="hidden lg:block">
+            <NotificationsBell userId={userId} variant="sidebar" />
+          </div>
           {canSeeInternal && <BrandPreview />}
         </div>
       </div>

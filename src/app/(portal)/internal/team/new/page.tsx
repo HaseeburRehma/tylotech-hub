@@ -1,5 +1,6 @@
 "use client";
 
+import { useUser } from "@/components/providers/user-provider";
 import { AlertCircle, ArrowLeft, CheckCircle2, IdCard, Lock, Mail, Shield, User } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -13,6 +14,7 @@ import { useT } from "@/lib/i18n/provider";
 export default function NewTeamMemberPage() {
   const router = useRouter();
   const t = useT();
+  const user = useUser();
   const [form, setForm] = useState({ name: "", email: "", title: "", password: "", role: "team" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,7 +104,7 @@ export default function NewTeamMemberPage() {
                     className="h-11 w-full rounded-xl border border-border bg-bg/60 pl-10 pr-3 text-sm outline-none focus:border-brand/50 focus:ring-2 focus:ring-brand/15"
                   >
                     <option value="team">{t("teamForm.roleTeam")}</option>
-                    <option value="admin">{t("teamForm.roleAdmin")}</option>
+                    {user.role === "admin" && <option value="admin">{t("teamForm.roleAdmin")}</option>}
                   </select>
                 </div>
               </div>

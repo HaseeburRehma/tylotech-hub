@@ -247,7 +247,7 @@ export function ClientDashboardView({
                     <div className="flex items-center gap-2">
                       <p className="truncate text-sm font-medium text-foreground">{u.title}</p>
                       <Badge variant={meta.variant} className="shrink-0">
-                        {meta.label}
+                        {t(meta.label)}
                       </Badge>
                     </div>
                     <p className="mt-0.5 line-clamp-2 text-xs text-muted">{u.description}</p>
@@ -304,7 +304,7 @@ export function ClientDashboardView({
                     </p>
                   </div>
                   <Badge variant={s.variant} className="shrink-0 text-[10px]">
-                    {s.label}
+                    {t(s.label)}
                   </Badge>
                 </div>
               );
@@ -330,11 +330,6 @@ interface StaffUpdate extends Update {
   clientName: string;
 }
 
-/** % change, or undefined (no badge) when there's nothing real to compare to. */
-function pctDelta(current: number, previous: number | null): number | undefined {
-  if (previous == null || previous <= 0) return undefined;
-  return Number((((current - previous) / previous) * 100).toFixed(1));
-}
 
 export function StaffDashboardView({
   portfolio,
@@ -398,28 +393,21 @@ export function StaffDashboardView({
               index={0}
               label={t("dash.staff.spendManaged")}
               value={formatCurrency(portfolio.spend30d)}
-              delta={pctDelta(portfolio.spend30d, portfolio.spendPrev30d)}
+              delta={shownDelta(portfolio.spendDelta)}
               suffix={t("dash.vsPrevMonth")}
             />
             <KpiCardNew
               index={1}
               label={t("dash.staff.leadsGenerated")}
               value={new Intl.NumberFormat("de-DE").format(portfolio.leads30d)}
-              delta={pctDelta(portfolio.leads30d, portfolio.leadsPrev30d)}
+              delta={shownDelta(portfolio.leadsDelta)}
               suffix={t("dash.vsPrevMonth")}
             />
             <KpiCardNew
               index={2}
               label={t("dash.staff.costPerLead")}
               value={portfolio.leads30d > 0 ? formatCurrency(portfolio.spend30d / portfolio.leads30d) : "—"}
-              delta={
-                portfolio.leadsPrev30d && portfolio.spendPrev30d && portfolio.leads30d > 0
-                  ? pctDelta(
-                      portfolio.spend30d / portfolio.leads30d,
-                      portfolio.spendPrev30d / portfolio.leadsPrev30d,
-                    )
-                  : undefined
-              }
+              delta={shownDelta(portfolio.cplDelta)}
               suffix={t("dash.vsPrevMonth")}
               goodWhenDown
             />
@@ -561,7 +549,7 @@ export function StaffDashboardView({
                       </p>
                     </div>
                     <Badge variant={s.variant} className="shrink-0 text-[10px]">
-                      {s.label}
+                      {t(s.label)}
                     </Badge>
                   </div>
                 );

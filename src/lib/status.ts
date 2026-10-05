@@ -4,19 +4,19 @@ export const PROJECT_STATUS: Record<
   ProjectStatus,
   { label: string; variant: "neutral" | "info" | "warning" | "success" | "danger"; tone: "brand" | "info" | "warning" | "success" }
 > = {
-  planning: { label: "Planning", variant: "neutral", tone: "info" },
-  in_progress: { label: "In Progress", variant: "info", tone: "brand" },
-  review: { label: "In Review", variant: "warning", tone: "warning" },
-  done: { label: "Done", variant: "success", tone: "success" },
-  blocked: { label: "Blocked", variant: "danger", tone: "warning" },
+  planning: { label: "proj.planning", variant: "neutral", tone: "info" },
+  in_progress: { label: "proj.inProgress", variant: "info", tone: "brand" },
+  review: { label: "proj.review", variant: "warning", tone: "warning" },
+  done: { label: "proj.done", variant: "success", tone: "success" },
+  blocked: { label: "proj.blocked", variant: "danger", tone: "warning" },
 };
 
 export const UPDATE_META: Record<UpdateType, { label: string; variant: "brand" | "info" | "success" | "warning" | "danger" }> = {
-  milestone: { label: "Milestone", variant: "success" },
-  report: { label: "Report", variant: "info" },
-  campaign: { label: "Campaign", variant: "brand" },
-  note: { label: "Note", variant: "neutral" as never },
-  alert: { label: "Alert", variant: "warning" },
+  milestone: { label: "upd.type.milestone", variant: "success" },
+  report: { label: "upd.type.report", variant: "info" },
+  campaign: { label: "upd.type.campaign", variant: "brand" },
+  note: { label: "upd.type.note", variant: "neutral" as never },
+  alert: { label: "upd.type.alert", variant: "warning" },
 };
 
 /** KPIs where a decrease is an improvement (cheaper leads, better ranking). */

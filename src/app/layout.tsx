@@ -53,11 +53,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     if (admin) {
       const { data } = await admin
         .from("clients")
-        .select("id,company,primary_color,secondary_color,logo_url")
+        .select("*")
         .order("company");
       const seen = new Set([TYLOTECH_THEME.company.toLowerCase()]);
       brands = [TYLOTECH_THEME];
-      for (const c of data ?? []) {
+      for (const c of (data ?? []).filter((x: any) => !x.archived_at)) {
         const key = (c.company ?? "").toLowerCase();
         if (!key || seen.has(key)) continue;
         seen.add(key);

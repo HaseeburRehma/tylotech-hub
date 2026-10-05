@@ -1,6 +1,7 @@
 "use client";
 
 import { safeRedirect } from "@/lib/safe-redirect";
+import { rememberLoginBrand } from "@/lib/login-brand";
 import { AlertCircle, ArrowRight, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -46,10 +47,12 @@ export function ClientLoginForm({ slug }: { slug: string }) {
     if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
       const params = new URLSearchParams();
       if (redirectTo !== "/dashboard") params.set("redirect", redirectTo);
+      rememberLoginBrand(slug);
       router.push(`/mfa-verify${params.toString() ? "?" + params.toString() : ""}`);
       return;
     }
 
+    rememberLoginBrand(slug);
     router.push(redirectTo);
     router.refresh();
   }
@@ -91,12 +94,6 @@ export function ClientLoginForm({ slug }: { slug: string }) {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-muted">
-        {t("auth.teamMemberQ")}{" "}
-        <Link href="/signup" className="font-semibold text-brand hover:underline">
-          {t("auth.createAccount")}
-        </Link>
-      </p>
     </>
   );
 }

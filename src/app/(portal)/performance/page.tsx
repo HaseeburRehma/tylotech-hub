@@ -18,8 +18,8 @@ export default async function PerformancePage({
   if (isStaff) {
     const sb = createClient();
     if (sb) {
-      const { data } = await sb.from("clients").select("id,company,slug").order("company");
-      clients = data ?? [];
+      const { data } = await sb.from("clients").select("*").order("company");
+      clients = (data ?? []).filter((c: any) => !c.archived_at).map((c: any) => ({ id: c.id, company: c.company, slug: c.slug ?? null }));
     }
   }
 

@@ -1,3 +1,4 @@
+import { LOGIN_BRAND_COOKIE, loginPathFor } from "@/lib/login-brand";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from "./config";
@@ -46,7 +47,7 @@ export async function updateSession(request: NextRequest) {
 
   if (isPortal && !user) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = loginPathFor(request.cookies.get(LOGIN_BRAND_COOKIE)?.value);
     url.searchParams.set("redirect", path);
     return NextResponse.redirect(url);
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import { Bell, Camera, Check, Globe, Loader2, LogOut, Moon, Palette, ShieldCheck, Trash2, Upload, User } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { DarkModeToggle } from "@/components/layout/sidebar";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n, useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
+import { currentLoginPath } from "@/lib/login-brand";
 
 const TABS = ["profile", "security", "notifications", "appearance"] as const;
 type Tab = (typeof TABS)[number];
@@ -64,7 +65,14 @@ export function SettingsView({
   const router = useRouter();
   const t = useT();
   const { locale, setLocale } = useI18n();
-  const [tab, setTab] = useState<Tab>("profile");
+  const params = useSearchParams();
+  const initialTab = params.get("tab") as Tab | null;
+  const [tab, setTabState] = useState<Tab>(initialTab && TABS.includes(initialTab) ? initialTab : "profile");
+  // Keep the tab in the URL so links (e.g. from the notifications bell) can open it.
+  const setTab = (next: Tab) => {
+    setTabState(next);
+    router.replace(next === "profile" ? "/settings" : `/settings?tab=${next}`, { scroll: false });
+  };
 
   const [displayName, setDisplayName] = useState(name);
   const [jobTitle, setJobTitle] = useState(title);
@@ -158,7 +166,7 @@ export function SettingsView({
   async function signOut() {
     const supabase = createClient();
     if (supabase) await supabase.auth.signOut();
-    router.push("/login");
+    router.push(currentLoginPath());
   }
 
   const feedback = (m: { ok: boolean; text: string } | null) =>

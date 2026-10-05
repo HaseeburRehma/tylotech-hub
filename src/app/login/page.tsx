@@ -1,6 +1,7 @@
 "use client";
 
 import { safeRedirect } from "@/lib/safe-redirect";
+import { rememberLoginBrand } from "@/lib/login-brand";
 import { AlertCircle, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -52,6 +53,7 @@ function LoginForm() {
       return;
     }
 
+    rememberLoginBrand(null);
     router.push(redirectTo);
     router.refresh();
   }

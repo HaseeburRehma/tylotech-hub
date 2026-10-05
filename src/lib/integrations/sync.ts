@@ -30,6 +30,10 @@ export async function syncClient(
   clientId: string,
   opts: { provider?: string; auto?: boolean; notify?: boolean } = {},
 ): Promise<{ synced: number; results: SyncResult[] }> {
+  // Archived clients are no longer synced.
+  const { data: client } = await admin.from("clients").select("*").eq("id", clientId).maybeSingle();
+  if (!client || client.archived_at) return { synced: 0, results: [] };
+
   let query = admin
     .from("integrations")
     .select("id,provider,access_token,refresh_token,meta,last_synced_at")

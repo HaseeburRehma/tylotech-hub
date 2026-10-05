@@ -23,8 +23,23 @@ export async function POST(req: Request) {
   }
 
   const company = body.company?.trim();
-  if (!company) {
-    return NextResponse.json({ error: "Company name is required." }, { status: 400 });
+  if (!company || company.length > 120) {
+    return NextResponse.json({ error: "Company name must be 1–120 characters." }, { status: 400 });
+  }
+  const HEX = /^#[0-9a-f]{6}$/i;
+  if ((body.primaryColor && !HEX.test(body.primaryColor)) || (body.secondaryColor && !HEX.test(body.secondaryColor))) {
+    return NextResponse.json({ error: "Colors must be #RRGGBB." }, { status: 400 });
+  }
+  if (body.plan && !["Starter", "Growth", "Scale", "Enterprise"].includes(body.plan)) {
+    return NextResponse.json({ error: "Unknown plan." }, { status: 400 });
+  }
+  if (body.logoUrl && !/^https:\/\/[^\s]+$/i.test(body.logoUrl)) {
+    return NextResponse.json({ error: "Logo URL must start with https://" }, { status: 400 });
+  }
+  const mrrNum = Number(body.mrr ?? 0);
+  if (!Number.isFinite(mrrNum) || mrrNum < 0) return NextResponse.json({ error: "MRR must be a positive number." }, { status: 400 });
+  if (body.clientPassword && String(body.clientPassword).length < 12) {
+    return NextResponse.json({ error: "The client password must be at least 12 characters." }, { status: 400 });
   }
 
   // Clean, unique slug for the client's URL (/internal/clients/<slug>).

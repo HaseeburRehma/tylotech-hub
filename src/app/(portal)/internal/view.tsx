@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Progress } from "@/components/ui/progress";
 import { MrrBars } from "@/components/charts/mrr-bars";
 import { useT } from "@/lib/i18n/provider";
+import { useUser } from "@/components/providers/user-provider";
 import { formatCurrency } from "@/lib/utils";
 import type { Client } from "@/types";
 import type { TeamLoad } from "@/lib/data";
@@ -57,6 +58,7 @@ export function InternalView({
   projectCount: number;
 }) {
   const tr = useT();
+  const user = useUser();
   const totalMrr = clients.reduce((a, c) => a + (c.mrr ?? 0), 0);
   const teamActive = team.reduce((a, t) => a + t.activeProjects, 0);
   const avgActive = team.length ? teamActive / team.length : 0;
@@ -77,7 +79,7 @@ export function InternalView({
   return (
     <div className="space-y-6">
       <PageHeader title={tr("hub.title")} subtitle={tr("hub.subtitle")}>
-        <Badge variant="brand" className="gap-1.5">Super Admin</Badge>
+        {user.role === "admin" && <Badge variant="brand" className="gap-1.5">Super Admin</Badge>}
         <Link href="/internal/team/new">
           <Button size="sm" variant="outline">
             <Users className="h-4 w-4" />
@@ -193,8 +195,8 @@ export function InternalView({
                 {tr("hub.teamMembers", { n: team.length, m: managedClients })}
               </p>
             </div>
-            <Link href="/internal/team" className="text-xs font-medium text-brand hover:underline">
-              {tr("hub.teamLink")}
+            <Link href="/internal/team/members" className="text-xs font-medium text-brand hover:underline">
+              {tr("members.manage")}
             </Link>
           </CardHeader>
           <div className="space-y-4">

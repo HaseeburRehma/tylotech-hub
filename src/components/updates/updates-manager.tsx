@@ -11,6 +11,7 @@ import { Input, Label, Textarea } from "@/components/ui/input";
 import { UPDATE_META } from "@/lib/status";
 import { formatRelativeTime } from "@/lib/utils";
 import { Update, UpdateType } from "@/types";
+import { useT } from "@/lib/i18n/provider";
 
 const TYPES: UpdateType[] = ["milestone", "report", "campaign", "note", "alert"];
 
@@ -24,14 +25,16 @@ export function UpdatesManager({
   canPost: boolean;
 }) {
   const router = useRouter();
+  const t = useT();
   const [open, setOpen] = useState(false);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ title: "", description: "", type: "note" as UpdateType });
 
   async function post() {
     if (!form.title.trim()) {
-      setError("Title is required.");
+      setError(t("upd.titleRequired"));
       return;
     }
     setSaving(true);
@@ -44,7 +47,7 @@ export function UpdatesManager({
     setSaving(false);
     if (!res?.ok) {
       const d = res ? await res.json().catch(() => ({})) : {};
-      setError(d.error ?? "Could not post update.");
+      setError(d.error ?? t("upd.postFailed"));
       return;
     }
     setForm({ title: "", description: "", type: "note" });
@@ -53,7 +56,13 @@ export function UpdatesManager({
   }
 
   async function remove(id: string) {
-    await fetch(`/api/updates?id=${id}`, { method: "DELETE" });
+    if (confirmId !== id) {
+      setConfirmId(id);
+      return;
+    }
+    setConfirmId(null);
+    const res = await fetch(`/api/updates?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null);
+    if (!res?.ok) setError(t("upd.deleteFailed"));
     router.refresh();
   }
 
@@ -63,7 +72,7 @@ export function UpdatesManager({
         <div className="flex justify-end">
           <Button size="sm" onClick={() => setOpen((o) => !o)}>
             {open ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            {open ? "Cancel" : "Post update"}
+            {open ? t("common.cancel") : t("upd.post")}
           </Button>
         </div>
       )}
@@ -75,23 +84,23 @@ export function UpdatesManager({
               {error && <div className="mb-3 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</div>}
               <div className="space-y-3">
                 <div>
-                  <Label htmlFor="utitle">Title</Label>
-                  <Input id="utitle" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="June campaign hit 4.7x ROAS" />
+                  <Label htmlFor="utitle">{t("upd.title")}</Label>
+                  <Input id="utitle" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder={t("upd.titlePh")} maxLength={160} />
                 </div>
                 <div>
-                  <Label htmlFor="udesc">Description</Label>
-                  <Textarea id="udesc" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="What happened and what's next…" className="min-h-[80px]" />
+                  <Label htmlFor="udesc">{t("upd.description")}</Label>
+                  <Textarea id="udesc" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder={t("upd.descriptionPh")} className="min-h-[80px]" />
                 </div>
                 <div>
-                  <Label htmlFor="utype">Type</Label>
+                  <Label htmlFor="utype">{t("upd.type")}</Label>
                   <select id="utype" value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as UpdateType }))} className="input-base appearance-none">
-                    {TYPES.map((t) => (
-                      <option key={t} value={t} className="bg-surface">{UPDATE_META[t].label}</option>
+                    {TYPES.map((ty) => (
+                      <option key={ty} value={ty} className="bg-surface">{t(UPDATE_META[ty].label)}</option>
                     ))}
                   </select>
                 </div>
                 <div className="flex justify-end">
-                  <Button onClick={post} loading={saving}>Publish</Button>
+                  <Button onClick={post} loading={saving}>{t("upd.publish")}</Button>
                 </div>
               </div>
             </Card>
@@ -102,18 +111,26 @@ export function UpdatesManager({
       <Card>
         <div className="relative space-y-5 pl-5">
           <span className="absolute left-[7px] top-1.5 h-[calc(100%-1rem)] w-px bg-border" />
-          {updates.length === 0 && <p className="py-6 text-sm text-muted">No updates posted yet.</p>}
+          {error && !open && <p className="text-sm text-danger">{error}</p>}
+          {updates.length === 0 && <p className="py-6 text-sm text-muted">{t("upd.empty")}</p>}
           {updates.map((u) => {
             const meta = UPDATE_META[u.type];
             return (
               <div key={u.id} className="relative">
                 <span className="absolute -left-[18px] top-1 h-3.5 w-3.5 rounded-full border-2 border-bg bg-brand" />
                 <div className="flex items-center gap-2">
-                  <Badge variant={meta.variant}>{meta.label}</Badge>
+                  <Badge variant={meta.variant}>{t(meta.label)}</Badge>
                   <span className="text-[11px] text-muted/60">{formatRelativeTime(u.created_at)}</span>
                   {canPost && (
-                    <button onClick={() => remove(u.id)} className="ml-auto text-muted hover:text-danger" aria-label="Delete update">
+                    <button
+                      type="button"
+                      onClick={() => remove(u.id)}
+                      onBlur={() => setConfirmId((c) => (c === u.id ? null : c))}
+                      className={confirmId === u.id ? "ml-auto inline-flex items-center gap-1 text-xs font-medium text-danger" : "ml-auto text-muted hover:text-danger"}
+                      aria-label={t("upd.delete")}
+                    >
                       <Trash2 className="h-3.5 w-3.5" />
+                      {confirmId === u.id && t("upd.confirmDelete")}
                     </button>
                   )}
                 </div>

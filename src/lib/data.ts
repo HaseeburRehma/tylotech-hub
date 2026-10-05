@@ -42,14 +42,16 @@ function mapClient(c: any): Client {
     mrr: c.mrr ?? 0,
     themeId: "tylotech",
     created_at: c.created_at,
+    archived_at: c.archived_at ?? null,
   };
 }
 
-export async function listClients(): Promise<Client[]> {
+export async function listClients(opts: { includeArchived?: boolean } = {}): Promise<Client[]> {
   const sb = createClient();
   if (!sb) return [];
   const { data } = await sb.from("clients").select("*").order("created_at", { ascending: true });
-  return (data ?? []).map(mapClient);
+  // archived_at arrives with migration 0030; filtering in code keeps this tolerant.
+  return (data ?? []).map(mapClient).filter((c) => opts.includeArchived || !c.archived_at);
 }
 
 export async function getClient(id: string): Promise<Client | null> {
@@ -83,12 +85,16 @@ export async function getClientBySlugPublic(
 ): Promise<{ id: string; company: string; slug: string; logo_url: string | null; primary_color: string; secondary_color: string; tagline?: string } | null> {
   const admin = createAdminClient();
   if (!admin || !slug) return null;
-  const { data } = await admin
-    .from("clients")
-    .select("id,company,slug,logo_url,primary_color,secondary_color")
-    .eq("slug", slug)
-    .maybeSingle();
-  return data ?? null;
+  const { data } = await admin.from("clients").select("*").eq("slug", slug).maybeSingle();
+  if (!data || data.archived_at) return null;
+  return {
+    id: data.id,
+    company: data.company,
+    slug: data.slug,
+    logo_url: data.logo_url,
+    primary_color: data.primary_color,
+    secondary_color: data.secondary_color,
+  };
 }
 
 export interface ProviderSeriesPoint extends SeriesPoint {
@@ -174,6 +180,10 @@ export interface PortfolioSummary {
   spendPrev30d: number | null;
   leads30d: number;
   leadsPrev30d: number | null;
+  /** % changes computed like-for-like: only clients with data in both windows. */
+  spendDelta: number | null;
+  leadsDelta: number | null;
+  cplDelta: number | null;
   series: SeriesPoint[];
 }
 
@@ -183,7 +193,16 @@ export interface PortfolioSummary {
  * the trend chart. Relies on RLS (`is_staff()`) to read across all tenants.
  */
 export async function getPortfolioSummary(): Promise<PortfolioSummary> {
-  const empty: PortfolioSummary = { spend30d: 0, spendPrev30d: 0, leads30d: 0, leadsPrev30d: 0, series: [] };
+  const empty: PortfolioSummary = {
+    spend30d: 0,
+    spendPrev30d: null,
+    leads30d: 0,
+    leadsPrev30d: null,
+    spendDelta: null,
+    leadsDelta: null,
+    cplDelta: null,
+    series: [],
+  };
   const sb = createClient();
   if (!sb) return empty;
 
@@ -199,7 +218,7 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
 
   const { data } = await sb
     .from("metric_points")
-    .select("date,spend,leads,provider")
+    .select("client_id,date,spend,leads,provider")
     .in("provider", Array.from(AD_PROVIDERS))
     .gte("date", sinceStr)
     .lte("date", end)
@@ -208,39 +227,59 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
   if (!rows.length) return empty;
 
   const byDate = new Map<string, { spend: number; leads: number }>();
-  const prevDays = new Set<string>();
-  let spend30d = 0, spendPrev30d = 0, leads30d = 0, leadsPrev30d = 0;
+  type Acc = { cur: { spend: number; leads: number }; prev: { spend: number; leads: number }; prevDays: Set<string>; curDays: Set<string> };
+  const byClient = new Map<string, Acc>();
+  let spend30d = 0, leads30d = 0;
   for (const r of rows) {
     const spend = Number(r.spend);
     const leads = Number(r.leads);
-    const cur = byDate.get(r.date) ?? { spend: 0, leads: 0 };
-    cur.spend += spend;
-    cur.leads += leads;
-    byDate.set(r.date, cur);
+    const acc = byClient.get(r.client_id) ?? {
+      cur: { spend: 0, leads: 0 },
+      prev: { spend: 0, leads: 0 },
+      prevDays: new Set<string>(),
+      curDays: new Set<string>(),
+    };
     if (r.date >= cutoffStr) {
+      const d = byDate.get(r.date) ?? { spend: 0, leads: 0 };
+      d.spend += spend;
+      d.leads += leads;
+      byDate.set(r.date, d);
       spend30d += spend;
       leads30d += leads;
+      acc.cur.spend += spend;
+      acc.cur.leads += leads;
+      acc.curDays.add(r.date);
     } else {
-      spendPrev30d += spend;
-      leadsPrev30d += leads;
-      prevDays.add(r.date);
+      acc.prev.spend += spend;
+      acc.prev.leads += leads;
+      acc.prevDays.add(r.date);
     }
+    byClient.set(r.client_id, acc);
   }
 
-  // Only compare against the previous window when it's actually populated —
-  // a half-empty window (recently connected account) would fake huge growth.
-  const prevComplete = prevDays.size >= 20;
+  // Like-for-like: a client counts toward the change only when it has data in
+  // both windows — a newly connected account must not read as growth, and a
+  // client with no current rows (paused ads or a stalled sync — the data can't
+  // tell which) must not read as a -100 % drop.
+  const comparable = Array.from(byClient.values()).filter((a) => a.prevDays.size >= 10 && a.curDays.size > 0);
+  const sum = (f: (a: Acc) => number) => comparable.reduce((t, a) => t + f(a), 0);
+  const cs = sum((a) => a.cur.spend), ps = sum((a) => a.prev.spend);
+  const cl = sum((a) => a.cur.leads), pl = sum((a) => a.prev.leads);
+  const pct = (c: number, p: number) => (p > 0 ? Number((((c - p) / p) * 100).toFixed(1)) : null);
+  const has = comparable.length > 0;
 
   const series = Array.from(byDate.entries())
-    .filter(([date]) => date >= cutoffStr)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, v]) => ({ date, spend: Number(v.spend.toFixed(2)), leads: v.leads, roas: 0 }));
 
   return {
     spend30d: Number(spend30d.toFixed(2)),
-    spendPrev30d: prevComplete ? Number(spendPrev30d.toFixed(2)) : null,
+    spendPrev30d: has ? Number(ps.toFixed(2)) : null,
     leads30d,
-    leadsPrev30d: prevComplete ? leadsPrev30d : null,
+    leadsPrev30d: has ? pl : null,
+    spendDelta: has ? pct(cs, ps) : null,
+    leadsDelta: has ? pct(cl, pl) : null,
+    cplDelta: has && cl > 0 && pl > 0 ? pct(cs / cl, ps / pl) : null,
     series,
   };
 }
@@ -452,9 +491,9 @@ export async function listAiTools(): Promise<AiToolRow[]> {
  * Tries with title, falls back without so the app never breaks before the migration.
  */
 async function fetchStaff(client: any): Promise<any[]> {
-  let res = await client.from("users").select("id,name,role,title").in("role", ["admin", "team"]).order("name");
-  if (res.error) res = await client.from("users").select("id,name,role").in("role", ["admin", "team"]).order("name");
-  return res.data ?? [];
+  // `*` tolerates columns that arrive with later migrations (title, deactivated_at).
+  const res = await client.from("users").select("*").in("role", ["admin", "team"]).order("name");
+  return (res.data ?? []).filter((u: any) => !u.deactivated_at);
 }
 
 const staffTitle = (u: any): string => u.title || ROLE_LABEL[u.role] || u.role;

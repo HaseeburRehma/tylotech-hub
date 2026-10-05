@@ -17,13 +17,15 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CLIENT_NAV } from "@/lib/nav";
+import { CLIENT_NAV, INTERNAL_NAV } from "@/lib/nav";
+import { useUser } from "@/components/providers/user-provider";
+import { useActiveClient } from "@/components/providers/active-client-provider";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 interface CmdItem {
   id: string;
-  group: "clients" | "actions" | "pages";
+  group: "clients" | "results" | "actions" | "pages";
   label: string;
   desc: string;
   icon: React.ElementType;
@@ -37,26 +39,31 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIdx, setActiveIdx] = useState(0);
-  const [clients, setClients] = useState<{ id: string; name: string; desc: string }[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const user = useUser();
+  const staff = user.role !== "client";
+  const { clients: roster } = useActiveClient();
+  const clients = roster.map((c) => ({ id: `/internal/clients/${c.slug ?? c.id}`, name: c.name, desc: "" }));
+  const [hits, setHits] = useState<{ type: string; label: string; href: string }[]>([]);
 
+  // Live full-text hits (documents, projects, updates) once the query is long enough.
   useEffect(() => {
-    (async () => {
-      const res = await fetch("/api/search?q=").catch(() => null);
-      if (!res?.ok) return;
-      const data = await res.json().catch(() => null);
-      if (data?.results) {
-        const c = data.results
-          .filter((r: { type: string }) => r.type === "Client")
-          .map((r: { label: string; href: string }) => ({
-            id: r.href,
-            name: r.label,
-            desc: "",
-          }));
-        setClients(c);
-      }
-    })();
-  }, []);
+    const q = query.trim();
+    if (!open || q.length < 2) {
+      setHits([]);
+      return;
+    }
+    const ctrl = new AbortController();
+    const timer = setTimeout(async () => {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal }).catch(() => null);
+      const data = res?.ok ? await res.json().catch(() => null) : null;
+      setHits(((data?.results ?? []) as { type: string; label: string; href: string }[]).filter((r) => r.type !== "Client").slice(0, 6));
+    }, 200);
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
+  }, [query, open]);
 
   const items: CmdItem[] = [];
 
@@ -74,15 +81,30 @@ export function CommandPalette() {
     });
   }
 
+  for (const h of hits) {
+    items.push({
+      id: `hit-${h.type}-${h.label}-${h.href}`,
+      group: "results",
+      label: h.label,
+      desc: h.type === "Document" ? t("cmd.typeDocument") : h.type === "Project" ? t("cmd.typeProject") : t("cmd.typeUpdate"),
+      icon: h.type === "Document" ? FileUp : h.type === "Project" ? LineChart : Sparkles,
+      href: h.href,
+    });
+  }
+
   const actions: CmdItem[] = [
-    {
-      id: "action-new-client",
-      group: "actions",
-      label: t("cmd.newClient"),
-      desc: t("cmd.newClientDesc"),
-      icon: CirclePlus,
-      href: "/internal/clients",
-    },
+    ...(staff
+      ? [
+          {
+            id: "action-new-client",
+            group: "actions" as const,
+            label: t("cmd.newClient"),
+            desc: t("cmd.newClientDesc"),
+            icon: CirclePlus,
+            href: "/internal/onboard",
+          },
+        ]
+      : []),
     {
       id: "action-create-ads",
       group: "actions",
@@ -110,7 +132,7 @@ export function CommandPalette() {
     "/performance": LineChart,
     "/integrations": Plug,
   };
-  for (const nav of CLIENT_NAV) {
+  for (const nav of staff ? [...CLIENT_NAV, ...INTERNAL_NAV] : CLIENT_NAV) {
     if (!query || t(nav.label).toLowerCase().includes(query.toLowerCase())) {
       items.push({
         id: `page-${nav.href}`,
@@ -123,9 +145,10 @@ export function CommandPalette() {
     }
   }
 
-  const groups = ["clients", "actions", "pages"] as const;
+  const groups = ["clients", "results", "actions", "pages"] as const;
   const groupLabels = {
     clients: t("cmd.clients"),
+    results: t("cmd.results"),
     actions: t("cmd.actions"),
     pages: t("cmd.pages"),
   };
@@ -152,7 +175,12 @@ export function CommandPalette() {
       }
     }
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    // Lets buttons elsewhere (e.g. the sidebar search icon) open the palette.
+    window.addEventListener("open-command-palette", toggle);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("open-command-palette", toggle);
+    };
   }, [open, toggle]);
 
   useEffect(() => {

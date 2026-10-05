@@ -1,6 +1,7 @@
 "use client";
 
 import { safeRedirect } from "@/lib/safe-redirect";
+import { currentLoginPath } from "@/lib/login-brand";
 import { AlertCircle, ArrowRight, ShieldCheck } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
@@ -26,16 +27,28 @@ function MfaVerifyForm() {
     // Get the TOTP factor to verify against
     const supabase = createClient();
     if (!supabase) return;
-    supabase.auth.mfa.listFactors().then(({ data }) => {
+    supabase.auth.mfa.listFactors().then(({ data, error: listErr }) => {
       const totp = data?.totp?.[0];
       if (totp) setFactorId(totp.id);
+      // No session or no enrolled factor — this page can't succeed; say so.
+      else setError(t(listErr ? "mfa.sessionExpired" : "mfa.noFactor"));
     });
     inputRef.current?.focus();
   }, []);
 
+  async function signOut() {
+    const supabase = createClient();
+    if (supabase) await supabase.auth.signOut();
+    router.push(currentLoginPath());
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!factorId || code.length !== 6) return;
+    if (code.length !== 6) return;
+    if (!factorId) {
+      setError(t("mfa.noFactor"));
+      return;
+    }
 
     setError(null);
     setLoading(true);
@@ -117,6 +130,13 @@ function MfaVerifyForm() {
           {!loading && <ArrowRight className="h-4 w-4" />}
         </Button>
       </form>
+      <button
+        type="button"
+        onClick={signOut}
+        className="mt-6 block w-full text-center text-sm text-muted hover:text-foreground"
+      >
+        {t("mfa.useOtherAccount")}
+      </button>
     </>
   );
 }

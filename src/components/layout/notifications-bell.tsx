@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
@@ -54,13 +54,14 @@ function guessType(title: string): string {
   return "message";
 }
 
-export function NotificationsBell({ userId }: { userId: string }) {
+export function NotificationsBell({ userId, variant = "topbar" }: { userId: string; variant?: "topbar" | "sidebar" }) {
   const router = useRouter();
   const t = useT();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const [unread, setUnread] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
+  const instanceId = useId();
 
   const load = useCallback(async () => {
     const res = await fetch("/api/notifications", { cache: "no-store" }).catch(() => null);
@@ -78,7 +79,9 @@ export function NotificationsBell({ userId }: { userId: string }) {
     const supabase = createClient();
     if (!supabase) return;
     const channel = supabase
-      .channel(`notifications:${userId}`)
+      // Unique per mounted bell — the topbar and sidebar can both be mounted, and
+      // Supabase rejects adding listeners to an already-subscribed channel name.
+      .channel(`notifications:${userId}:${instanceId}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
@@ -88,7 +91,7 @@ export function NotificationsBell({ userId }: { userId: string }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, load]);
+  }, [userId, load, instanceId]);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -106,18 +109,27 @@ export function NotificationsBell({ userId }: { userId: string }) {
 
   function openItem(i: Item) {
     setOpen(false);
-    fetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: i.id }) });
+    if (!i.read) {
+      setUnread((n) => Math.max(0, n - 1));
+      setItems((it) => it.map((x) => (x.id === i.id ? { ...x, read: true } : x)));
+    }
+    fetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: i.id }) }).catch(() => null);
     if (i.href) router.push(i.href);
   }
 
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
-        className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-border text-muted hover:text-foreground ring-focus"
-        aria-label="Notifications"
+        aria-expanded={open}
+        className={cn(
+          "relative flex items-center justify-center text-muted hover:text-foreground ring-focus",
+          variant === "sidebar" ? "h-8 w-8 rounded-lg hover:bg-surface-2" : "h-10 w-10 rounded-xl border border-border",
+        )}
+        aria-label={t("notif.title")}
       >
-        <Bell className="h-[18px] w-[18px]" />
+        <Bell className={variant === "sidebar" ? "h-4 w-4" : "h-[18px] w-[18px]"} />
         {unread > 0 && (
           <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-brand-foreground ring-2 ring-bg">
             {unread > 9 ? "9+" : unread}
@@ -132,7 +144,12 @@ export function NotificationsBell({ userId }: { userId: string }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.97 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 z-50 mt-2 w-[360px] rounded-2xl border border-border bg-surface shadow-float"
+            className={cn(
+              "z-[60] rounded-2xl border border-border bg-surface shadow-float",
+              variant === "sidebar"
+                ? "fixed left-[268px] top-3 w-[360px] max-h-[calc(100vh-1.5rem)] overflow-y-auto"
+                : "fixed inset-x-4 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[360px]",
+            )}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4">
@@ -182,7 +199,7 @@ export function NotificationsBell({ userId }: { userId: string }) {
             {/* Footer */}
             <div className="border-t border-border px-5 py-3">
               <Link
-                href="/settings"
+                href="/settings?tab=notifications"
                 onClick={() => setOpen(false)}
                 className="flex items-center justify-center gap-1.5 text-sm text-muted transition-colors hover:text-foreground"
               >
