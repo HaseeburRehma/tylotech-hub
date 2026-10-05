@@ -1,12 +1,14 @@
 "use client";
 
-import { Check, Clock, Loader2, Megaphone, Mail, PenLine, Search, Users, Globe } from "lucide-react";
+import { Check, Clock, Megaphone, Mail, PenLine, Search, Users, Globe } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { useT } from "@/lib/i18n/provider";
+import { useUser } from "@/components/providers/user-provider";
 import { cn } from "@/lib/utils";
 import type { AiToolRow } from "@/lib/data";
 
@@ -47,6 +49,7 @@ export function AiToolsEditor({
   clientCount: number;
 }) {
   const t = useT();
+  const user = useUser();
   const [selectedId, setSelectedId] = useState(tools[0]?.id ?? "");
   const selected = tools.find((t) => t.id === selectedId) ?? tools[0];
 
@@ -55,7 +58,7 @@ export function AiToolsEditor({
       <div className="space-y-6">
         <PageHeader title={t("prompts.title")} subtitle={t("prompts.subtitle")} />
         <div className="rounded-xl border border-border bg-surface py-10 text-center text-sm text-muted">
-          No AI tools found.
+          {t("prompts.empty")}
         </div>
       </div>
     );
@@ -117,7 +120,7 @@ export function AiToolsEditor({
         </div>
 
         {/* Main panel – prompt editor */}
-        {selected && <PromptPanel key={selected.id} tool={selected} t={t} />}
+        {selected && <PromptPanel key={selected.id} tool={selected} t={t} canEdit={user.role === "admin"} />}
       </div>
     </div>
   );
@@ -126,12 +129,17 @@ export function AiToolsEditor({
 function PromptPanel({
   tool,
   t,
+  canEdit,
 }: {
   tool: AiToolRow;
   t: (k: string, v?: Record<string, string | number>) => string;
+  canEdit: boolean;
 }) {
+  const router = useRouter();
+  const [saved, setSaved] = useState(tool.prompt_template ?? "");
   const [prompt, setPrompt] = useState(tool.prompt_template ?? "");
   const [active, setActive] = useState(tool.is_active);
+  const dirty = prompt !== saved;
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -151,19 +159,22 @@ function PromptPanel({
     }).catch(() => null);
     if (!res?.ok) {
       const d = res ? await res.json().catch(() => ({})) : {};
-      setError(d.error ?? "Could not save.");
+      setError(d.error ?? t("prompts.saveFailed"));
       setState("error");
-      return;
+      return false;
     }
+    setSaved(prompt);
     setState("saved");
+    router.refresh();
     setTimeout(() => setState("idle"), 2000);
+    return true;
   }
 
   return (
     <div className="min-w-0 flex-1 rounded-xl border border-border bg-surface">
       {/* Header */}
       <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-2">
             <PenLine className="h-4.5 w-4.5 text-muted" />
           </div>
@@ -176,16 +187,21 @@ function PromptPanel({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <span className="text-sm text-muted">{t("prompts.active")}</span>
           <button
-            onClick={() => {
+            type="button"
+            role="switch"
+            aria-checked={active}
+            aria-label={t("prompts.active")}
+            disabled={!canEdit || state === "saving"}
+            onClick={async () => {
               const next = !active;
               setActive(next);
-              save(next);
+              if (!(await save(next))) setActive(!next);
             }}
             className={cn(
-              "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors",
+              "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60",
               active ? "bg-brand" : "bg-surface-2",
             )}
           >
@@ -210,6 +226,11 @@ function PromptPanel({
           </span>
         </div>
 
+        {!canEdit && (
+          <div className="mb-3 rounded-lg border border-border bg-surface-2/60 px-3 py-2 text-sm text-muted">
+            {t("prompts.adminOnly")}
+          </div>
+        )}
         {error && (
           <div className="mb-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
             {error}
@@ -219,41 +240,38 @@ function PromptPanel({
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
+          readOnly={!canEdit}
+          maxLength={20000}
           className="w-full min-h-[400px] resize-none rounded-xl border border-border bg-bg p-4 font-mono text-sm leading-relaxed text-foreground outline-none transition-colors focus:border-brand/40"
-          placeholder="Du schreibst Anzeigentexte für TyloTech…"
+          placeholder={t("prompts.placeholder")}
         />
       </div>
 
       {/* Footer */}
       <div className="flex flex-col gap-3 border-t border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex items-center gap-2 text-xs text-muted">
-          <Avatar name="Designer" size={24} />
-          <span>
-            {t("prompts.lastEdited", {
-              name: "Designer",
-              date: new Date().toLocaleDateString("de-DE", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              }),
-            })}
-          </span>
+          {tool.updated_at && tool.updated_by_name ? (
+            <>
+              <Avatar name={tool.updated_by_name} size={24} />
+              <span>
+                {t("prompts.lastEdited", {
+                  name: tool.updated_by_name,
+                  date: new Date(tool.updated_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" }),
+                })}
+              </span>
+            </>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {state === "saved" && (
             <span className="inline-flex items-center gap-1 text-xs text-success">
-              <Check className="h-3.5 w-3.5" /> Saved
+              <Check className="h-3.5 w-3.5" /> {t("prompts.saved")}
             </span>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPrompt(tool.prompt_template ?? "")}
-          >
+          <Button variant="outline" size="sm" onClick={() => setPrompt(saved)} disabled={!dirty}>
             {t("prompts.discard")}
           </Button>
-          <Button size="sm" onClick={() => save()} loading={state === "saving"}>
-            {state === "saving" && <Loader2 className="h-4 w-4 animate-spin" />}
+          <Button size="sm" onClick={() => save()} loading={state === "saving"} disabled={!canEdit || !dirty}>
             {t("prompts.save")}
           </Button>
         </div>

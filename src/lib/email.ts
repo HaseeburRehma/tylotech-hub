@@ -6,6 +6,7 @@
  */
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || "TyloTech <notifications@tylotech.de>";
+const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO || "info@tylotech.de";
 const APP_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://tylotech-hub.vercel.app").replace(/\/$/, "");
 
 export const emailConfigured = Boolean(RESEND_API_KEY);
@@ -19,7 +20,7 @@ async function send(to: string, subject: string, html: string): Promise<void> {
   await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: EMAIL_FROM, to, subject, html }),
+    body: JSON.stringify({ from: EMAIL_FROM, to, subject, html, reply_to: EMAIL_REPLY_TO }),
   }).catch(() => {});
 }
 

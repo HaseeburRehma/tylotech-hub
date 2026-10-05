@@ -7,14 +7,16 @@ import { ModalShell } from "@/components/ui/modal";
 import { clearAiHistory, readAiHistory, type AiHistoryEntry } from "@/lib/ai-history";
 import { useT } from "@/lib/i18n/provider";
 import { AI_TOOLS } from "@/lib/ai-tools";
+import { useUser } from "@/components/providers/user-provider";
 
 export function AiHistoryModal({ open, onClose, tool }: { open: boolean; onClose: () => void; tool?: string }) {
   const t = useT();
+  const user = useUser();
   const [entries, setEntries] = useState<AiHistoryEntry[]>([]);
 
   useEffect(() => {
-    if (open) setEntries(readAiHistory().filter((e) => !tool || e.tool === tool));
-  }, [open, tool]);
+    if (open) setEntries(readAiHistory(user.id).filter((e) => !tool || e.tool === tool));
+  }, [open, tool, user.id]);
 
   const toolName = (slug: string) => {
     const def = AI_TOOLS.find((x) => x.slug === slug);
@@ -33,7 +35,7 @@ export function AiHistoryModal({ open, onClose, tool }: { open: boolean; onClose
             <button
               type="button"
               onClick={() => {
-                clearAiHistory();
+                clearAiHistory(user.id);
                 setEntries([]);
               }}
               className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-danger"

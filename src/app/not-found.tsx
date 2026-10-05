@@ -98,7 +98,7 @@ export default function RootNotFound() {
         <Link href="/dashboard">
           <Button>{t("e404.toDashboard")}</Button>
         </Link>
-        <Link href="mailto:support@tylotech.de">
+        <Link href="mailto:info@tylotech.de">
           <Button variant="outline">
             <Mail className="mr-1.5 h-4 w-4" />
             {t("e404.support")}

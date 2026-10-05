@@ -42,18 +42,22 @@ export function ChatView({
   const t = useT();
   const [requested, setRequested] = useState(false);
   const [requesting, setRequesting] = useState(false);
+  const [requestError, setRequestError] = useState<string | null>(null);
 
   async function requestTask() {
     setRequesting(true);
-    await fetch("/api/messages", {
+    setRequestError(null);
+    const res = await fetch("/api/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        content: "📋 New request: I'd like to request a new report or task. Please advise on next steps.",
-        clientId,
-      }),
+      body: JSON.stringify({ content: t("chat.requestTaskMessage"), clientId }),
     }).catch(() => null);
     setRequesting(false);
+    if (!res?.ok) {
+      const d = res ? await res.json().catch(() => ({})) : {};
+      setRequestError(d.error ?? t("chat.sendFailed"));
+      return;
+    }
     setRequested(true);
     setTimeout(() => setRequested(false), 4000);
   }
@@ -67,6 +71,7 @@ export function ChatView({
             {requested ? t("chat.requestSent") : t("chat.requestTask")}
           </Button>
         </PageHeader>
+        {requestError && <p role="alert" className="mt-2 text-sm text-danger">{requestError}</p>}
       </div>
 
       <div className="flex min-h-0 flex-1 gap-4">

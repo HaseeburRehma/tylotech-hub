@@ -272,9 +272,9 @@ function SidebarBottomNav() {
 
   return (
     <div className="mx-3 shrink-0 space-y-0.5 border-t border-border pt-3">
-      <a href="mailto:hook@tylotech.de" className={linkClass}>
+      <a href="mailto:info@tylotech.de" className={linkClass}>
         <Mail className="h-[18px] w-[18px]" />
-        <span className="flex-1">Hook E-Mail</span>
+        <span className="flex-1">{t("sidebar.contactEmail")}</span>
       </a>
       <Link href="/settings" className={linkClass}>
         <Settings className="h-[18px] w-[18px]" />

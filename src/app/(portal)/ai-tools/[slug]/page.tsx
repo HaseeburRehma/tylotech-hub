@@ -217,6 +217,8 @@ export default function ToolPage() {
   const [demo, setDemo] = useState(false);
   const [copied, setCopied] = useState(false);
   const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
+  const [isError, setIsError] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [generatedFor, setGeneratedFor] = useState<string>("");
   const [showHistory, setShowHistory] = useState(false);
   const [action, setAction] = useState<{ kind: "doc" | "chat"; state: "busy" | "ok" | "error"; msg?: string } | null>(null);
@@ -227,10 +229,19 @@ export default function ToolPage() {
   const targetClientId = user.role === "client" ? user.client_id : active?.id ?? null;
   const Icon = config.icon;
 
+  // Prefill the first text field from the AI Tools hero prompt (?topic=...).
+  const prefill = searchParams.get("topic");
+  useEffect(() => {
+    if (!prefill) return;
+    const first = config.fields.find((f) => f.type !== "select");
+    if (first) setInputs((s) => ({ ...s, [first.name]: prefill.slice(0, 2000) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill]);
+
   // Re-open a past generation from the history panel.
   useEffect(() => {
     if (!historyId) return;
-    const entry = readAiHistory().find((e) => e.id === historyId && e.tool === slug);
+    const entry = readAiHistory(user.id).find((e) => e.id === historyId && e.tool === slug);
     if (!entry) return;
     setInputs(entry.inputs);
     setOutput(entry.output);
@@ -238,7 +249,7 @@ export default function ToolPage() {
     setGeneratedFor(entry.brand);
     setDemo(false);
     setAction(null);
-  }, [historyId, slug]);
+  }, [historyId, slug, user.id]);
 
   async function saveAsDocument() {
     if (!targetClientId || !output) return;
@@ -277,22 +288,35 @@ export default function ToolPage() {
   }
 
   async function run() {
+    const missing = config.fields.find((f) => f.type !== "select" && f.required && !(inputs[f.name] ?? "").trim());
+    if (missing) {
+      setFormError(t("ait.fieldRequired", { field: t(missing.label) }));
+      return;
+    }
+    setFormError(null);
     setLoading(true);
     setOutput("");
+    setIsError(false);
+    setAction(null);
     try {
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tool: slug, inputs, brand }),
       });
-      const data = await res.json();
-      setOutput(data.output ?? data.error ?? t("ait.somethingWrong"));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.output) {
+        setIsError(true);
+        setOutput(data.error ?? t("ait.somethingWrong"));
+        return;
+      }
+      setOutput(data.output);
       setDemo(Boolean(data.demo));
       setGeneratedAt(new Date());
       setGeneratedFor(brand);
-      setAction(null);
-      if (res.ok && data.output) pushAiHistory({ tool: slug, brand, inputs, output: data.output });
+      pushAiHistory(user.id, { tool: slug, brand, inputs, output: data.output });
     } catch {
+      setIsError(true);
       setOutput(t("ait.networkError"));
     } finally {
       setLoading(false);
@@ -382,6 +406,7 @@ export default function ToolPage() {
           </div>
 
           <div className="mt-6">
+            {formError && <p role="alert" className="mb-3 text-sm text-danger">{formError}</p>}
             <Button onClick={run} loading={loading} className="w-full" size="lg">
               {!loading && <Sparkles className="h-4 w-4" />}
               {t(config.cta)}
@@ -397,9 +422,10 @@ export default function ToolPage() {
         <Card className="flex flex-col p-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-base font-semibold">{t("ait.result")}</h2>
-            {output ? (
+            {output && !isError ? (
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={copy}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
                 >
@@ -420,8 +446,10 @@ export default function ToolPage() {
                   {t("ait.asDocument")}
                 </button>
                 <button
-                  onClick={() => { setOutput(""); setDemo(false); }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+                  type="button"
+                  onClick={() => void run()}
+                  disabled={loading}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
                   {t("ait.regenerate")}
@@ -438,7 +466,7 @@ export default function ToolPage() {
             )}
           </div>
 
-          {demo && output && (
+          {demo && output && !isError && (
             <Badge variant="warning" className="mb-3 w-fit">
               {t("ait.demoMode")}
             </Badge>
@@ -454,6 +482,14 @@ export default function ToolPage() {
                     style={{ width: `${70 + ((i * 13) % 30)}%` }}
                   />
                 ))}
+              </div>
+            ) : output && isError ? (
+              <div role="alert" className="rounded-xl border border-danger/30 bg-danger/10 p-5 text-sm text-danger">
+                <p className="font-medium">{t("ait.failedTitle")}</p>
+                <p className="mt-1">{output}</p>
+                <Button size="sm" variant="outline" className="mt-3" onClick={() => void run()}>
+                  <RefreshCw className="h-3.5 w-3.5" /> {t("ait.tryAgain")}
+                </Button>
               </div>
             ) : output ? (
               <motion.div
@@ -479,7 +515,7 @@ export default function ToolPage() {
           </div>
 
           {/* Metadata bar — visible when there's output */}
-          {output && !loading && (
+          {output && !loading && !isError && (
             <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
               <p className="text-xs text-muted">
                 {generatedFor || brand}

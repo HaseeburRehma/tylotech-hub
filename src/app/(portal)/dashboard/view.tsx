@@ -110,11 +110,15 @@ export function ClientDashboardView({
   projects,
   updates,
   series,
+  connectedSources,
+  totalSources,
 }: {
   kpis: Kpi[];
   projects: Project[];
   updates: Update[];
   series: SeriesPoint[];
+  connectedSources: number;
+  totalSources: number;
 }) {
   const user = useUser();
   const router = useRouter();
@@ -215,8 +219,10 @@ export function ClientDashboardView({
         <Card className="lg:col-span-3">
           <CardHeader>
             <div>
-              <CardTitle>{t("dash.integrationAttention")}</CardTitle>
-              <p className="mt-0.5 text-xs text-muted">{t("dash.integrationAttentionDesc")}</p>
+              <CardTitle>{t("dash.updatesTitle")}</CardTitle>
+              <p className={cn("mt-0.5 text-xs", connectedSources < totalSources ? "text-warning" : "text-muted")}>
+                {t("dash.sourcesConnected", { n: connectedSources, total: totalSources })}
+              </p>
             </div>
             <Link href="/integrations" className="text-xs font-medium text-muted hover:text-foreground transition-colors">
               {t("dash.toIntegrations")} <ChevronRight className="inline h-3 w-3" />
@@ -264,9 +270,6 @@ export function ClientDashboardView({
                 {projects.length} {t("dash.openTasks")}
               </p>
             </div>
-            <Link href="/internal/projects" className="text-xs font-medium text-muted hover:text-foreground transition-colors">
-              {t("dash.allProjects")} <ChevronRight className="inline h-3 w-3" />
-            </Link>
           </CardHeader>
           <div className="space-y-1">
             {projects.length === 0 && (
@@ -453,7 +456,7 @@ export function StaffDashboardView({
             <CardHeader>
               <div>
                 <CardTitle>{t("dash.integrationAttention")}</CardTitle>
-                <p className="mt-0.5 text-xs text-muted">{t("dash.integrationAttentionDesc")}</p>
+                <p className="mt-0.5 text-xs text-muted">{t("dash.staff.attentionCount", { n: attention.length })}</p>
               </div>
               <Link href="/integrations" className="text-xs font-medium text-muted hover:text-foreground transition-colors">
                 {t("dash.toIntegrations")} <ChevronRight className="inline h-3 w-3" />

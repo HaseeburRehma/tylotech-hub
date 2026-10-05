@@ -126,7 +126,7 @@ function ThreadPanel({
   clientId: string | null;
   internal: boolean;
   onClose: () => void;
-  onSend: (content: string, parentId: string, mentions: string[]) => Promise<void>;
+  onSend: (content: string, parentId: string, mentions: string[]) => Promise<boolean>;
   peers: ChatPeer[];
 }) {
   const t = useT();
@@ -153,7 +153,8 @@ function ThreadPanel({
     setSending(true);
     setVal("");
     const mentionIds = extractMentions(content, peers);
-    await onSend(content, parent.id, mentionIds);
+    const ok = await onSend(content, parent.id, mentionIds);
+    if (!ok) setVal(content);
     setSending(false);
   }
 
@@ -461,6 +462,7 @@ export function ChatThread({
     if (!content) return;
     setVal("");
     setMentionQuery(null);
+    setUploadError(null);
     const recipientId = selected === GROUP ? null : selected;
     const mentionIds = extractMentions(content, peers);
     const tempId = `temp-${Date.now()}`;
@@ -479,10 +481,15 @@ export function ChatThread({
         seen.current.add(message.id);
         setMessages((m) => m.some((x) => x.id === message.id) ? m.filter((x) => x.id !== tempId) : m.map((x) => (x.id === tempId ? { ...x, id: message.id } : x)));
       }
+      return;
     }
+    // Failed: remove the optimistic bubble and give the text back to the user.
+    setMessages((m) => m.filter((x) => x.id !== tempId));
+    setVal((v) => (v ? v : content));
+    setUploadError(res?.status === 413 ? t("chat.tooLong") : t("chat.sendFailed"));
   }
 
-  async function sendReply(content: string, parentId: string, mentions: string[]) {
+  async function sendReply(content: string, parentId: string, mentions: string[]): Promise<boolean> {
     const recipientId = selected === GROUP ? null : selected;
     const tempId = `temp-${Date.now()}-reply`;
     seen.current.add(tempId);
@@ -501,7 +508,16 @@ export function ChatThread({
         seen.current.add(message.id);
         setMessages((m) => m.some((x) => x.id === message.id) ? m.filter((x) => x.id !== tempId) : m.map((x) => (x.id === tempId ? { ...x, id: message.id } : x)));
       }
+      return true;
     }
+    // Roll back the optimistic reply so it never looks sent when it wasn't.
+    setMessages((m) =>
+      m
+        .filter((x) => x.id !== tempId)
+        .map((x) => (x.id === parentId ? { ...x, reply_count: Math.max(0, (x.reply_count ?? 1) - 1) } : x)),
+    );
+    setUploadError(res?.status === 413 ? t("chat.tooLong") : t("chat.sendFailed"));
+    return false;
   }
 
   useEffect(() => {

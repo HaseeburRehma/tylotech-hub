@@ -18,7 +18,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
@@ -27,6 +28,8 @@ import { useT } from "@/lib/i18n/provider";
 import { useUser } from "@/components/providers/user-provider";
 import { AI_TOOLS } from "@/lib/ai-tools";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { readAiHistory, type AiHistoryEntry } from "@/lib/ai-history";
 
 const ICONS: Record<string, LucideIcon> = {
   PenLine,
@@ -40,7 +43,24 @@ const ICONS: Record<string, LucideIcon> = {
 export default function AiToolsPage() {
   const t = useT();
   const user = useUser();
-  const unlocked = AI_TOOLS.filter((tool) => tool.unlocked).length;
+  const router = useRouter();
+  // Staff can switch a tool off in the prompt editor (ai_tools.is_active).
+  const [inactive, setInactive] = useState<Set<string>>(new Set());
+  const [recent, setRecent] = useState<AiHistoryEntry[]>([]);
+  useEffect(() => {
+    setRecent(readAiHistory(user.id).slice(0, 4));
+    const sb = createClient();
+    if (!sb) return;
+    sb.from("ai_tools")
+      .select("slug,is_active")
+      .then(({ data }) => setInactive(new Set((data ?? []).filter((r) => r.is_active === false).map((r) => r.slug))));
+  }, [user.id]);
+  const unlocked = AI_TOOLS.filter((tool) => !inactive.has(tool.slug)).length;
+  const sendHero = () => {
+    const text = prompt.trim();
+    if (!text) return;
+    router.push(`/ai-tools/content-generator?topic=${encodeURIComponent(text.slice(0, 2000))}`);
+  };
   const [prompt, setPrompt] = useState("");
   const [showRequestTool, setShowRequestTool] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -107,6 +127,13 @@ export default function AiToolsPage() {
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendHero();
+              }
+            }}
+            aria-label={t("ait.heroSubtitle")}
             placeholder={t("ait.heroSubtitle")}
             rows={2}
             className="w-full resize-none bg-transparent text-sm text-bg placeholder:text-bg/40 focus:outline-none"
@@ -118,6 +145,9 @@ export default function AiToolsPage() {
               </span>
             </div>
             <button
+              type="button"
+              onClick={sendHero}
+              aria-label={t("ait.heroSend")}
               className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-brand-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
               disabled={!prompt.trim()}
             >
@@ -133,7 +163,7 @@ export default function AiToolsPage() {
           <div className="flex items-center gap-3">
             <h3 className="text-sm font-semibold">{t("ait.readyTools")}</h3>
             <Badge variant="brand" className="text-[10px]">
-              {unlocked} von {AI_TOOLS.length} frei
+              {t("ait.toolsAvailable", { n: unlocked, total: AI_TOOLS.length })}
             </Badge>
           </div>
           <button onClick={() => setShowRequestTool(true)} className="text-sm text-muted hover:text-foreground transition-colors">
@@ -144,6 +174,7 @@ export default function AiToolsPage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {AI_TOOLS.map((tool, i) => {
             const Icon = ICONS[tool.icon] ?? Bot;
+            const off = inactive.has(tool.slug);
             return (
               <motion.div
                 key={tool.id}
@@ -152,8 +183,14 @@ export default function AiToolsPage() {
                 transition={{ delay: 0.2 + i * 0.04 }}
               >
                 <Link
-                  href={`/ai-tools/${tool.slug}`}
-                  className="group flex items-center gap-3.5 rounded-xl border border-border bg-surface p-4 transition-all hover:shadow-card"
+                  href={off ? "#" : `/ai-tools/${tool.slug}`}
+                  aria-disabled={off}
+                  tabIndex={off ? -1 : undefined}
+                  onClick={(e) => off && e.preventDefault()}
+                  className={cn(
+                    "group flex items-center gap-3.5 rounded-xl border border-border bg-surface p-4 transition-all",
+                    off ? "cursor-not-allowed opacity-50" : "hover:shadow-card",
+                  )}
                 >
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
                     <Icon className="h-[18px] w-[18px]" />
@@ -162,7 +199,7 @@ export default function AiToolsPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-foreground">{t(tool.name)}</span>
                       <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
-                        {t(tool.category)}
+                        {off ? t("prompts.inactive") : t(tool.category)}
                       </Badge>
                     </div>
                     <p className="mt-0.5 truncate text-xs text-muted">{t(tool.description)}</p>
@@ -180,10 +217,34 @@ export default function AiToolsPage() {
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-sm font-semibold">{t("ait.recentlyCreated")}</h3>
         </div>
-        <div className="rounded-xl border border-border bg-surface p-8 text-center">
-          <Sparkles className="mx-auto mb-2 h-5 w-5 text-muted" />
-          <p className="text-sm text-muted">{t("ait.noResult")}</p>
-        </div>
+        {recent.length === 0 ? (
+          <div className="rounded-xl border border-border bg-surface p-8 text-center">
+            <Sparkles className="mx-auto mb-2 h-5 w-5 text-muted" />
+            <p className="text-sm text-muted">{t("ait.noResult")}</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {recent.map((e) => {
+              const def = AI_TOOLS.find((x) => x.slug === e.tool);
+              return (
+                <Link
+                  key={e.id}
+                  href={`/ai-tools/${e.tool}?h=${e.id}`}
+                  className="rounded-xl border border-border bg-surface p-4 transition-all hover:shadow-card"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm font-semibold text-foreground">{def ? t(def.name) : e.tool}</span>
+                    <span className="shrink-0 text-[11px] text-muted">
+                      {new Date(e.at).toLocaleDateString("de-DE", { day: "numeric", month: "short" })}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-muted">{e.brand}</p>
+                  <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted/80">{e.output}</p>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <RequestToolModal open={showRequestTool} onClose={() => setShowRequestTool(false)} />

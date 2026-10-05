@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { MessageSquare, Send, X } from "lucide-react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
@@ -14,9 +15,10 @@ export function ChatWidget() {
   const t = useT();
   const QUICK = [t("widget.reqReport"), t("widget.bookCall"), t("widget.newTask")];
   const [open, setOpen] = useState(false);
-  const [msgs, setMsgs] = useState<{ me: boolean; text: string }[]>([
+  const [msgs, setMsgs] = useState<{ me: boolean; text: string; system?: boolean; error?: boolean }[]>([
     { me: false, text: t("widget.greeting") },
   ]);
+  const [sending, setSending] = useState(false);
   const [val, setVal] = useState("");
   const pathname = usePathname();
 
@@ -25,7 +27,8 @@ export function ChatWidget() {
   if (user.role !== "client" || pathname.startsWith("/chat")) return null;
 
   async function send(text: string) {
-    if (!text.trim()) return;
+    if (!text.trim() || sending) return;
+    setSending(true);
     setMsgs((m) => [...m, { me: true, text }]);
     setVal("");
     const res = await fetch("/api/messages", {
@@ -33,15 +36,10 @@ export function ChatWidget() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: text, clientId: user.client_id }),
     }).catch(() => null);
-    setMsgs((m) => [
-      ...m,
-      {
-        me: false,
-        text: res?.ok
-          ? t("widget.sent")
-          : t("widget.error"),
-      },
-    ]);
+    setSending(false);
+    if (!res?.ok) setVal(text);
+    // A delivery note, not a reply from a person.
+    setMsgs((m) => [...m, { me: false, system: true, error: !res?.ok, text: res?.ok ? t("widget.sent") : t("widget.error") }]);
   }
 
   return (
@@ -57,26 +55,31 @@ export function ChatWidget() {
           >
             <div className="flex items-center justify-between border-b border-border bg-surface/60 px-4 py-3">
               <div className="flex items-center gap-2.5">
-                <span className="relative">
-                  <Avatar name="Sofia Lind" size={34} />
-                  <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-success ring-2 ring-bg" />
-                </span>
+                <Avatar name="TyloTech" size={34} />
                 <div className="leading-tight">
                   <p className="text-sm font-semibold">{t("widget.team")}</p>
-                  <p className="text-[11px] text-success">{t("widget.online")}</p>
+                  <Link href="/chat" onClick={() => setOpen(false)} className="text-[11px] text-muted hover:text-foreground hover:underline">
+                    {t("widget.openChat")}
+                  </Link>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setOpen(false)}
                 className="text-muted hover:text-foreground"
-                aria-label="Close chat"
+                aria-label={t("widget.close")}
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="flex-1 space-y-3 overflow-y-auto p-4">
-              {msgs.map((m, i) => (
+              {msgs.map((m, i) =>
+                m.system ? (
+                  <p key={i} role="status" className={cn("text-center text-[11px]", m.error ? "text-danger" : "text-muted")}>
+                    {m.text}
+                  </p>
+                ) : (
                 <div key={i} className={cn("flex", m.me ? "justify-end" : "justify-start")}>
                   <div
                     className={cn(
@@ -89,13 +92,16 @@ export function ChatWidget() {
                     {m.text}
                   </div>
                 </div>
-              ))}
+                ),
+              )}
             </div>
 
             <div className="flex flex-wrap gap-1.5 px-4 pb-2">
               {QUICK.map((q) => (
                 <button
                   key={q}
+                  type="button"
+                  disabled={sending}
                   onClick={() => send(q)}
                   className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted transition-colors hover:border-brand/40 hover:text-foreground"
                 >
@@ -119,8 +125,9 @@ export function ChatWidget() {
               />
               <button
                 type="submit"
+                disabled={sending || !val.trim()}
                 className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand text-brand-foreground transition hover:brightness-110"
-                aria-label="Send"
+                aria-label={t("widget.send")}
               >
                 <Send className="h-4 w-4" />
               </button>
@@ -134,7 +141,7 @@ export function ChatWidget() {
         whileTap={{ scale: 0.95 }}
         onClick={() => setOpen((o) => !o)}
         className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-brand-foreground shadow-glow"
-        aria-label="Message TyloTech"
+        aria-label={t("widget.placeholder")}
       >
         {!open && (
           <span className="absolute inset-0 -z-10 animate-pulse-ring rounded-full bg-brand/40" />

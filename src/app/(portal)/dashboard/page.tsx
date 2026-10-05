@@ -10,6 +10,7 @@ import {
   listUpdatesAll,
 } from "@/lib/data";
 import { PROVIDERS } from "@/lib/integrations/providers";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { ClientDashboardView, StaffDashboardView } from "./view";
 
 export default async function DashboardPage() {
@@ -17,12 +18,17 @@ export default async function DashboardPage() {
 
   if (!user || user.role === "client") {
     const clientId = user?.client_id ?? null;
-    const [kpis, projects, updates, series] = await Promise.all([
+    const admin = createAdminClient();
+    const [kpis, projects, updates, series, integ] = await Promise.all([
       getKpis(clientId),
       listProjects(clientId),
       listUpdates(clientId),
       getSeries(clientId),
+      admin && clientId
+        ? admin.from("integrations").select("status").eq("client_id", clientId)
+        : Promise.resolve({ data: [] as { status: string }[] }),
     ]);
+    const connectedSources = (integ.data ?? []).filter((r: { status: string }) => r.status === "connected").length;
 
     return (
       <ClientDashboardView
@@ -30,6 +36,8 @@ export default async function DashboardPage() {
         projects={projects.slice(0, 5)}
         updates={updates.slice(0, 4)}
         series={series}
+        connectedSources={connectedSources}
+        totalSources={PROVIDERS.length}
       />
     );
   }

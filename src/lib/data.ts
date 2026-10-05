@@ -426,16 +426,25 @@ export interface AiToolRow {
   category: string | null;
   prompt_template: string | null;
   is_active: boolean;
+  updated_at?: string | null;
+  updated_by_name?: string | null;
 }
 
 export async function listAiTools(): Promise<AiToolRow[]> {
   const sb = createClient();
   if (!sb) return [];
-  const { data } = await sb
-    .from("ai_tools")
-    .select("id,name,slug,description,category,prompt_template,is_active")
-    .order("name");
-  return (data ?? []) as AiToolRow[];
+  const base = "id,name,slug,description,category,prompt_template,is_active";
+  // updated_at/updated_by arrive with migration 0029 — tolerate their absence.
+  let res: { data: any[] | null; error: any } = await sb.from("ai_tools").select(`${base},updated_at,updated_by`).order("name");
+  if (res.error) res = await sb.from("ai_tools").select(base).order("name");
+  const rows = res.data ?? [];
+  const editorIds = Array.from(new Set(rows.map((r) => r.updated_by).filter(Boolean)));
+  const names = new Map<string, string>();
+  if (editorIds.length) {
+    const { data: users } = await sb.from("users").select("id,name").in("id", editorIds);
+    for (const u of users ?? []) names.set(u.id, u.name);
+  }
+  return rows.map(({ updated_by, ...r }) => ({ ...r, updated_by_name: updated_by ? names.get(updated_by) ?? null : null })) as AiToolRow[];
 }
 
 /**

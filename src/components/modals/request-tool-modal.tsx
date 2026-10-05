@@ -5,6 +5,7 @@ import { Sparkles, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/lib/i18n/provider";
+import { useActiveClient } from "@/components/providers/active-client-provider";
 
 export function RequestToolModal({
   open,
@@ -20,20 +21,29 @@ export function RequestToolModal({
   const [manual, setManual] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { clients } = useActiveClient();
 
   async function submit() {
     if (!what.trim()) return;
     setSending(true);
-    await fetch("/api/notifications", {
+    setError(null);
+    const res = await fetch("/api/tool-requests", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: t("reqTool.title"),
-        body: what.slice(0, 500),
-        href: "/ai-tools",
+        what,
+        manual,
+        frequency,
+        clientId: forClients === "all" ? undefined : forClients,
       }),
     }).catch(() => null);
     setSending(false);
+    if (!res?.ok) {
+      const d = res ? await res.json().catch(() => ({})) : {};
+      setError(d.error ?? t("ait.actionFailed"));
+      return;
+    }
     setSent(true);
     setTimeout(() => {
       setSent(false);
@@ -73,7 +83,8 @@ export function RequestToolModal({
                 </div>
 
                 {/* Two selects */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className={clients.length ? "grid grid-cols-1 gap-4 sm:grid-cols-2" : "grid grid-cols-1 gap-4"}>
+                  {clients.length > 0 && (
                   <div>
                     <label className="mb-1.5 block text-sm font-medium text-foreground">{t("reqTool.forClients")}</label>
                     <select
@@ -82,8 +93,14 @@ export function RequestToolModal({
                       className="h-11 w-full appearance-none rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none focus:border-brand/50"
                     >
                       <option value="all" className="bg-surface">{t("reqTool.allAccounts")}</option>
+                      {clients.map((c) => (
+                        <option key={c.id} value={c.id} className="bg-surface">
+                          {c.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
+                  )}
                   <div>
                     <label className="mb-1.5 block text-sm font-medium text-foreground">{t("reqTool.frequency")}</label>
                     <select
@@ -114,18 +131,21 @@ export function RequestToolModal({
                 </div>
               </div>
 
+              {error && <p role="alert" className="mx-6 mt-2 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
+
               {/* Footer */}
               <div className="flex items-center justify-between gap-4 border-t border-border px-6 py-4 mt-2">
                 <p className="text-xs text-muted leading-relaxed max-w-[260px]">{t("reqTool.footer")}</p>
                 <div className="flex items-center gap-3">
                   <button
+                    type="button"
                     onClick={onClose}
                     className="inline-flex h-10 items-center rounded-xl border border-border px-4 text-sm font-medium text-foreground transition-colors hover:bg-surface-2"
                   >
                     {t("common.cancel")}
                   </button>
                   <Button onClick={submit} loading={sending} disabled={!what.trim() || sent}>
-                    {sent ? "✓" : t("reqTool.send")}
+                    {sent ? t("empty.requestSent") : t("reqTool.send")}
                   </Button>
                 </div>
               </div>
