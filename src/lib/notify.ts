@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendChatEmail } from "@/lib/email";
+import { sendPush } from "@/lib/push";
 
 /** At most one notification email per recipient per this window (a burst → 1 email). */
 const COOLDOWN_MS = 30 * 60 * 1000;
@@ -83,6 +84,7 @@ export async function notifyUser(userId: string, n: NotifyInput) {
   const admin = createAdminClient();
   if (!admin) return;
   await admin.from("notifications").insert(notifRow(userId, n));
+  await sendPush(admin, [userId], n).catch(() => {});
   if (n.email) {
     const users = await fetchRecipients(admin, (q) => q.eq("id", userId));
     await dispatchEmails(admin, users, n);
@@ -96,6 +98,7 @@ export async function notifyClientUsers(clientId: string, n: NotifyInput) {
   const users = await fetchRecipients(admin, (q) => q.eq("client_id", clientId).eq("role", "client"));
   if (!users.length) return;
   await admin.from("notifications").insert(users.map((u) => notifRow(u.id, n)));
+  await sendPush(admin, users.map((u) => u.id), n).catch(() => {});
   await dispatchEmails(admin, users, n);
 }
 
@@ -106,6 +109,7 @@ export async function notifyStaff(n: NotifyInput) {
   const users = await fetchRecipients(admin, (q) => q.in("role", ["admin", "team"]));
   if (!users.length) return;
   await admin.from("notifications").insert(users.map((u) => notifRow(u.id, n)));
+  await sendPush(admin, users.map((u) => u.id), n).catch(() => {});
   await dispatchEmails(admin, users, n);
 }
 

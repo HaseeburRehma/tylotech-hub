@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { Role } from "@/types";
-import { createClient } from "@/lib/supabase/server";
+import { bearerToken, createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export interface AuthUser {
@@ -45,15 +45,23 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
   const supabase = createClient();
   if (!supabase) return null;
 
+  // Mobile app requests carry the access token instead of cookies.
+  const token = bearerToken();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = token ? await supabase.auth.getUser(token) : await supabase.auth.getUser();
   if (!user) return null;
 
   // Users with 2FA enrolled must complete it before any server code (pages or
   // API routes) treats them as signed in — a password alone is not enough.
-  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") return null;
+  if (token) {
+    // No stored session to ask, so read the assurance level from the verified token.
+    const hasFactor = (user.factors ?? []).some((f) => f.status === "verified");
+    if (hasFactor && jwtClaim(token, "aal") !== "aal2") return null;
+  } else {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") return null;
+  }
 
   const { data: profile } = await supabase
     .from("users")
@@ -85,6 +93,16 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
     notifyEmail: user.user_metadata?.notify_email !== false,
   };
 });
+
+/** Read one claim from a JWT already verified by Supabase (getUser above). */
+function jwtClaim(token: string, claim: string): unknown {
+  try {
+    const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString());
+    return payload?.[claim];
+  } catch {
+    return undefined;
+  }
+}
 
 export function isStaff(user: AuthUser | null): boolean {
   // Pure role check — no demo-mode bypass. DEMO_USER is role "client", so

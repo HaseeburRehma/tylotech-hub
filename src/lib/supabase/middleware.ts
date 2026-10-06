@@ -64,12 +64,9 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  if ((path === "/login" || path === "/") && user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    url.search = "";
-    return NextResponse.redirect(url);
-  }
+  // No "signed in → /dashboard" bounce from /login: a user with a valid session
+  // but no access (archived client, deactivated) is sent to /login by the portal
+  // layout, and bouncing them back would loop. The login page handles it.
 
   return response;
 }

@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import { ShieldCheck } from "lucide-react";
-import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { useTheme } from "@/lib/theme/theme-provider";
@@ -89,12 +88,13 @@ export function AuthShell({
 
         {/* Footer */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-muted/60">
-          <Link href="/impressum" className="hover:text-muted transition-colors">
+          {/* Legal pages live on the company site (tylohq.de has no /impressum route). */}
+          <a href="https://www.tylotech.de/impressum" target="_blank" rel="noopener noreferrer" className="hover:text-muted transition-colors">
             {t("auth.imprint")}
-          </Link>
-          <Link href="/datenschutz" className="hover:text-muted transition-colors">
+          </a>
+          <a href="https://www.tylotech.de/datenschutz" target="_blank" rel="noopener noreferrer" className="hover:text-muted transition-colors">
             {t("auth.privacy")}
-          </Link>
+          </a>
           <span className="lg:ml-auto">{t("auth.copyright")}</span>
         </div>
       </div>

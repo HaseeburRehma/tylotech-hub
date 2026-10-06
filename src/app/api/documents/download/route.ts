@@ -13,7 +13,10 @@ export async function GET(req: Request) {
   const admin = createAdminClient();
   if (!sb || !admin) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
 
-  const id = new URL(req.url).searchParams.get("id");
+  const params = new URL(req.url).searchParams;
+  const id = params.get("id");
+  // The mobile app asks for the short-lived link as JSON and opens it itself.
+  const asJson = params.get("json") === "1";
   if (!id) return NextResponse.json({ error: "id required." }, { status: 400 });
 
   // RLS ensures the requester can only read their own client's documents.
@@ -29,7 +32,7 @@ export async function GET(req: Request) {
   // user can no longer set an arbitrary file_url on their own document row
   // and turn this into an open redirect off a trusted domain. Apply that
   // migration before relying on this branch.
-  if (path.startsWith("http")) return NextResponse.redirect(path);
+  if (path.startsWith("http")) return asJson ? NextResponse.json({ url: path }) : NextResponse.redirect(path);
 
   // Defense-in-depth: a client can control file_url on rows in their own tenant,
   // so never sign a storage path that doesn't live under this document's own
@@ -40,5 +43,5 @@ export async function GET(req: Request) {
 
   const { data, error } = await admin.storage.from("documents").createSignedUrl(path, 60);
   if (error || !data) return NextResponse.json({ error: "Could not generate link." }, { status: 400 });
-  return NextResponse.redirect(data.signedUrl);
+  return asJson ? NextResponse.json({ url: data.signedUrl }) : NextResponse.redirect(data.signedUrl);
 }
