@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAudit } from "@/lib/audit";
 import { getAuthUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getProvider, isProviderLive } from "@/lib/integrations/providers";
@@ -54,6 +55,7 @@ export async function POST(
       .eq("client_id", clientId)
       .eq("provider", provider.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    await logAudit(user, { action: "integration.disconnect", clientId, targetType: "integration", targetId: provider.id }, admin);
     return NextResponse.json({ ok: true, status: "disconnected" });
   }
 

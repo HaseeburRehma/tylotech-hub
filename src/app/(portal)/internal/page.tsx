@@ -9,6 +9,7 @@ const STAGES: { key: ProjectStatus; label: string }[] = [
   { key: "planning", label: "Planning" },
   { key: "in_progress", label: "In Progress" },
   { key: "review", label: "Review" },
+  { key: "blocked", label: "Blocked" },
   { key: "done", label: "Done" },
 ];
 
@@ -23,7 +24,9 @@ export default async function InternalPage() {
   const companyById = Object.fromEntries(clients.map((c) => [c.id, c.company]));
   const colorById = Object.fromEntries(clients.map((c) => [c.id, c.primary_color]));
 
-  const pipeline: PipelineColumn[] = STAGES.map((s) => ({
+  // "Blocked" only gets a column when something is actually blocked.
+  const stages = STAGES.filter((s) => s.key !== "blocked" || projects.some((p) => p.status === "blocked"));
+  const pipeline: PipelineColumn[] = stages.map((s) => ({
     stage: s.label,
     stageKey: s.key,
     projects: projects

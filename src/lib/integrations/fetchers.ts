@@ -30,7 +30,8 @@ export interface FetchedData {
   kpis: FetchedKpi[];
 }
 
-export type FetchError = { error: "auth" | "api" };
+/** `detail` is the provider's own error text (secrets stripped) for staff diagnosis. */
+export type FetchError = { error: "auth" | "api"; detail?: string };
 export type FetchResult = FetchedData | FetchError | null;
 
 export const isFetchError = (r: FetchResult): r is FetchError => !!r && "error" in r;
@@ -75,8 +76,20 @@ function change(cur: number, prev: number | null | undefined): number | null {
   return Number((((cur - prev) / prev) * 100).toFixed(1));
 }
 
-function errorFor(res: Response | null): FetchError {
-  return { error: res && (res.status === 401 || res.status === 403) ? "auth" : "api" };
+/**
+ * Classify a failed provider response. 401/403 mean the grant no longer covers
+ * the request; Meta reports an expired or revoked token as HTTP 400 with
+ * OAuthException code 190, which must also count as "reconnect needed" — not a
+ * transient error that is silently retried forever.
+ */
+async function errorFor(res: Response | null): Promise<FetchError> {
+  if (!res) return { error: "api", detail: "network error" };
+  const body: any = await res.json().catch(() => null);
+  const err = body?.error ?? {};
+  const message = typeof err === "string" ? err : String(err.message ?? err.status ?? `HTTP ${res.status}`);
+  const detail = message.replace(/access_token=[^&\s]+/g, "access_token=***").slice(0, 200);
+  const metaAuth = err.type === "OAuthException" && [102, 190, 463, 467].includes(Number(err.code ?? err.error_subcode));
+  return { error: res.status === 401 || res.status === 403 || metaAuth ? "auth" : "api", detail };
 }
 
 const sum = <T,>(rows: T[], f: (r: T) => number) => rows.reduce((a, r) => a + f(r), 0);
@@ -99,7 +112,7 @@ export async function fetchMetaAds(accessToken: string, accountId: string): Prom
   let next: string | null = `https://graph.facebook.com/${META_GRAPH_VERSION}/${acct}/insights?${params}`;
   for (let page = 0; next && page < 10; page++) {
     const res: Response | null = await fetch(next, { cache: "no-store" }).catch(() => null);
-    if (!res?.ok) return errorFor(res);
+    if (!res?.ok) return await errorFor(res);
     const json: any = await res.json().catch(() => null);
     if (!json) return { error: "api" };
     rows.push(...(json.data ?? []));
@@ -168,7 +181,7 @@ export async function fetchGa4(accessToken: string, propertyId: string): Promise
     metrics: [{ name: "activeUsers" }, { name: "sessions" }],
     orderBys: [{ dimension: { dimensionName: "date" } }],
   });
-  if (!daily.json) return errorFor(daily.res);
+  if (!daily.json) return await errorFor(daily.res);
   const series = ((daily.json.rows ?? []) as any[])
     .map((r) => ({
       date: String(r.dimensionValues?.[0]?.value ?? "").replace(/^(\d{4})(\d{2})(\d{2})$/, "$1-$2-$3"),
@@ -186,7 +199,7 @@ export async function fetchGa4(accessToken: string, propertyId: string): Promise
     dateRanges: ranges,
     metrics: [{ name: "activeUsers" }, { name: "sessions" }, { name: "sessionConversionRate" }],
   });
-  if (!totals.json) return errorFor(totals.res);
+  if (!totals.json) return await errorFor(totals.res);
   const byRange: Record<string, { users: number; sessions: number; conv: number }> = {};
   for (const r of (totals.json.rows ?? []) as any[]) {
     const key = String(r.dimensionValues?.[0]?.value ?? "cur");
@@ -249,7 +262,7 @@ export async function fetchGoogleAds(accessToken: string, customerId: string): P
     body: JSON.stringify({ query }),
     cache: "no-store",
   }).catch(() => null);
-  if (!res?.ok) return errorFor(res);
+  if (!res?.ok) return await errorFor(res);
   const json: any = await res.json().catch(() => null);
   if (!json) return { error: "api" };
   // searchStream returns an array of batches, each with a results[] array.
@@ -327,7 +340,7 @@ export async function fetchSearchConsole(accessToken: string, siteUrl: string): 
     rows = json.rows ?? [];
     if (rows && rows.length) break;
   }
-  if (rows == null) return errorFor(lastRes);
+  if (rows == null) return await errorFor(lastRes);
 
   // `leads` holds clicks, `roas` impressions (spend doesn't apply here).
   const typed = rows.map((r) => ({

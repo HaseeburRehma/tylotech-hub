@@ -1,4 +1,8 @@
+import { cookies } from "next/headers";
+import { lockedToolSlugs } from "@/lib/tool-access";
 import { notFound } from "next/navigation";
+import { LOCALE_COOKIE } from "@/lib/i18n/dictionary";
+import type { ReportRun } from "@/components/reports/monthly-report-panel";
 import { getAuthUser, isStaff } from "@/lib/auth";
 import {
   getClientByRef,
@@ -39,6 +43,11 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       getSeries(client.id),
     ]);
   const health = (await listClientHealth())[client.id];
+  const { data: reportRuns } = admin
+    ? await admin.from("report_runs").select("period,status,recipients,error,created_at").eq("client_id", client.id).order("period", { ascending: false }).limit(6)
+    : { data: [] };
+  const lockedTools = admin ? Array.from(await lockedToolSlugs(admin, client.id)) : [];
+  const locale = cookies().get(LOCALE_COOKIE)?.value === "en" ? "en" : "de";
 
   // Same window as the portfolio summary: 30 complete days ending yesterday.
   const day = (offset: number) => {
@@ -76,6 +85,9 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       leads30d={leads30d}
       portfolioSpend30d={portfolio.spend30d}
       health={health}
+      reportRuns={(reportRuns ?? []) as ReportRun[]}
+      lockedTools={lockedTools}
+      locale={locale}
     />
   );
 }

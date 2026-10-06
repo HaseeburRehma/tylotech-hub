@@ -16,6 +16,7 @@ export interface Client {
   created_at: string;
   /** Set when the client was archived (soft-deleted). */
   archived_at?: string | null;
+  monthly_report_enabled?: boolean;
 }
 
 export interface User {

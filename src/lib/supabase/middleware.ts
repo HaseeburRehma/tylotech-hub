@@ -12,6 +12,7 @@ const PORTAL_PREFIXES = [
   "/ai-tools",
   "/chat",
   "/documents",
+  "/projects",
   "/internal",
   "/settings",
 ];

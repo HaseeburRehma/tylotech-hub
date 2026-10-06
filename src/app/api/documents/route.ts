@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAudit } from "@/lib/audit";
 import { getAuthUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -69,6 +70,7 @@ export async function POST(req: Request) {
     await admin.storage.from("documents").remove([path]);
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+  await logAudit(user, { action: "document.upload", clientId, targetType: "document", targetId: data?.id, summary: `${row.name} (${row.type})` }, admin);
   return NextResponse.json({ ok: true, document: data });
 }
 
@@ -83,11 +85,11 @@ export async function DELETE(req: Request) {
   if (!id) return NextResponse.json({ error: "id required." }, { status: 400 });
 
   // RLS limits which documents this user can see at all (tenant isolation).
-  let found = await sb.from("documents").select("id,file_url,uploaded_by").eq("id", id).maybeSingle();
+  let found = await sb.from("documents").select("id,client_id,file_url,uploaded_by").eq("id", id).maybeSingle();
   if (found.error && isMissingColumn(found.error)) {
-    found = (await sb.from("documents").select("id,file_url").eq("id", id).maybeSingle()) as typeof found;
+    found = (await sb.from("documents").select("id,client_id,file_url").eq("id", id).maybeSingle()) as typeof found;
   }
-  const doc = found.data as { id: string; file_url: string | null; uploaded_by?: string | null } | null;
+  const doc = found.data as { id: string; client_id: string | null; file_url: string | null; uploaded_by?: string | null } | null;
   if (!doc) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
   // Clients may only remove files they uploaded themselves.
@@ -104,5 +106,6 @@ export async function DELETE(req: Request) {
   if (doc.file_url && !doc.file_url.startsWith("#") && !doc.file_url.startsWith("http")) {
     await admin.storage.from("documents").remove([doc.file_url]);
   }
+  await logAudit(user, { action: "document.delete", clientId: doc.client_id, targetType: "document", targetId: id }, admin);
   return NextResponse.json({ ok: true });
 }

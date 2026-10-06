@@ -19,6 +19,8 @@ import { ChatThread } from "@/components/chat/chat-thread";
 import { UpdatesManager } from "@/components/updates/updates-manager";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { MetricsEditor } from "@/components/metrics/metrics-editor";
+import { MonthlyReportPanel, type ReportRun } from "@/components/reports/monthly-report-panel";
+import { ClientToolAccess } from "@/components/ai/client-tool-access";
 import { HealthBadge, HealthCard } from "@/components/health/health";
 import type { ClientHealth } from "@/lib/health";
 import { IntegrationsBoard } from "@/app/(portal)/integrations/board";
@@ -61,6 +63,9 @@ export function ClientDetail({
   leads30d = 0,
   portfolioSpend30d = 0,
   health,
+  reportRuns = [],
+  lockedTools = [],
+  locale = "de",
 }: {
   client: Client;
   messages: Message[];
@@ -77,6 +82,9 @@ export function ClientDetail({
   leads30d?: number;
   portfolioSpend30d?: number;
   health?: ClientHealth;
+  reportRuns?: ReportRun[];
+  lockedTools?: string[];
+  locale?: string;
 }) {
   const t = useT();
   const [tab, setTab] = useState<TabKey>("overview");
@@ -505,6 +513,8 @@ export function ClientDetail({
         </div>
       )}
 
+      {tab === "overview" && <ClientToolAccess clientId={client.id} locked={lockedTools} />}
+
       {/* ───────── Invoices & KPIs ───────── */}
       {tab === "metrics" && (
         <div className="space-y-6">
@@ -662,6 +672,14 @@ export function ClientDetail({
                   <p className="text-sm text-muted">{t("cd.noKpis")}</p>
                 )}
               </div>
+
+              <MonthlyReportPanel
+                clientId={client.id}
+                enabled={!!client.monthly_report_enabled}
+                recipientCount={peers.filter((p) => p.role === "client").length}
+                runs={reportRuns}
+                locale={locale}
+              />
 
               {/* KPI Editor (collapsible) */}
               {showKpiEditor && (

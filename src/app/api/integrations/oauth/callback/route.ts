@@ -62,6 +62,15 @@ export async function GET(req: Request) {
   const token = tokenRes ? await tokenRes.json().catch(() => null) : null;
   if (!token?.access_token) return done("error=token_exchange");
 
+  // Google's consent screen lets people untick individual permissions. The token
+  // then lacks this provider's scope (it may only carry scopes granted earlier,
+  // e.g. Analytics), and every sync would fail — refuse it instead of saving a
+  // "connected" source that can never work.
+  if (cfg.tokenUrl.includes("googleapis.com")) {
+    const granted = String(token.scope ?? "").split(/\s+/);
+    if (!granted.includes(cfg.scope)) return done(`error=missing_scope&provider=${provider}`);
+  }
+
   // Meta's OAuth code yields a ~1-2h user token; swap it for the long-lived
   // (~60 day) one so the daily sync keeps working.
   if (provider === "meta_ads") {
@@ -77,6 +86,20 @@ export async function GET(req: Request) {
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null);
     if (ll?.access_token) token.access_token = ll.access_token;
+    // Long-lived Meta user tokens expire after ~60 days; record when, so the
+    // expiry is visible before syncs start failing.
+    const expiresIn = Number(ll?.expires_in ?? token.expires_in);
+    if (expiresIn > 0) token.expires_at = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+    // Meta also allows declining individual permissions — ads_read is required.
+    const perms = await fetch(
+      `https://graph.facebook.com/${META_GRAPH_VERSION}/me/permissions?access_token=${encodeURIComponent(token.access_token)}`,
+      { cache: "no-store" },
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
+    const adsRead = (perms?.data ?? []).find((p: { permission: string; status: string }) => p.permission === "ads_read");
+    if (perms && adsRead?.status !== "granted") return done(`error=missing_scope&provider=${provider}`);
   }
 
   const { data: existing } = await admin
@@ -85,6 +108,14 @@ export async function GET(req: Request) {
     .eq("client_id", clientId)
     .eq("provider", provider)
     .maybeSingle();
+
+  const {
+    lastError: _e,
+    lastErrorAt: _a,
+    lastErrorDetail: _d,
+    tokenExpiresAt: _x,
+    ...prevMeta
+  } = (existing?.meta ?? {}) as Record<string, unknown>;
 
   const { error: upsertError } = await admin.from("integrations").upsert(
     {
@@ -95,7 +126,12 @@ export async function GET(req: Request) {
       access_token: token.access_token,
       refresh_token: token.refresh_token ?? null,
       // Who authorised this token decides who may point it at other accounts.
-      meta: { ...(existing?.meta ?? {}), tokenOwner: user.role === "client" ? "client" : "staff" },
+      // A fresh grant clears the previous failure; the next sync re-checks it.
+      meta: {
+        ...prevMeta,
+        tokenOwner: user.role === "client" ? "client" : "staff",
+        ...(token.expires_at ? { tokenExpiresAt: token.expires_at } : {}),
+      },
     },
     { onConflict: "client_id,provider" },
   );

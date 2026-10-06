@@ -173,7 +173,7 @@ function ThreadPanel({
           <p className="text-sm font-semibold">{t("chat.thread")}</p>
           <p className="text-[11px] text-muted">{parent.sender_name} · {replies.length} {t("chat.replies")}</p>
         </div>
-        <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground">
+        <button type="button" onClick={onClose} aria-label={t("chat.closeThread")} className="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -213,7 +213,7 @@ function ThreadPanel({
               placeholder={`${t("chat.reply")}…`}
               className="max-h-[160px] min-h-[36px] flex-1 resize-none bg-transparent px-1 py-2 text-sm leading-relaxed outline-none placeholder:text-muted/60"
             />
-            <Button type="submit" size="icon" disabled={!val.trim() || sending} className="mb-0.5 h-8 w-8 shrink-0 disabled:opacity-40">
+            <Button type="submit" size="icon" aria-label={t("chat.sendReply")} disabled={!val.trim() || sending} className="mb-0.5 h-8 w-8 shrink-0 disabled:opacity-40">
               <Send className="h-4 w-4" />
             </Button>
           </div>
@@ -1135,7 +1135,7 @@ export function ChatThread({
                             <span className="min-w-0"><span className="block truncate text-[11px] font-medium">{a.file.name}</span><span className="block text-[10px] text-muted">{formatBytes(a.file.size)}</span></span>
                           </div>
                         )}
-                        <button type="button" onClick={() => removePending(a.id)} className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-danger text-white shadow"><X className="h-3 w-3" /></button>
+                        <button type="button" onClick={() => removePending(a.id)} aria-label={t("chat.remove")} className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-danger text-white shadow"><X className="h-3 w-3" /></button>
                       </div>
                     ))}
                   </div>
@@ -1195,6 +1195,7 @@ export function ChatThread({
                     <span className="hidden text-[11px] text-muted/50 sm:block">{t("chat.composerHintFigma")}</span>
                     <button
                       type="submit"
+                      aria-label={t("chat.send")}
                       disabled={!val.trim() && !pendingAtt.length}
                       className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-brand-foreground transition-opacity hover:opacity-90 disabled:opacity-30"
                     >

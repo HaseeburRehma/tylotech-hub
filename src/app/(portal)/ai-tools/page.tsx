@@ -30,6 +30,7 @@ import { AI_TOOLS } from "@/lib/ai-tools";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { readAiHistory, type AiHistoryEntry } from "@/lib/ai-history";
+import { lockedToolSlugs } from "@/lib/tool-access";
 
 const ICONS: Record<string, LucideIcon> = {
   PenLine,
@@ -44,17 +45,23 @@ export default function AiToolsPage() {
   const t = useT();
   const user = useUser();
   const router = useRouter();
-  // Staff can switch a tool off in the prompt editor (ai_tools.is_active).
+  // Staff can switch a tool off globally (ai_tools.is_active) or per client
+  // (client_tools); the generate API enforces both.
   const [inactive, setInactive] = useState<Set<string>>(new Set());
   const [recent, setRecent] = useState<AiHistoryEntry[]>([]);
   useEffect(() => {
     setRecent(readAiHistory(user.id).slice(0, 4));
     const sb = createClient();
     if (!sb) return;
-    sb.from("ai_tools")
-      .select("slug,is_active")
-      .then(({ data }) => setInactive(new Set((data ?? []).filter((r) => r.is_active === false).map((r) => r.slug))));
-  }, [user.id]);
+    Promise.all([
+      sb.from("ai_tools").select("slug,is_active"),
+      user.role === "client" ? lockedToolSlugs(sb, user.client_id) : Promise.resolve(new Set<string>()),
+    ]).then(([{ data }, locked]) => {
+      const off = new Set(locked);
+      for (const r of data ?? []) if (r.is_active === false) off.add(r.slug);
+      setInactive(off);
+    });
+  }, [user.id, user.role, user.client_id]);
   const unlocked = AI_TOOLS.filter((tool) => !inactive.has(tool.slug)).length;
   const sendHero = () => {
     const text = prompt.trim();

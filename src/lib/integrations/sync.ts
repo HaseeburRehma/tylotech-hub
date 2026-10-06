@@ -95,7 +95,7 @@ export async function syncClient(
     if (isFetchError(data)) {
       // A rejected token can't recover on its own — flag the integration so the
       // dashboards show "needs reconnect" instead of a stale "connected".
-      const meta = { ...cfg, lastError: data.error, lastErrorAt: nowIso };
+      const meta = { ...cfg, lastError: data.error, lastErrorAt: nowIso, lastErrorDetail: data.detail ?? null };
       await admin
         .from("integrations")
         .update(data.error === "auth" ? { status: "error", meta } : { meta })
@@ -127,7 +127,7 @@ export async function syncClient(
       if (p.roas) cur.roas = p.roas;
     }
     prevSyncAt[row.provider] = row.last_synced_at ?? null;
-    const { lastError: _e, lastErrorAt: _a, ...cleanMeta } = cfg as Record<string, unknown>;
+    const { lastError: _e, lastErrorAt: _a, lastErrorDetail: _d, ...cleanMeta } = cfg as Record<string, unknown>;
     await admin.from("integrations").update({ last_synced_at: nowIso, status: "connected", meta: cleanMeta }).eq("id", row.id);
     results.push({ provider: row.provider, synced: true, kpis: data.kpis.length });
     populated = true;

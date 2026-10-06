@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAudit } from "@/lib/audit";
 import { getAuthUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -55,5 +56,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const { data } = await admin.auth.admin.getUserById(params.id);
     await admin.auth.admin.updateUserById(params.id, { user_metadata: { ...(data.user?.user_metadata ?? {}), role: row.role } });
   }
+  const action = b.active !== undefined ? (b.active ? "team.reactivate" : "team.deactivate") : row.role ? "team.role" : "team.update";
+  await logAudit(user, {
+    action,
+    targetType: "user",
+    targetId: params.id,
+    summary: Object.entries(row).map(([k, v]) => (k === "deactivated_at" ? "" : `${k}=${v ?? "—"}`)).filter(Boolean).join(", ") || undefined,
+  }, admin);
   return NextResponse.json({ ok: true });
 }

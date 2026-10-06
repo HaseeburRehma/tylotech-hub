@@ -30,6 +30,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  // Per-address throttle too, so rotating IPs can't flood one inbox. Same
+  // generic response when limited — no signal about whether the account exists.
+  const perEmail = await getRateLimiter().limit(`reset-email:${email}`, { limit: 3, windowSec: 3600 });
+  if (!perEmail.success) return NextResponse.json({ ok: true });
+
   const admin = createAdminClient();
   if (!admin) {
     // Backend not configured — don't leak that; the client shows the generic notice.

@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   List,
   MoreHorizontal,
+  Pencil,
   Plus,
   Trash2,
   UserRound,
@@ -20,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Progress } from "@/components/ui/progress";
 import { NewProjectModal } from "@/components/modals/new-project-modal";
+import { EditProjectModal } from "@/components/modals/edit-project-modal";
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from "@/components/ui/menu";
 import { useT } from "@/lib/i18n/provider";
 import { PROJECT_STATUS } from "@/lib/status";
@@ -36,7 +38,7 @@ const SORT_LABEL: Record<SortKey, string> = {
   progress: "proj.sortProgress",
 };
 const dueTime = (d: string | null | undefined) => (d ? new Date(d).getTime() : Number.POSITIVE_INFINITY);
-const STATUSES: ProjectStatus[] = ["planning", "in_progress", "review", "done"];
+const STATUSES: ProjectStatus[] = ["planning", "in_progress", "review", "blocked", "done"];
 
 const STATUS_LABEL_KEY: Record<ProjectStatus, string> = {
   planning: "proj.planning",
@@ -63,6 +65,7 @@ export function ProjectsManager({
   const [view, setView] = useState<"list" | "board">("list");
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Project | null>(null);
 
   const clientName = useMemo(
     () => Object.fromEntries(clients.map((c) => [c.id, c.company])),
@@ -147,6 +150,7 @@ export function ProjectsManager({
       members={members}
       busy={busy === p.id}
       onPatch={(body) => patch(p.id, body)}
+      onEdit={() => setEditing(p)}
       onDelete={() => remove(p.id)}
     />
   );
@@ -186,6 +190,7 @@ export function ProjectsManager({
       </PageHeader>
 
       <NewProjectModal open={open} onClose={() => setOpen(false)} clients={clients} members={members} />
+      <EditProjectModal project={editing} onClose={() => setEditing(null)} />
 
       {/* Filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -196,6 +201,7 @@ export function ProjectsManager({
               { key: "planning" as StatusFilter, label: t("proj.planning"), count: statusCounts.planning },
               { key: "in_progress" as StatusFilter, label: t("proj.inProgress"), count: statusCounts.in_progress },
               { key: "review" as StatusFilter, label: t("proj.review"), count: statusCounts.review },
+              { key: "blocked" as StatusFilter, label: t("proj.blocked"), count: statusCounts.blocked },
               { key: "done" as StatusFilter, label: t("proj.done"), count: statusCounts.done },
             ]
           ).map((p) => (
@@ -357,9 +363,7 @@ export function ProjectsManager({
                   {/* Status */}
                   <td className="px-4 py-3">
                     <Badge
-                      variant={
-                        s.variant === "danger" ? "neutral" : s.variant
-                      }
+                      variant={s.variant}
                       className="text-[10px]"
                     >
                       <span
@@ -447,12 +451,14 @@ function ProjectActions({
   members,
   busy,
   onPatch,
+  onEdit,
   onDelete,
 }: {
   project: Project;
   members: TeamMember[];
   busy: boolean;
   onPatch: (body: Record<string, unknown>) => void;
+  onEdit: () => void;
   onDelete: () => void;
 }) {
   const t = useT();
@@ -542,6 +548,15 @@ function ProjectActions({
             </MenuItem>
           ))}
           <MenuSeparator />
+          <MenuItem
+            icon={<Pencil className="h-4 w-4" />}
+            onSelect={() => {
+              close();
+              onEdit();
+            }}
+          >
+            {t("proj.editDetails")}
+          </MenuItem>
           {project.status !== "done" && (
             <MenuItem
               icon={<CheckCircle2 className="h-4 w-4" />}
@@ -585,7 +600,7 @@ function ProjectBoard({
 }) {
   const t = useT();
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
       {STATUSES.map((status) => {
         const items = projects.filter((p) => p.status === status);
         const s = PROJECT_STATUS[status];

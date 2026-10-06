@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -31,6 +31,22 @@ export function UpdatesManager({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ title: "", description: "", type: "note" as UpdateType });
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  function startEdit(u: Update) {
+    setEditingId(u.id);
+    setForm({ title: u.title, description: u.description ?? "", type: u.type });
+    setError(null);
+    setOpen(true);
+  }
+
+  function toggleForm() {
+    if (open) {
+      setEditingId(null);
+      setForm({ title: "", description: "", type: "note" });
+    }
+    setOpen((o) => !o);
+  }
 
   async function post() {
     if (!form.title.trim()) {
@@ -40,9 +56,9 @@ export function UpdatesManager({
     setSaving(true);
     setError(null);
     const res = await fetch("/api/updates", {
-      method: "POST",
+      method: editingId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId, ...form }),
+      body: JSON.stringify(editingId ? { id: editingId, ...form } : { clientId, ...form }),
     }).catch(() => null);
     setSaving(false);
     if (!res?.ok) {
@@ -51,6 +67,7 @@ export function UpdatesManager({
       return;
     }
     setForm({ title: "", description: "", type: "note" });
+    setEditingId(null);
     setOpen(false);
     router.refresh();
   }
@@ -70,7 +87,7 @@ export function UpdatesManager({
     <div className="space-y-4">
       {canPost && (
         <div className="flex justify-end">
-          <Button size="sm" onClick={() => setOpen((o) => !o)}>
+          <Button size="sm" onClick={toggleForm}>
             {open ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
             {open ? t("common.cancel") : t("upd.post")}
           </Button>
@@ -100,7 +117,7 @@ export function UpdatesManager({
                   </select>
                 </div>
                 <div className="flex justify-end">
-                  <Button onClick={post} loading={saving}>{t("upd.publish")}</Button>
+                  <Button onClick={post} loading={saving}>{editingId ? t("common.save") : t("upd.publish")}</Button>
                 </div>
               </div>
             </Card>
@@ -124,9 +141,19 @@ export function UpdatesManager({
                   {canPost && (
                     <button
                       type="button"
+                      onClick={() => startEdit(u)}
+                      className="ml-auto text-muted hover:text-foreground"
+                      aria-label={t("upd.edit")}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {canPost && (
+                    <button
+                      type="button"
                       onClick={() => remove(u.id)}
                       onBlur={() => setConfirmId((c) => (c === u.id ? null : c))}
-                      className={confirmId === u.id ? "ml-auto inline-flex items-center gap-1 text-xs font-medium text-danger" : "ml-auto text-muted hover:text-danger"}
+                      className={confirmId === u.id ? "inline-flex items-center gap-1 text-xs font-medium text-danger" : "text-muted hover:text-danger"}
                       aria-label={t("upd.delete")}
                     >
                       <Trash2 className="h-3.5 w-3.5" />

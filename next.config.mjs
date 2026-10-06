@@ -1,10 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Only our own Supabase storage may be optimised through /_next/image —
+  // a "**" wildcard would turn the image endpoint into an open proxy.
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "**" },
-    ],
+    remotePatterns: [{ protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/**" }],
   },
   // @react-pdf/renderer ships its own bundled deps; keep it external on the server.
   experimental: {

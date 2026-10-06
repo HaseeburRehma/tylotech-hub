@@ -5,6 +5,7 @@ import { config } from "@/lib/config";
 import { getRateLimiter, rateLimitHeaders } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/auth";
+import { lockedToolSlugs } from "@/lib/tool-access";
 
 export const runtime = "nodejs";
 
@@ -42,6 +43,11 @@ export async function POST(req: Request) {
   const def = tool ? TOOL_DEFS[tool] : undefined;
   if (!def) {
     return NextResponse.json({ error: "Unknown tool" }, { status: 404 });
+  }
+
+  // Per-client access (client_tools): staff can switch a tool off for one client.
+  if (supabase && user.role === "client" && (await lockedToolSlugs(supabase, user.client_id)).has(tool!)) {
+    return NextResponse.json({ error: "This tool isn't enabled for your account." }, { status: 403 });
   }
 
   // The system prompt is editable by staff via the ai_tools table; fall back to code.

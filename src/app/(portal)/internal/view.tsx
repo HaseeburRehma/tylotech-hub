@@ -36,6 +36,7 @@ const STAGE_DOT: Record<string, string> = {
   planning: "bg-muted",
   in_progress: "bg-amber-400",
   review: "bg-amber-400",
+  blocked: "bg-danger",
   done: "bg-brand",
 };
 
@@ -43,6 +44,7 @@ const STAGE_I18N: Record<string, string> = {
   planning: "proj.planning",
   in_progress: "proj.inProgress",
   review: "proj.review",
+  blocked: "proj.blocked",
   done: "proj.done",
 };
 
@@ -84,12 +86,14 @@ export function InternalView({
     <div className="space-y-6">
       <PageHeader title={tr("hub.title")} subtitle={tr("hub.subtitle")}>
         {user.role === "admin" && <Badge variant="brand" className="gap-1.5">Super Admin</Badge>}
-        <Link href="/internal/team/new">
-          <Button size="sm" variant="outline">
-            <Users className="h-4 w-4" />
-            {tr("hub.newTeam")}
-          </Button>
-        </Link>
+        {user.role === "admin" && (
+          <Link href="/internal/team/new">
+            <Button size="sm" variant="outline">
+              <Users className="h-4 w-4" />
+              {tr("hub.newTeam")}
+            </Button>
+          </Link>
+        )}
         <Link href="/internal/onboard">
           <Button size="sm">
             <Plus className="h-4 w-4" />
@@ -284,7 +288,7 @@ export function InternalView({
             {tr("hub.allProjects")}
           </Link>
         </CardHeader>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${pipeline.length > 4 ? "lg:grid-cols-3 xl:grid-cols-5" : "lg:grid-cols-4"}`}>
           {pipeline.map((col) => (
             <div key={col.stageKey} className="rounded-xl border border-border bg-bg/40 p-3">
               <div className="mb-3 flex items-center justify-between">

@@ -31,7 +31,15 @@ interface Row {
   account_label: string | null;
   last_synced_at: string | null;
   has_token?: boolean;
-  meta: { accountId?: string; siteUrl?: string; propertyId?: string; tokenOwner?: "client" | "staff" } | null;
+  meta: {
+    accountId?: string;
+    siteUrl?: string;
+    propertyId?: string;
+    tokenOwner?: "client" | "staff";
+    lastError?: "auth" | "api";
+    lastErrorDetail?: string | null;
+    tokenExpiresAt?: string;
+  } | null;
 }
 
 export function IntegrationsBoard({
@@ -222,12 +230,26 @@ export function IntegrationsBoard({
                     <Badge variant="success" className="gap-1">
                       <Check className="h-3 w-3" /> {t("common.connected")}
                     </Badge>
+                  ) : row?.status === "error" ? (
+                    <Badge variant="danger">{t("integ.reconnectBadge")}</Badge>
                   ) : (
                     <Badge variant="neutral">{t("integ.notConnected")}</Badge>
                   )}
                 </div>
 
                 <p className="mt-3 text-sm text-muted">{p.description}</p>
+                {isStaff && row?.meta?.lastErrorDetail && (
+                  <p className="mt-2 rounded-lg bg-danger/10 px-2.5 py-1.5 text-[11px] text-danger">
+                    {t("integ.lastErrorDetail", { detail: row.meta.lastErrorDetail })}
+                  </p>
+                )}
+                {isStaff && row?.meta?.tokenExpiresAt && (
+                  <p className={`mt-2 text-[11px] ${Date.parse(row.meta.tokenExpiresAt) - Date.now() < 7 * 86_400_000 ? "text-warning" : "text-muted"}`}>
+                    {t("integ.tokenExpires", {
+                      date: new Date(row.meta.tokenExpiresAt).toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" }),
+                    })}
+                  </p>
+                )}
 
                 {connected && (
                   <div className="mt-3">

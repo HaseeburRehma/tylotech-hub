@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAudit } from "@/lib/audit";
 import { getAuthUser, isStaff } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -76,6 +77,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     patch.public_feed_label = label || null;
   }
 
+  if (b.monthlyReportEnabled !== undefined) {
+    if (typeof b.monthlyReportEnabled !== "boolean") return NextResponse.json({ error: "monthlyReportEnabled must be true or false." }, { status: 400 });
+    patch.monthly_report_enabled = b.monthlyReportEnabled;
+  }
+
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
 
   const { data: before } = await admin.from("clients").select("mrr").eq("id", params.id).maybeSingle();
@@ -86,5 +92,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (patch.mrr !== undefined && Number(before?.mrr ?? 0) !== patch.mrr) {
     await admin.from("client_mrr_history").insert({ client_id: params.id, mrr: patch.mrr });
   }
+  const action =
+    patch.archived_at !== undefined ? (patch.archived_at ? "client.archive" : "client.restore")
+    : patch.monthly_report_enabled !== undefined && Object.keys(patch).length === 1 ? "report.autosend"
+    : patch.public_feed_opt_in !== undefined ? "client.feed_consent"
+    : "client.update";
+  const fields = Object.entries(patch)
+    .map(([k, v]) => (k === "mrr" ? `mrr ${before?.mrr ?? 0} → ${v}` : typeof v === "boolean" ? `${k}=${v}` : k))
+    .join(", ");
+  await logAudit(user, { action, clientId: params.id, targetType: "client", targetId: params.id, summary: fields }, admin);
   return NextResponse.json({ ok: true });
 }

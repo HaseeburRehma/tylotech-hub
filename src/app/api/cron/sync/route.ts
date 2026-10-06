@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncClient } from "@/lib/integrations/sync";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -13,15 +14,13 @@ export const maxDuration = 60;
  *
  * Scheduled via vercel.json. Vercel Cron sends `Authorization: Bearer $CRON_SECRET`
  * when CRON_SECRET is set — we require it so the endpoint can't be triggered
- * anonymously. A `?key=` query param is also accepted for manual/testing runs.
+ * anonymously (header only — see lib/cron-auth).
  */
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return NextResponse.json({ error: "CRON_SECRET not configured." }, { status: 503 });
-
+  const auth = isCronAuthorized(req);
+  if (auth === "unconfigured") return NextResponse.json({ error: "CRON_SECRET not configured." }, { status: 503 });
+  if (!auth) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   const url = new URL(req.url);
-  const provided = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? url.searchParams.get("key");
-  if (provided !== secret) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
 
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
@@ -37,12 +36,17 @@ export async function GET(req: Request) {
 
   let totalSynced = 0;
   const perClient: { clientId: string; synced: number }[] = [];
-  for (const clientId of clientIds) {
-    // notify:false — daily refresh is silent (the dashboard shows it live); the
-    // interactive "Sync" button still notifies. auto:false — always refresh here.
-    const { synced } = await syncClient(admin, clientId, { provider, auto: false, notify: false });
-    totalSynced += synced;
-    perClient.push({ clientId, synced });
+  // Small parallel batches so a growing client list still fits in maxDuration.
+  // notify:false — daily refresh is silent; the interactive "Sync" still notifies.
+  for (let i = 0; i < clientIds.length; i += 3) {
+    const batch = clientIds.slice(i, i + 3);
+    const results = await Promise.all(
+      batch.map((clientId) => syncClient(admin, clientId, { provider, auto: false, notify: false }).then((r) => ({ clientId, synced: r.synced }))),
+    );
+    for (const r of results) {
+      totalSynced += r.synced;
+      perClient.push(r);
+    }
   }
 
   return NextResponse.json({ ok: true, clients: clientIds.length, totalSynced, perClient });

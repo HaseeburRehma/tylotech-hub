@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAudit } from "@/lib/audit";
 import { getAuthUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -37,5 +38,10 @@ export async function PATCH(req: Request) {
   // RLS silently matches zero rows when not permitted — never report that as saved.
   if (!res.data?.length) return NextResponse.json({ error: "Tool not found or not editable." }, { status: 404 });
 
+  await logAudit(user, {
+    action: patch.is_active !== undefined ? (patch.is_active ? "tool.global_enable" : "tool.global_disable") : "tool.prompt_edit",
+    targetType: "ai_tool",
+    targetId: b.slug,
+  });
   return NextResponse.json({ ok: true, updatedAt: audit.updated_at });
 }

@@ -1,13 +1,23 @@
 import { NextResponse } from "next/server";
-import { getAuthUser, isStaff } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
+import { getAuthUser } from "@/lib/auth";
+import { config } from "@/lib/config";
+import { getRateLimiter, rateLimitHeaders } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-/** Admin/staff creates a new TyloTech team member (no invite code needed). */
+const MIN_PASSWORD = 12;
+
+/** An admin creates a new TyloTech team member with a password (no invite code). */
 export async function POST(req: Request) {
   const user = await getAuthUser();
-  if (!isStaff(user)) return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  if (user?.role !== "admin") return NextResponse.json({ error: "Only admins can create team accounts." }, { status: 403 });
+
+  const rl = await getRateLimiter().limit(`team-create:${user.id}`, config.rateLimit.auth);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Slow down a moment." }, { status: 429, headers: rateLimitHeaders(rl) });
+  }
 
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
@@ -23,15 +33,16 @@ export async function POST(req: Request) {
   const email = body.email?.trim().toLowerCase();
   const password = body.password;
   const title = body.title?.trim() || null;
-  // Only an existing admin can mint another admin — a "team" account (also
-  // staff-gated above) must not be able to self-escalate the roster.
-  const role = body.role === "admin" && user?.role === "admin" ? "admin" : "team";
+  const role = body.role === "admin" ? "admin" : "team";
 
   if (!name || !email || !password) {
     return NextResponse.json({ error: "Name, email and password are required." }, { status: 400 });
   }
-  if (password.length < 8) {
-    return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || name.length > 120) {
+    return NextResponse.json({ error: "Enter a valid name and email." }, { status: 400 });
+  }
+  if (typeof password !== "string" || password.length < MIN_PASSWORD || password.length > 128) {
+    return NextResponse.json({ error: `Password must be ${MIN_PASSWORD}–128 characters.` }, { status: 400 });
   }
 
   const { data: created, error } = await admin.auth.admin.createUser({
@@ -53,5 +64,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: pErr.message }, { status: 500 });
   }
 
+  await logAudit(user, { action: "team.create", targetType: "user", targetId: created.user.id, summary: `${name} (${role})` }, admin);
   return NextResponse.json({ ok: true, email });
 }

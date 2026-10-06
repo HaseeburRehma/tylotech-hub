@@ -44,6 +44,7 @@ function mapClient(c: any): Client {
     themeId: "tylotech",
     created_at: c.created_at,
     archived_at: c.archived_at ?? null,
+    monthly_report_enabled: !!c.monthly_report_enabled,
   };
 }
 

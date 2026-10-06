@@ -74,11 +74,13 @@ export function MembersView({ members, currentUserId, isAdmin }: { members: Staf
   return (
     <div className="space-y-6">
       <PageHeader title={t("members.title")} subtitle={t("members.subtitle", { n: members.filter((m) => m.active).length })}>
-        <Link href="/internal/team/new">
-          <Button size="sm" variant="outline">
-            <Plus className="h-4 w-4" /> {t("members.createWithPassword")}
-          </Button>
-        </Link>
+        {isAdmin && (
+          <Link href="/internal/team/new">
+            <Button size="sm" variant="outline">
+              <Plus className="h-4 w-4" /> {t("members.createWithPassword")}
+            </Button>
+          </Link>
+        )}
       </PageHeader>
 
       {notice && (

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAudit } from "@/lib/audit";
 import { getAuthUser, isStaff } from "@/lib/auth";
 import { sendInviteEmail } from "@/lib/email";
 import { getRateLimiter, rateLimitHeaders } from "@/lib/rate-limit";
@@ -93,5 +94,14 @@ export async function POST(req: Request) {
     results.push({ email: r.email, status: "invited", emailed });
   }
 
+  const invited = results.filter((r) => r.status === "invited");
+  if (invited.length) {
+    await logAudit(user, {
+      action: "invite.send",
+      clientId,
+      targetType: "user",
+      summary: `${invited.length} invite(s) as ${role}`,
+    }, admin);
+  }
   return NextResponse.json({ ok: true, results });
 }

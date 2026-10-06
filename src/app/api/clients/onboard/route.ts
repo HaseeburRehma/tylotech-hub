@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAudit } from "@/lib/audit";
 import { getAuthUser, isStaff } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -99,5 +100,12 @@ export async function POST(req: Request) {
     }
   }
 
+  await logAudit(user, {
+    action: "client.onboard",
+    clientId: client.id,
+    targetType: "client",
+    targetId: client.id,
+    summary: `${company}${clientUser ? " · login created" : ""}`,
+  }, admin);
   return NextResponse.json({ ok: true, clientId: client.id, clientUser, warning });
 }

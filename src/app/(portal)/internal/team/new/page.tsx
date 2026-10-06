@@ -50,7 +50,12 @@ export default function NewTeamMemberPage() {
       <PageHeader title={t("teamForm.title")} subtitle={t("teamForm.subtitle")} />
 
       <Card className="p-6">
-        {done ? (
+        {user.role !== "admin" ? (
+          <div className="flex items-start gap-2 text-sm text-muted">
+            <Shield className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{t("teamForm.adminOnly")}</span>
+          </div>
+        ) : done ? (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
             <CheckCircle2 className="h-12 w-12 text-success" />
             <p className="text-lg font-semibold">{t("teamForm.done")}</p>
@@ -90,7 +95,7 @@ export default function NewTeamMemberPage() {
                 <Label htmlFor="password">{t("teamForm.password")}</Label>
                 <div className="relative">
                   <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                  <Input id="password" type="password" required minLength={8} value={form.password} onChange={set("password")} placeholder={t("teamForm.min8")} className="h-11 pl-10" />
+                  <Input id="password" type="password" required minLength={12} value={form.password} onChange={set("password")} placeholder={t("teamForm.min8")} className="h-11 pl-10" />
                 </div>
               </div>
               <div>
