@@ -4,6 +4,7 @@ import {
   getClientByRef,
   getKpis,
   getPortfolioSummary,
+  listClientHealth,
   getSeries,
   listClientUsers,
   listDocuments,
@@ -37,6 +38,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       getPortfolioSummary(),
       getSeries(client.id),
     ]);
+  const health = (await listClientHealth())[client.id];
 
   // Same window as the portfolio summary: 30 complete days ending yesterday.
   const day = (offset: number) => {
@@ -73,6 +75,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       spend30d={Number(spend30d.toFixed(2))}
       leads30d={leads30d}
       portfolioSpend30d={portfolio.spend30d}
+      health={health}
     />
   );
 }

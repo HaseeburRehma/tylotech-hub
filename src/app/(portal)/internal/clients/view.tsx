@@ -18,19 +18,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { NewClientModal } from "@/components/modals/new-client-modal";
+import { HealthBadge } from "@/components/health/health";
+import type { ClientHealth } from "@/lib/health";
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from "@/components/ui/menu";
 import { useT } from "@/lib/i18n/provider";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { ClientListRow, TeamMember } from "@/lib/data";
 
-type PlanFilter = "all" | "Growth" | "Scale" | "new" | "archived";
-type SortKey = "budget" | "mrr" | "leads" | "name" | "newest";
+type PlanFilter = "all" | "Growth" | "Scale" | "new" | "archived" | "risk";
+type SortKey = "budget" | "mrr" | "leads" | "name" | "newest" | "health";
 const SORTS: Record<SortKey, { label: string; cmp: (a: ClientListRow, b: ClientListRow) => number }> = {
   budget: { label: "clients.sortBudget", cmp: (a, b) => b.spend30d - a.spend30d },
   mrr: { label: "clients.sortMrr", cmp: (a, b) => b.mrr - a.mrr },
   leads: { label: "clients.sortLeads", cmp: (a, b) => b.leads30d - a.leads30d },
   name: { label: "clients.sortName", cmp: (a, b) => a.company.localeCompare(b.company) },
   newest: { label: "clients.sortNewest", cmp: (a, b) => b.created_at.localeCompare(a.created_at) },
+  health: { label: "health.sort", cmp: () => 0 },
 };
 
 const PLAN_VARIANT: Record<string, "success" | "brand" | "neutral"> = {
@@ -73,9 +76,11 @@ function Sparkline({ data }: { data: { date: string; spend: number }[] }) {
 export function ClientsView({
   clients,
   team,
+  health = {},
 }: {
   clients: ClientListRow[];
   team: TeamMember[];
+  health?: Record<string, ClientHealth>;
 }) {
   const t = useT();
   const [filter, setFilter] = useState<PlanFilter>("all");
@@ -102,17 +107,25 @@ export function ClientsView({
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
   const archivedCount = clients.filter((c) => c.archived_at).length;
+  const riskCount = clients.filter((c) => !c.archived_at && health[c.id]?.level === "risk").length;
   const active = clients.filter((c) => !c.archived_at);
   const newCount = active.filter((c) => c.created_at.slice(0, 7) === thisMonth).length;
 
+  // Unknown scores sort last; otherwise lowest (most critical) first.
+  const healthOf = (id: string) => health[id]?.score ?? Number.POSITIVE_INFINITY;
   const sorted = useMemo(
-    () => [...clients].filter((c) => (filter === "archived" ? !!c.archived_at : !c.archived_at)).sort(SORTS[sort].cmp),
-    [clients, sort, filter],
+    () =>
+      [...clients]
+        .filter((c) => (filter === "archived" ? !!c.archived_at : !c.archived_at))
+        .sort(sort === "health" ? (a, b) => healthOf(a.id) - healthOf(b.id) : SORTS[sort].cmp),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [clients, sort, filter, health],
   );
 
   const filtered = sorted
     .filter((c) => {
       if (filter === "all" || filter === "archived") return true;
+      if (filter === "risk") return health[c.id]?.level === "risk";
       if (filter === "new") return c.created_at.slice(0, 7) === thisMonth;
       return c.plan === filter;
     })
@@ -168,6 +181,7 @@ export function ClientsView({
               { key: "Growth" as const, label: "Growth", count: planCounts.Growth },
               { key: "Scale" as const, label: "Scale", count: planCounts.Scale },
               { key: "new" as const, label: t("clients.newMonth"), count: newCount },
+              ...(riskCount ? [{ key: "risk" as const, label: t("health.filterRisk"), count: riskCount }] : []),
               ...(archivedCount ? [{ key: "archived" as const, label: t("clients.archived"), count: archivedCount }] : []),
             ]
           ).map((p) => (
@@ -280,6 +294,9 @@ export function ClientsView({
               <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted">
                 {t("clients.col.plan")}
               </th>
+              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted">
+                {t("health.column")}
+              </th>
               <th className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-muted">
                 MRR
               </th>
@@ -339,6 +356,11 @@ export function ClientsView({
                     <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current opacity-60" />
                     {client.plan}
                   </Badge>
+                </td>
+
+                {/* Health */}
+                <td className="px-4 py-3">
+                  <HealthBadge health={health[client.id]} />
                 </td>
 
                 {/* MRR */}

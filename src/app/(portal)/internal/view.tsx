@@ -10,6 +10,8 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Progress } from "@/components/ui/progress";
 import { MrrBars } from "@/components/charts/mrr-bars";
+import { HealthBadge } from "@/components/health/health";
+import type { ClientHealth } from "@/lib/health";
 import { useT } from "@/lib/i18n/provider";
 import { useUser } from "@/components/providers/user-provider";
 import { formatCurrency } from "@/lib/utils";
@@ -50,12 +52,14 @@ export function InternalView({
   pipeline,
   mrrSeries,
   projectCount,
+  health = {},
 }: {
   clients: Client[];
   team: TeamLoad[];
   pipeline: PipelineColumn[];
   mrrSeries: { month: string; mrr: number }[];
   projectCount: number;
+  health?: Record<string, ClientHealth>;
 }) {
   const tr = useT();
   const user = useUser();
@@ -221,6 +225,51 @@ export function InternalView({
           </div>
         </Card>
       </div>
+
+      {/* Clients needing attention (health score) */}
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>{tr("health.hubTitle")}</CardTitle>
+            <p className="mt-0.5 text-xs text-muted">{tr("health.hubSub")}</p>
+          </div>
+          <Link href="/internal/clients" className="text-xs font-medium text-brand hover:underline">
+            {tr("cd.allClients")}
+          </Link>
+        </CardHeader>
+        {(() => {
+          const needing = clients
+            .filter((c) => health[c.id]?.level === "risk" || health[c.id]?.level === "watch")
+            .sort((a, b) => (health[a.id]?.score ?? 100) - (health[b.id]?.score ?? 100))
+            .slice(0, 5);
+          if (!needing.length) {
+            return <p className="py-4 text-center text-sm text-muted">{tr("health.hubEmpty")}</p>;
+          }
+          return (
+            <ul className="divide-y divide-border">
+              {needing.map((c) => {
+                const h = health[c.id];
+                return (
+                  <li key={c.id}>
+                    <Link
+                      href={`/internal/clients/${c.slug ?? c.id}`}
+                      className="flex items-center gap-3 rounded-lg px-1 py-3 transition-colors hover:bg-surface-2"
+                    >
+                      <HealthBadge health={h} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-foreground">{c.company}</span>
+                        {h?.topIssue && (
+                          <span className="block truncate text-xs text-muted">{tr(h.topIssue.reason, h.topIssue.params)}</span>
+                        )}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          );
+        })()}
+      </Card>
 
       {/* Pipeline */}
       <Card>

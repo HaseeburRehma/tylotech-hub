@@ -19,6 +19,8 @@ import { ChatThread } from "@/components/chat/chat-thread";
 import { UpdatesManager } from "@/components/updates/updates-manager";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { MetricsEditor } from "@/components/metrics/metrics-editor";
+import { HealthBadge, HealthCard } from "@/components/health/health";
+import type { ClientHealth } from "@/lib/health";
 import { IntegrationsBoard } from "@/app/(portal)/integrations/board";
 import { EditClientModal } from "@/components/modals/edit-client-modal";
 import { LiveFeedPanel } from "@/components/live-feed/live-feed-panel";
@@ -58,6 +60,7 @@ export function ClientDetail({
   spend30d = 0,
   leads30d = 0,
   portfolioSpend30d = 0,
+  health,
 }: {
   client: Client;
   messages: Message[];
@@ -73,6 +76,7 @@ export function ClientDetail({
   spend30d?: number;
   leads30d?: number;
   portfolioSpend30d?: number;
+  health?: ClientHealth;
 }) {
   const t = useT();
   const [tab, setTab] = useState<TabKey>("overview");
@@ -172,6 +176,7 @@ export function ClientDetail({
                   <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current opacity-60" />
                   {client.plan}
                 </Badge>
+                <HealthBadge health={health} />
               </div>
               <p className="text-sm text-muted">
                 {formatCurrency(client.mrr)} {t("cd.perMonth", { amount: "" }).trim()} · {t("cd.clientSince", { date: clientSince })}
@@ -370,6 +375,7 @@ export function ClientDetail({
 
             {/* Right sidebar */}
             <div className="space-y-4">
+              <HealthCard health={health} />
               {/* Team */}
               <div className="rounded-xl border border-border bg-surface p-5">
                 <div className="mb-4 flex items-center justify-between">

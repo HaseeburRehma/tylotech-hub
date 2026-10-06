@@ -5,6 +5,7 @@
  */
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { computeHealth, type ClientHealth } from "@/lib/health";
 import type { ChatPeer, Client, DocItem, Kpi, Message, Project, Role, SeriesPoint, Update } from "@/types";
 
 export interface TeamMember {
@@ -606,4 +607,66 @@ export async function listTeamLoad(): Promise<TeamLoad[]> {
       avatar: null,
     };
   });
+}
+
+/**
+ * Staff-only: health score per (non-archived) client, from integrations, ad
+ * lead trend, chat recency, update cadence and project delivery. Uses the
+ * service role so direct messages count too — callers must be staff pages.
+ */
+export async function listClientHealth(): Promise<Record<string, ClientHealth>> {
+  const admin = createAdminClient();
+  if (!admin) return {};
+  const since = (days: number) => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - days);
+    return d.toISOString();
+  };
+
+  const [clients, integ, points, msgs, ups, projs] = await Promise.all([
+    listClients(),
+    admin.from("integrations").select("client_id,status,last_synced_at"),
+    admin
+      .from("metric_points")
+      .select("client_id,date,leads")
+      .in("provider", Array.from(AD_PROVIDERS))
+      .gte("date", since(61).slice(0, 10)),
+    admin
+      .from("messages")
+      .select("client_id,sender_role,created_at")
+      .not("client_id", "is", null)
+      .gte("created_at", since(120))
+      .order("created_at", { ascending: false })
+      .limit(5000),
+    admin.from("updates").select("client_id,created_at").order("created_at", { ascending: false }).limit(5000),
+    admin.from("projects").select("client_id,status,due"),
+  ]);
+
+  const group = <T extends { client_id: string }>(rows: T[] | null) => {
+    const m = new Map<string, T[]>();
+    for (const r of rows ?? []) {
+      const list = m.get(r.client_id) ?? [];
+      list.push(r);
+      m.set(r.client_id, list);
+    }
+    return m;
+  };
+  const gInteg = group(integ.data as any[]);
+  const gPoints = group(points.data as any[]);
+  const gMsgs = group(msgs.data as any[]);
+  const gUps = group(ups.data as any[]);
+  const gProjs = group(projs.data as any[]);
+
+  const out: Record<string, ClientHealth> = {};
+  for (const c of clients) {
+    out[c.id] = computeHealth({
+      clientCreatedAt: c.created_at,
+      integrations: (gInteg.get(c.id) ?? []).map((i: any) => ({ status: i.status, lastSyncedAt: i.last_synced_at })),
+      adPoints: (gPoints.get(c.id) ?? []).map((p: any) => ({ date: p.date, leads: Number(p.leads) })),
+      messages: (gMsgs.get(c.id) ?? []).map((m: any) => ({ createdAt: m.created_at, fromStaff: m.sender_role !== "client" })),
+      updates: (gUps.get(c.id) ?? []).map((u: any) => ({ createdAt: u.created_at })),
+      projects: (gProjs.get(c.id) ?? []).map((p: any) => ({ status: p.status, due: p.due })),
+    });
+  }
+  return out;
 }

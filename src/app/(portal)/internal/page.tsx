@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { listClients, listProjects, listTeamLoad } from "@/lib/data";
+import { listClientHealth, listClients, listProjects, listTeamLoad } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import { LOCALE_COOKIE } from "@/lib/i18n/dictionary";
 import { InternalView, type PipelineColumn } from "./view";
@@ -13,10 +13,11 @@ const STAGES: { key: ProjectStatus; label: string }[] = [
 ];
 
 export default async function InternalPage() {
-  const [clients, team, projects] = await Promise.all([
+  const [clients, team, projects, health] = await Promise.all([
     listClients(),
     listTeamLoad(),
     listProjects(),
+    listClientHealth(),
   ]);
 
   const companyById = Object.fromEntries(clients.map((c) => [c.id, c.company]));
@@ -74,6 +75,7 @@ export default async function InternalPage() {
       pipeline={pipeline}
       mrrSeries={mrrSeries}
       projectCount={projects.length}
+      health={health}
     />
   );
 }
