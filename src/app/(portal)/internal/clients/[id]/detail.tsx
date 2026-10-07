@@ -21,6 +21,8 @@ import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { MetricsEditor } from "@/components/metrics/metrics-editor";
 import { MonthlyReportPanel, type ReportRun } from "@/components/reports/monthly-report-panel";
 import { ClientToolAccess } from "@/components/ai/client-tool-access";
+import { PartnerProcesses } from "@/components/workflows/partner-processes";
+import type { Run, StaffOption, Template } from "@/lib/workflows-shared";
 import { HealthBadge, HealthCard } from "@/components/health/health";
 import type { ClientHealth } from "@/lib/health";
 import { IntegrationsBoard } from "@/app/(portal)/integrations/board";
@@ -42,6 +44,7 @@ const TABS = [
   { key: "chat", labelKey: "cd.tab.chat" },
   { key: "updates", labelKey: "cd.tab.updates" },
   { key: "documents", labelKey: "cd.tab.documents" },
+  { key: "processes", labelKey: "cd.tab.processes" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -65,6 +68,9 @@ export function ClientDetail({
   health,
   reportRuns = [],
   lockedTools = [],
+  workflowRuns = [],
+  workflowTemplates = [],
+  workflowStaff = [],
   locale = "de",
 }: {
   client: Client;
@@ -84,6 +90,9 @@ export function ClientDetail({
   health?: ClientHealth;
   reportRuns?: ReportRun[];
   lockedTools?: string[];
+  workflowRuns?: Run[];
+  workflowTemplates?: Template[];
+  workflowStaff?: StaffOption[];
   locale?: string;
 }) {
   const t = useT();
@@ -756,6 +765,15 @@ export function ClientDetail({
       {/* ───────── Documents ───────── */}
       {tab === "documents" && (
         <DocumentsPanel documents={documents} clientId={client.id} />
+      )}
+
+      {tab === "processes" && (
+        <PartnerProcesses
+          client={{ id: client.id, company: client.company }}
+          runs={workflowRuns}
+          templates={workflowTemplates}
+          staff={workflowStaff}
+        />
       )}
     </div>
   );

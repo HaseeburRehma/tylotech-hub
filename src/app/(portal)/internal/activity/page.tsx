@@ -4,7 +4,7 @@ import { ActivityView, type AuditRow } from "./view";
 
 const PAGE = 100;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const AREAS = new Set(["client", "team", "invite", "project", "update", "document", "report", "tool", "integration"]);
+const AREAS = new Set(["client", "team", "invite", "project", "update", "document", "report", "tool", "integration", "workflow"]);
 
 /** Staff audit trail (who changed what). The internal layout already gates staff. */
 export default async function ActivityPage({ searchParams }: { searchParams: { client?: string; area?: string; before?: string } }) {

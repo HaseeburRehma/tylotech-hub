@@ -11,6 +11,7 @@ import {
   Users,
   Contact,
   History,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react";
 
@@ -35,6 +36,7 @@ export const INTERNAL_NAV: NavItem[] = [
   { href: "/internal/clients", label: "nav.clients", icon: Contact },
   { href: "/internal/team", label: "nav.team", icon: Users },
   { href: "/internal/projects", label: "nav.projects", icon: FolderKanban },
+  { href: "/internal/processes", label: "nav.processes", icon: ListChecks },
   { href: "/internal/ai-tools", label: "nav.aiPrompts", icon: SlidersHorizontal },
   { href: "/internal/activity", label: "nav.activity", icon: History },
 ];

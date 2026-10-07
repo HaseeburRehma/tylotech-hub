@@ -18,7 +18,7 @@ export interface AuditRow {
   created_at: string;
 }
 
-const AREAS = ["client", "team", "invite", "project", "update", "document", "report", "tool", "integration"] as const;
+const AREAS = ["client", "team", "invite", "project", "update", "document", "report", "tool", "integration", "workflow"] as const;
 
 export function ActivityView({
   rows,

@@ -224,3 +224,32 @@ export async function sendMonthlyReportEmail(
     { filename: opts.filename, content: opts.pdf.toString("base64") },
   ]);
 }
+
+/** "Du bist dran" — a workflow step became active and is assigned to this team member. */
+export async function sendStepAssignedEmail(
+  to: string,
+  e: { step: string; process: string; partner: string; due: string | null; path: string; instructions?: string | null },
+): Promise<boolean> {
+  if (!emailConfigured) return false;
+  const link = `${APP_URL}${e.path}`;
+  const html = `<!doctype html><html><body style="margin:0;background:#f4f4f5;padding:24px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+    <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e5e5">
+      <tr><td style="padding:20px 28px;border-bottom:1px solid #eee">
+        <span style="font-size:17px;font-weight:700;color:#111">Tylo<span style="color:#C9A84C">Tech</span></span>
+      </td></tr>
+      <tr><td style="padding:24px 28px">
+        <p style="margin:0 0 6px;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:#999">${esc(e.process)} · ${esc(e.partner)}</p>
+        <p style="margin:0 0 10px;font-size:18px;font-weight:700;color:#111">Du bist dran: ${esc(e.step)}</p>
+        ${e.instructions ? `<p style="margin:0 0 12px;font-size:14px;color:#555;line-height:1.5">${esc(e.instructions)}</p>` : ""}
+        ${e.due ? `<p style="margin:0 0 16px;font-size:14px;color:#555">Fällig: <strong>${esc(e.due)}</strong></p>` : ""}
+        <a href="${link}" style="display:inline-block;background:#C9A84C;color:#111;text-decoration:none;font-weight:600;padding:11px 22px;border-radius:10px;font-size:14px">Schritt öffnen →</a>
+      </td></tr>
+      <tr><td style="padding:16px 28px;background:#fafafa;border-top:1px solid #eee">
+        <p style="margin:0;font-size:12px;color:#999">Automatische Benachrichtigung aus TyloHQ · Prozesse</p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+  </body></html>`;
+  return send(to, `Du bist dran: ${e.step} bei ${e.partner}`, html);
+}

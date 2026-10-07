@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 import { lockedToolSlugs } from "@/lib/tool-access";
+import { listStaff, loadRuns, loadTemplates } from "@/lib/workflows";
+import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { LOCALE_COOKIE } from "@/lib/i18n/dictionary";
 import type { ReportRun } from "@/components/reports/monthly-report-panel";
@@ -47,6 +49,12 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     ? await admin.from("report_runs").select("period,status,recipients,error,created_at").eq("client_id", client.id).order("period", { ascending: false }).limit(6)
     : { data: [] };
   const lockedTools = admin ? Array.from(await lockedToolSlugs(admin, client.id)) : [];
+  const sbUser = createClient();
+  const [workflowRuns, workflowTemplates, workflowStaff] = await Promise.all([
+    sbUser ? loadRuns(sbUser, { clientId: client.id }) : Promise.resolve([]),
+    sbUser ? loadTemplates(sbUser) : Promise.resolve([]),
+    admin ? listStaff(admin) : Promise.resolve([]),
+  ]);
   const locale = cookies().get(LOCALE_COOKIE)?.value === "en" ? "en" : "de";
 
   // Same window as the portfolio summary: 30 complete days ending yesterday.
@@ -87,6 +95,9 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       health={health}
       reportRuns={(reportRuns ?? []) as ReportRun[]}
       lockedTools={lockedTools}
+      workflowRuns={workflowRuns}
+      workflowTemplates={workflowTemplates}
+      workflowStaff={workflowStaff}
       locale={locale}
     />
   );
