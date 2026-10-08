@@ -14,7 +14,7 @@ import { StartRunModal } from "@/components/workflows/start-run-modal";
 import { TemplateEditor } from "@/components/workflows/template-editor";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
-import { activeStep, isOverdue, type Run, type StaffOption, type Template } from "@/lib/workflows-shared";
+import { activeStep, berlinToday, isOverdue, type Run, type StaffOption, type Template } from "@/lib/workflows-shared";
 
 type Tab = "board" | "mine" | "templates";
 
@@ -122,7 +122,7 @@ function MyTasks({ runs, company }: { runs: Run[]; company: Record<string, strin
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = berlinToday();
   const tasks = runs
     .filter((r) => r.status === "active")
     .flatMap((r) => r.steps.filter((s) => s.status === "active" && s.assignee_user_id === user.id).map((s) => ({ run: r, step: s })))

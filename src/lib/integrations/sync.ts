@@ -112,12 +112,14 @@ export async function syncClient(
     // the new set first and remove the old rows only once that succeeded.
     const source = data.kpis[0]?.source;
     if (source && data.kpis.length) {
-      const { data: old } = await admin.from("kpis").select("id").eq("client_id", clientId).eq("source", source);
       const rowsToInsert = data.kpis.map((k) => ({ ...k, client_id: clientId }));
-      let ins = await admin.from("kpis").insert(rowsToInsert);
+      let ins = await admin.from("kpis").insert(rowsToInsert).select("id");
       // Pre-0027 schema: delta is NOT NULL — store "no comparison" as 0 (the UI hides 0).
-      if (ins.error?.code === "23502") ins = await admin.from("kpis").insert(rowsToInsert.map((k) => ({ ...k, delta: k.delta ?? 0 })));
-      if (!ins.error && old?.length) await admin.from("kpis").delete().in("id", old.map((o: { id: string }) => o.id));
+      if (ins.error?.code === "23502") ins = await admin.from("kpis").insert(rowsToInsert.map((k) => ({ ...k, delta: k.delta ?? 0 }))).select("id");
+      // Remove every other row of this source — not just the ones read earlier — so
+      // two overlapping syncs can't both leave their sets behind (duplicate cards).
+      const keep = (ins.data ?? []).map((r: { id: string }) => r.id);
+      if (!ins.error && keep.length) await admin.from("kpis").delete().eq("client_id", clientId).eq("source", source).not("id", "in", `(${keep.join(",")})`);
     }
     const byDate = (pointsByProviderDate[row.provider] = pointsByProviderDate[row.provider] || {});
     for (const p of data.series) {
@@ -136,18 +138,26 @@ export async function syncClient(
   const points = Object.entries(pointsByProviderDate).flatMap(([provider, byDate]) =>
     Object.entries(byDate).map(([date, v]) => ({ client_id: clientId, date, provider, ...v })),
   );
-  // Live feed (LIVE_FEED.md §4): remember today's stored lead totals before overwriting them.
+  // Live feed (LIVE_FEED.md §4): remember the stored lead totals of the newest day
+  // each provider returned before overwriting them. The fetchers stop at the last
+  // complete day, so this is usually yesterday — matching on "today" only would
+  // never find a point and no lead event would ever be emitted.
   const today = todayBerlin();
-  const leadPoints = points.filter((p) => LEAD_PROVIDERS.has(p.provider) && p.date === today);
+  const newestByProvider: Record<string, string> = {};
+  for (const p of points) {
+    if (LEAD_PROVIDERS.has(p.provider) && p.date <= today && p.date > (newestByProvider[p.provider] ?? "")) newestByProvider[p.provider] = p.date;
+  }
+  const leadPoints = points.filter((p) => newestByProvider[p.provider] === p.date);
   const previousLeads: Record<string, number> = {};
-  if (leadPoints.length) {
+  for (const p of leadPoints) {
     const { data: prev } = await admin
       .from("metric_points")
-      .select("provider, leads")
+      .select("leads")
       .eq("client_id", clientId)
-      .eq("date", today)
-      .in("provider", leadPoints.map((p) => p.provider));
-    for (const r of prev ?? []) previousLeads[r.provider] = Number(r.leads) || 0;
+      .eq("provider", p.provider)
+      .eq("date", p.date)
+      .maybeSingle();
+    previousLeads[p.provider] = Number(prev?.leads) || 0;
   }
 
   if (points.length) await admin.from("metric_points").upsert(points, { onConflict: "client_id,date,provider" });
@@ -158,9 +168,15 @@ export async function syncClient(
   for (const p of leadPoints) {
     const delta = p.leads - (previousLeads[p.provider] ?? 0);
     if (delta <= 0) continue;
-    const midnight = berlinMidnight(now);
-    const from = Math.max(midnight, prevSyncAt[p.provider] ? new Date(prevSyncAt[p.provider] as string).getTime() : midnight);
-    const occurredAt = new Date(Math.min(now, from + Math.max(0, now - from) / 2));
+    let occurredAt: Date;
+    if (p.date === today) {
+      const midnight = berlinMidnight(now);
+      const from = Math.max(midnight, prevSyncAt[p.provider] ? new Date(prevSyncAt[p.provider] as string).getTime() : midnight);
+      occurredAt = new Date(Math.min(now, from + Math.max(0, now - from) / 2));
+    } else {
+      // A completed earlier day: place the event at noon UTC (13:00/14:00 in Berlin).
+      occurredAt = new Date(`${p.date}T12:00:00Z`);
+    }
     await emitActivity(admin, {
       clientId,
       kind: "leads",
@@ -168,14 +184,14 @@ export async function syncClient(
       detail: joinDetail(CHANNEL_LABEL[p.provider], client.public_feed_label),
       occurredAt,
       source: p.provider as "meta_ads" | "google_ads",
-      sourceRef: `metric_points:${clientId}:${today}:${p.provider}:leads=${p.leads}`,
+      sourceRef: `metric_points:${clientId}:${p.date}:${p.provider}:leads=${p.leads}`,
     });
   }
 
   if (populated && opts.notify !== false) {
     await notifyClientUsers(clientId, {
-      title: "Fresh performance data is in",
-      body: "Your latest campaign metrics have been synced.",
+      title: "Neue Leistungsdaten sind da",
+      body: "Deine aktuellen Kampagnenzahlen wurden synchronisiert.",
       href: "/dashboard",
       type: "update",
     });

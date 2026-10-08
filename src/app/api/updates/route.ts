@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   await logAudit(user, { action: "update.post", clientId: b.clientId, targetType: "update", targetId: data.id, summary: data.title });
 
   await notifyClientUsers(b.clientId, {
-    title: "New update from TyloTech",
+    title: "Neues Update von TyloTech",
     body: b.title.trim(),
     href: "/chat",
     type: "update",

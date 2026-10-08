@@ -46,7 +46,7 @@ export function AiHistoryModal({ open, onClose, tool }: { open: boolean; onClose
           )}
           <button
             type="button"
-            aria-label="Close"
+            aria-label={t("widget.close")}
             onClick={onClose}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
           >

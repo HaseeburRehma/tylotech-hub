@@ -58,6 +58,23 @@ export function monthRange(period: string) {
   return { start: iso(start), end: iso(end), prevStart: iso(prevStart), prevEnd: iso(prevEnd), days: end.getUTCDate(), startDate: start };
 }
 
+/** ISO instant of 00:00 Berlin time on `date` (YYYY-MM-DD), DST-aware. */
+export function berlinMidnightUtc(date: string): string {
+  const utcMidnight = new Date(`${date}T00:00:00Z`);
+  // Berlin's offset on that day, e.g. "GMT+2" → 2 hours.
+  const name = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Berlin", timeZoneName: "shortOffset" })
+    .formatToParts(utcMidnight)
+    .find((p) => p.type === "timeZoneName")?.value ?? "GMT+1";
+  const hours = Number(name.replace("GMT", "") || "0");
+  return new Date(utcMidnight.getTime() - hours * 3_600_000).toISOString();
+}
+
+const nextDay = (date: string) => {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+};
+
 type Point = { date: string; provider: string; spend: number; leads: number; roas: number };
 
 function pct(cur: number, prev: number): number | null {
@@ -108,8 +125,10 @@ export async function buildMonthlyReport(admin: SupabaseClient, clientId: string
       .from("updates")
       .select("title,created_at")
       .eq("client_id", clientId)
-      .gte("created_at", `${r.start}T00:00:00Z`)
-      .lte("created_at", `${r.end}T23:59:59Z`)
+      // Month boundaries in Berlin time — an update posted at 00:30 on the 1st
+      // belongs to the new month, not the previous one.
+      .gte("created_at", berlinMidnightUtc(r.start))
+      .lt("created_at", berlinMidnightUtc(nextDay(r.end)))
       .order("created_at", { ascending: true }),
   ]);
 
@@ -191,7 +210,7 @@ export async function buildMonthlyReport(admin: SupabaseClient, clientId: string
     sections,
     updates: (ups ?? []).map((u: any) => ({
       title: u.title,
-      date: new Date(u.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short" }),
+      date: new Date(u.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", timeZone: "Europe/Berlin" }),
     })),
     hasData: sections.length > 0,
   };

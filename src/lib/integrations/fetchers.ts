@@ -94,6 +94,21 @@ async function errorFor(res: Response | null): Promise<FetchError> {
 
 const sum = <T,>(rows: T[], f: (r: T) => number) => rows.reduce((a, r) => a + f(r), 0);
 
+/**
+ * Meta reports overlapping lead action types (lead, onsite_conversion.lead_grouped,
+ * offsite_conversion.fb_pixel_lead, …). Taking the first /lead/ match made the
+ * count depend on response order. Use the aggregate "lead" when present, then the
+ * most common specific types — never a sum (they overlap).
+ */
+const LEAD_ACTION_PRIORITY = ["lead", "onsite_conversion.lead_grouped", "offsite_conversion.fb_pixel_lead", "onsite_web_lead"];
+export function metaLeads(actions: { action_type?: string; value?: string | number }[] | undefined): number {
+  for (const type of LEAD_ACTION_PRIORITY) {
+    const hit = (actions ?? []).find((a) => a.action_type === type);
+    if (hit) return Number(hit.value ?? 0) || 0;
+  }
+  return 0;
+}
+
 /** Meta Marketing API — daily ad insights for an ad account. */
 export async function fetchMetaAds(accessToken: string, accountId: string): Promise<FetchResult> {
   if (!accessToken || !accountId) return null;
@@ -120,7 +135,7 @@ export async function fetchMetaAds(accessToken: string, accountId: string): Prom
   }
 
   const series = rows.map((r) => {
-    const leads = Number((r.actions ?? []).find((a: any) => /lead/i.test(a.action_type))?.value ?? 0);
+    const leads = metaLeads(r.actions);
     const roas = Number(r.purchase_roas?.[0]?.value ?? 0);
     return { date: r.date_start as string, spend: Number(r.spend ?? 0), leads, roas };
   });

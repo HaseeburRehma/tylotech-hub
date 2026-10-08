@@ -103,7 +103,7 @@ export function NewProjectModal({
                   <h2 className="text-lg font-semibold text-foreground">{t("newProj.title")}</h2>
                   <p className="mt-0.5 text-sm text-muted">{t("newProj.desc")}</p>
                 </div>
-                <button type="button" aria-label="Close" onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground transition-colors">
+                <button type="button" aria-label={t("widget.close")} onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground transition-colors">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -169,7 +169,7 @@ export function NewProjectModal({
                       {assignedIds.map((id) => (
                         <span key={id} className="inline-flex items-center gap-1 rounded-full bg-surface-2 pl-1 pr-2 py-0.5">
                           <Avatar name={memberMap[id] ?? ""} size={22} />
-                          <button type="button" aria-label="Remove" onClick={() => removeAssignee(id)} className="text-muted hover:text-foreground">
+                          <button type="button" aria-label={t("chat.remove")} onClick={() => removeAssignee(id)} className="text-muted hover:text-foreground">
                             <X className="h-3 w-3" />
                           </button>
                         </span>

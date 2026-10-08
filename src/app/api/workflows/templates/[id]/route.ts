@@ -42,11 +42,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (!tpl) return bad("Template not found.", 404);
 
   if (steps && "rows" in steps) {
-    // Replace the definition (runs reference template steps with ON DELETE SET NULL).
-    const { error: dErr } = await ctx.admin.from("workflow_template_steps").delete().eq("template_id", params.id);
-    if (dErr) return bad(dErr.message);
-    const { error: iErr } = await ctx.admin.from("workflow_template_steps").insert(steps.rows.map((s) => ({ ...s, template_id: params.id })));
-    if (iErr) return bad(iErr.message);
+    // Replace the definition in one transaction (0037) — a failed insert can't
+    // leave the template without steps. Runs keep their own copies.
+    const { error: rErr } = await ctx.admin.rpc("workflow_replace_template_steps", { p_template: params.id, p_steps: steps.rows });
+    if (rErr) return bad(/foreign key|violates/i.test(rErr.message) ? "A default person no longer exists — pick someone else." : "Could not save the steps.");
   }
 
   const action = b.archived === true ? "workflow.template_archive" : b.archived === false && Object.keys(patch).length === 1 ? "workflow.template_restore" : "workflow.template_edit";

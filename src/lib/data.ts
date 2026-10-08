@@ -99,6 +99,26 @@ export async function getClientBySlugPublic(
   };
 }
 
+/**
+ * PostgREST returns at most 1000 rows per request. Page through `build(from, to)`
+ * so long series and portfolio-wide queries aren't silently truncated (which
+ * would drop the newest days and freeze charts). Capped for safety.
+ */
+async function selectAll<T>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>, cap = 50_000): Promise<T[]> {
+  const PAGE = 1000;
+  const out: T[] = [];
+  for (let from = 0; from < cap; from += PAGE) {
+    const { data, error } = await build(from, from + PAGE - 1);
+    if (error || !data) break;
+    out.push(...data);
+    if (data.length < PAGE) break;
+  }
+  return out;
+}
+
+/** First day of the previous calendar year — enough for "YTD vs previous period". */
+const seriesSince = () => `${new Date().getUTCFullYear() - 1}-01-01`;
+
 export interface ProviderSeriesPoint extends SeriesPoint {
   provider: string;
 }
@@ -108,12 +128,17 @@ export interface ProviderSeriesPoint extends SeriesPoint {
 export async function getSeriesByProvider(clientId: string | null): Promise<ProviderSeriesPoint[]> {
   const sb = createClient();
   if (!sb || !clientId) return [];
-  const { data } = await sb
-    .from("metric_points")
-    .select("date,spend,leads,roas,provider")
-    .eq("client_id", clientId)
-    .order("date", { ascending: true });
-  return (data ?? []).map((p: any) => ({
+  const data = await selectAll<any>((from, to) =>
+    sb
+      .from("metric_points")
+      .select("date,spend,leads,roas,provider")
+      .eq("client_id", clientId)
+      .gte("date", seriesSince())
+      .order("date", { ascending: true })
+      .order("provider", { ascending: true })
+      .range(from, to),
+  );
+  return data.map((p: any) => ({
     date: p.date,
     spend: Number(p.spend),
     leads: Number(p.leads),
@@ -142,10 +167,11 @@ export async function getKpis(clientId: string | null): Promise<Kpi[]> {
 export async function getSeries(clientId: string | null, provider?: string): Promise<SeriesPoint[]> {
   const sb = createClient();
   if (!sb || !clientId) return [];
-  let query = sb.from("metric_points").select("date,spend,leads,roas,provider").eq("client_id", clientId);
-  query = provider ? query.eq("provider", provider) : query.in("provider", Array.from(AD_PROVIDERS));
-  const { data } = await query.order("date", { ascending: true });
-  const rows = data ?? [];
+  const rows = await selectAll<any>((from, to) => {
+    let query = sb.from("metric_points").select("date,spend,leads,roas,provider").eq("client_id", clientId).gte("date", seriesSince());
+    query = provider ? query.eq("provider", provider) : query.in("provider", Array.from(AD_PROVIDERS));
+    return query.order("date", { ascending: true }).order("provider", { ascending: true }).range(from, to);
+  });
 
   if (provider) {
     return rows.map((p: any) => ({ date: p.date, spend: Number(p.spend), leads: Number(p.leads), roas: Number(p.roas) }));
@@ -218,14 +244,18 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
   const cutoffStr = day(30);
   const sinceStr = day(60);
 
-  const { data } = await sb
-    .from("metric_points")
-    .select("client_id,date,spend,leads,provider")
-    .in("provider", Array.from(AD_PROVIDERS))
-    .gte("date", sinceStr)
-    .lte("date", end)
-    .order("date", { ascending: true });
-  const rows = data ?? [];
+  const rows = await selectAll<any>((from, to) =>
+    sb
+      .from("metric_points")
+      .select("client_id,date,spend,leads,provider")
+      .in("provider", Array.from(AD_PROVIDERS))
+      .gte("date", sinceStr)
+      .lte("date", end)
+      .order("date", { ascending: true })
+      .order("client_id", { ascending: true })
+      .order("provider", { ascending: true })
+      .range(from, to),
+  );
   if (!rows.length) return empty;
 
   const byDate = new Map<string, { spend: number; leads: number }>();
@@ -472,7 +502,9 @@ export interface AiToolRow {
 }
 
 export async function listAiTools(): Promise<AiToolRow[]> {
-  const sb = createClient();
+  // Prompt templates are agency IP: browser roles can't read that column
+  // (migration 0037), so this staff-only page reads them server-side.
+  const sb = createAdminClient();
   if (!sb) return [];
   const base = "id,name,slug,description,category,prompt_template,is_active";
   // updated_at/updated_by arrive with migration 0029 — tolerate their absence.
@@ -543,9 +575,19 @@ export async function listClientsEnriched(): Promise<ClientListRow[]> {
   since.setDate(since.getDate() - 30);
   const sinceStr = since.toISOString().slice(0, 10);
 
-  const [{ data: clientRows }, { data: metricRows }, { data: projectRows }, staff] = await Promise.all([
+  const [{ data: clientRows }, metricRows, { data: projectRows }, staff] = await Promise.all([
     sb.from("clients").select("*").order("created_at", { ascending: true }),
-    sb.from("metric_points").select("client_id,date,spend,leads,provider").in("provider", ["meta_ads", "google_ads"]).gte("date", sinceStr),
+    selectAll<any>((from, to) =>
+      sb
+        .from("metric_points")
+        .select("client_id,date,spend,leads,provider")
+        .in("provider", ["meta_ads", "google_ads"])
+        .gte("date", sinceStr)
+        .order("date")
+        .order("client_id")
+        .order("provider")
+        .range(from, to),
+    ),
     sb.from("projects").select("client_id,assigned_to_id"),
     fetchStaff(sb),
   ]);
@@ -627,19 +669,29 @@ export async function listClientHealth(): Promise<Record<string, ClientHealth>> 
   const [clients, integ, points, msgs, ups, projs] = await Promise.all([
     listClients(),
     admin.from("integrations").select("client_id,status,last_synced_at"),
-    admin
-      .from("metric_points")
-      .select("client_id,date,leads")
-      .in("provider", Array.from(AD_PROVIDERS))
-      .gte("date", since(61).slice(0, 10)),
-    admin
-      .from("messages")
-      .select("client_id,sender_role,created_at")
-      .not("client_id", "is", null)
-      .gte("created_at", since(120))
-      .order("created_at", { ascending: false })
-      .limit(5000),
-    admin.from("updates").select("client_id,created_at").order("created_at", { ascending: false }).limit(5000),
+    selectAll<any>((from, to) =>
+      admin
+        .from("metric_points")
+        .select("client_id,date,leads")
+        .in("provider", Array.from(AD_PROVIDERS))
+        .gte("date", since(61).slice(0, 10))
+        .order("date")
+        .order("client_id")
+        .range(from, to),
+    ).then((data) => ({ data })),
+    selectAll<any>((from, to) =>
+      admin
+        .from("messages")
+        .select("client_id,sender_role,created_at")
+        .not("client_id", "is", null)
+        .gte("created_at", since(120))
+        .order("created_at", { ascending: false })
+        .range(from, to),
+    ).then((data) => ({ data })),
+    // Health only needs each client's newest update (anything older than 60 days scores 0).
+    selectAll<any>((from, to) =>
+      admin.from("updates").select("client_id,created_at").gte("created_at", since(120)).order("created_at", { ascending: false }).range(from, to),
+    ).then((data) => ({ data })),
     admin.from("projects").select("client_id,status,due"),
   ]);
 

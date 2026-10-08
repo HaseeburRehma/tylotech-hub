@@ -1,19 +1,25 @@
-import { getAuthUser } from "@/lib/auth";
-import { listClients, listMessages, listTeamPeers, listUpdates } from "@/lib/data";
+import { getAuthUser, isStaff } from "@/lib/auth";
+import { activeClientRef } from "@/lib/active-client-server";
+import { getClientByRef, listClients, listMessages, listTeamPeers, listUpdates } from "@/lib/data";
 import { ChatView } from "./view";
 
 export default async function ChatPage() {
   const user = await getAuthUser();
-  const clientId = user?.client_id ?? null;
 
-  const [messages, updates, peers, clients] = await Promise.all([
-    listMessages(clientId),
-    listUpdates(clientId),
-    listTeamPeers(),
-    listClients(),
-  ]);
+  // Staff have no client of their own — show the client picked in the sidebar
+  // (same as /projects and /documents), so messages load and replies go to that
+  // client's channel instead of the internal team chat.
+  let clientId = user?.client_id ?? null;
+  let clientCompany = user?.company ?? "";
+  if (isStaff(user)) {
+    const ref = activeClientRef();
+    const picked = ref ? await getClientByRef(ref) : null;
+    const fallback = picked ?? [...(await listClients())].sort((a, b) => a.company.localeCompare(b.company))[0] ?? null;
+    clientId = fallback?.id ?? null;
+    clientCompany = fallback?.company ?? "";
+  }
 
-  const clientCompany = user?.company || clients[0]?.company || "";
+  const [messages, updates, peers] = await Promise.all([listMessages(clientId), listUpdates(clientId), listTeamPeers()]);
 
   return (
     <ChatView

@@ -66,8 +66,8 @@ export async function POST(req: Request) {
 
   if (rows.length || old?.length) {
     await notifyClientUsers(b.clientId, {
-      title: "Your dashboard was updated",
-      body: "TyloTech refreshed your performance metrics.",
+      title: "Deine Kennzahlen wurden aktualisiert",
+      body: "TyloTech hat deine Leistungszahlen aktualisiert.",
       href: "/dashboard",
       type: "update",
     });

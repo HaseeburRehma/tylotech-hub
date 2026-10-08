@@ -43,11 +43,17 @@ export async function runMonthlyReport(
   let runId = claim.data?.id as string | undefined;
   if (claim.error) {
     if (claim.error.code !== "23505") return { status: "failed", reason: claim.error.message };
-    const { data: existing } = await admin.from("report_runs").select("id,status").eq("client_id", clientId).eq("period", period).single();
+    const { data: existing } = await admin.from("report_runs").select("id,status,created_at").eq("client_id", clientId).eq("period", period).single();
     if (existing?.status === "sent" && !opts.force) return { status: "already_sent" };
-    if (existing?.status === "pending" && !opts.force) return { status: "already_sent", reason: "in progress" };
+    // A run left "pending" by a timed-out invocation would otherwise block the
+    // month forever; after 10 minutes it counts as abandoned and may be retried.
+    const stale = existing?.status === "pending" && Date.now() - Date.parse(existing.created_at) > 10 * 60_000;
+    if (existing?.status === "pending" && !stale && !opts.force) return { status: "already_sent", reason: "in progress" };
     runId = existing?.id;
-    await admin.from("report_runs").update({ status: "pending", error: null, triggered_by: opts.triggeredBy ?? null }).eq("id", runId);
+    await admin
+      .from("report_runs")
+      .update({ status: "pending", error: null, triggered_by: opts.triggeredBy ?? null, created_at: new Date().toISOString() })
+      .eq("id", runId);
   }
   const finish = (patch: Record<string, unknown>) => admin.from("report_runs").update(patch).eq("id", runId!);
 

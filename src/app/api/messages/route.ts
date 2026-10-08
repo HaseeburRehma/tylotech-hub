@@ -9,6 +9,15 @@ import { translateMessage } from "@/lib/ai/translate";
 
 export const runtime = "nodejs";
 
+/**
+ * Translation calls the paid AI API, so it gets the AI-sized budget per user.
+ * Over budget the message is still sent — just without a translation.
+ */
+async function translateCapped(userId: string, content: string, target: "en" | "de") {
+  const rl = await getRateLimiter().limit(`msg-translate:${userId}`, config.rateLimit.ai);
+  return rl.success ? translateMessage(content, target) : null;
+}
+
 export async function POST(req: Request) {
   const user = await getAuthUser();
   if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
@@ -71,13 +80,14 @@ export async function POST(req: Request) {
   // Team writes English → translate to German for the client.
   // Internal staff↔staff needs no translation.
   const target = isClient ? "en" : "de";
-  const contentTranslated = internal ? null : await translateMessage(content, target);
+  const contentTranslated = internal ? null : await translateCapped(user.id, content, target);
 
   // Thread support: validate parentId if provided.
   const parentId: string | null = body.parentId ?? null;
   if (parentId) {
-    const { data: parent } = await sb.from("messages").select("id").eq("id", parentId).single();
-    if (!parent) return NextResponse.json({ error: "Parent message not found." }, { status: 400 });
+    const { data: parent } = await sb.from("messages").select("id,client_id").eq("id", parentId).maybeSingle();
+    // A reply must stay in the same conversation as the message it answers.
+    if (!parent || (parent.client_id ?? null) !== clientId) return NextResponse.json({ error: "Parent message not found." }, { status: 400 });
   }
 
   const { data, error } = await sb
@@ -96,17 +106,20 @@ export async function POST(req: Request) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("message insert failed:", error.message);
+    return NextResponse.json({ error: "Could not send the message." }, { status: 400 });
+  }
 
   // Update parent's reply count + last_reply_at.
   if (parentId) {
     const admin = createAdminClient();
     if (admin) {
       try {
-        // Direct update for reply_count and last_reply_at
-        const { data: parentMsg } = await admin.from("messages").select("reply_count").eq("id", parentId).single();
+        // Recount instead of read-then-increment, so simultaneous replies can't lose one.
+        const { count } = await admin.from("messages").select("id", { count: "exact", head: true }).eq("parent_id", parentId);
         await admin.from("messages").update({
-          reply_count: (parentMsg?.reply_count ?? 0) + 1,
+          reply_count: count ?? 0,
           last_reply_at: new Date().toISOString(),
         }).eq("id", parentId);
       } catch { /* tolerate missing column during migration window */ }
@@ -117,10 +130,12 @@ export async function POST(req: Request) {
   // Only people who belong in this conversation can be mentioned/notified —
   // never users of another tenant.
   let mentionIds: string[] = [];
+  let roleOf = new Map<string, string>();
   const requested = Array.from(new Set((Array.isArray(body.mentions) ? body.mentions : []).filter((x) => typeof x === "string"))).slice(0, 20);
   if (requested.length && data?.id) {
     const lookup = createAdminClient();
     const { data: people } = await (lookup ?? sb).from("users").select("id,role,client_id").in("id", requested);
+    roleOf = new Map((people ?? []).map((p: { id: string; role: string }) => [p.id, p.role]));
     mentionIds = (people ?? [])
       .filter((p: { role: string; client_id: string | null }) =>
         staffRoles.includes(p.role) || (!internal && p.role === "client" && p.client_id === clientId),
@@ -133,10 +148,11 @@ export async function POST(req: Request) {
     // Notify each mentioned user
     for (const uid of mentionIds) {
       if (uid !== user.id) {
-        const href = internal ? "/internal/team" : isClient ? `/internal/clients/${clientId}` : "/chat";
+        // Staff open the partner's chat in the internal area; clients their own /chat.
+        const href = internal ? "/internal/team" : roleOf.get(uid) === "client" ? "/chat" : `/internal/clients/${clientId}`;
         try {
           await notifyUser(uid, {
-            title: `${user.name} mentioned you`,
+            title: roleOf.get(uid) === "client" ? `${user.name} hat dich erwähnt` : `${user.name} mentioned you`,
             body: content.slice(0, 120),
             href,
             type: "message",
@@ -152,14 +168,15 @@ export async function POST(req: Request) {
   if (recipientId) {
     // Direct message → notify only the recipient.
     const href = internal ? "/internal/team" : isClient ? `/internal/clients/${clientId}` : "/chat";
-    await notifyUser(recipientId, { title: `New message from ${user.name}`, body: preview, href, type: "message", email });
+    // Clients read German, the team English (same split as the chat translation).
+    await notifyUser(recipientId, { title: isClient ? `New message from ${user.name}` : `Neue Nachricht von ${user.name}`, body: preview, href, type: "message", email });
   } else if (internal) {
     // Internal group → notify all staff.
     await notifyStaff({ title: `Team chat · ${user.name}`, body: preview, href: "/internal/team", type: "message", email });
   } else if (isClient) {
     await notifyStaff({ title: `New message from ${user.name}`, body: preview, href: `/internal/clients/${clientId}`, type: "message", email });
   } else {
-    await notifyClientUsers(clientId!, { title: "New message from your TyloTech team", body: preview, href: "/chat", type: "message", email });
+    await notifyClientUsers(clientId!, { title: "Neue Nachricht von deinem TyloTech-Team", body: preview, href: "/chat", type: "message", email });
   }
 
   return NextResponse.json({ ok: true, message: data });
@@ -190,7 +207,7 @@ export async function PATCH(req: Request) {
 
   const internal = user.role !== "client" && existing.client_id == null;
   const target = user.role === "client" ? "en" : "de";
-  const contentTranslated = internal ? null : await translateMessage(content, target);
+  const contentTranslated = internal ? null : await translateCapped(user.id, content, target);
 
   // RLS update policy also enforces sender-only; select back only safe columns.
   const { data, error } = await sb
@@ -199,7 +216,10 @@ export async function PATCH(req: Request) {
     .eq("id", body.id)
     .select("id,client_id,sender_id,sender_name,sender_role,recipient_id,content,content_translated,translated_to,attachment_name,attachment_mime,attachment_size,edited_at,created_at")
     .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("message edit failed:", error.message);
+    return NextResponse.json({ error: "Could not save the message." }, { status: 400 });
+  }
   return NextResponse.json({ ok: true, message: data });
 }
 
@@ -217,15 +237,21 @@ export async function DELETE(req: Request) {
 
   // Read via RLS (participant) to find any attachment; ownership is enforced by
   // the delete policy + the explicit check below.
-  const { data: msg } = await sb.from("messages").select("sender_id,attachment_path").eq("id", id).single();
+  const { data: msg } = await sb.from("messages").select("sender_id,client_id,attachment_path").eq("id", id).maybeSingle();
   if (!msg) return NextResponse.json({ error: "Not found." }, { status: 404 });
   if (msg.sender_id !== user.id) return NextResponse.json({ error: "Forbidden." }, { status: 403 });
 
   const { error } = await sb.from("messages").delete().eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("message delete failed:", error.message);
+    return NextResponse.json({ error: "Could not delete the message." }, { status: 400 });
+  }
 
-  const path = (msg as { attachment_path?: string }).attachment_path;
-  if (path) await admin.storage.from("chat").remove([path]);
+  // Only remove files inside this message's own tenant folder (uploads are keyed
+  // `${clientId ?? "internal"}/…`), never a path someone wrote into a row.
+  const row = msg as { client_id?: string | null; attachment_path?: string | null };
+  const path = row.attachment_path;
+  if (path && path.startsWith(`${row.client_id ?? "internal"}/`)) await admin.storage.from("chat").remove([path]);
 
   return NextResponse.json({ ok: true });
 }

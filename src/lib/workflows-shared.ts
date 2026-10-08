@@ -66,8 +66,11 @@ export function runProgress(steps: Pick<RunStep, "status">[]) {
 
 export const activeStep = <T extends Pick<RunStep, "status">>(steps: T[]) => steps.find((s) => s.status === "active") ?? null;
 
+/** Today's date in Berlin (the team's calendar day), as YYYY-MM-DD. */
+export const berlinToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(new Date());
+
 /** Due today or earlier counts as overdue only once the day has passed. */
-export function isOverdue(step: Pick<RunStep, "status" | "due_date">, today = new Date().toISOString().slice(0, 10)) {
+export function isOverdue(step: Pick<RunStep, "status" | "due_date">, today = berlinToday()) {
   return step.status === "active" && !!step.due_date && step.due_date < today;
 }
 

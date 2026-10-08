@@ -47,14 +47,21 @@ export async function POST(
       .eq("client_id", clientId)
       .eq("provider", provider.id)
       .maybeSingle();
-    const { tokenOwner: _owner, ...meta } = (existing?.meta ?? {}) as Record<string, unknown>;
+    const { tokenOwner, ...meta } = (existing?.meta ?? {}) as Record<string, unknown>;
+    // A connection your agency set up is theirs to remove (same rule as "configure").
+    if (!staff && tokenOwner && tokenOwner !== "client") {
+      return NextResponse.json({ error: "This connection is managed by your TyloTech team." }, { status: 403 });
+    }
     // Drop credentials so a later "connect" can't silently revive them.
     const { error } = await admin
       .from("integrations")
       .update({ status: "disconnected", access_token: null, refresh_token: null, meta })
       .eq("client_id", clientId)
       .eq("provider", provider.id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error) {
+      console.error("integration disconnect failed:", error.message);
+      return NextResponse.json({ error: "Could not disconnect." }, { status: 400 });
+    }
     await logAudit(user, { action: "integration.disconnect", clientId, targetType: "integration", targetId: provider.id }, admin);
     return NextResponse.json({ ok: true, status: "disconnected" });
   }
@@ -105,7 +112,10 @@ export async function POST(
       .update(update)
       .eq("client_id", clientId)
       .eq("provider", provider.id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error) {
+      console.error("integrations request failed:", error.message);
+      return NextResponse.json({ error: "Something went wrong — please try again." }, { status: 400 });
+    }
     return NextResponse.json({ ok: true });
   }
 
@@ -127,6 +137,12 @@ export async function POST(
       { onConflict: "client_id,provider" },
     );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+
+    console.error("integrations request failed:", error.message);
+
+    return NextResponse.json({ error: "Something went wrong — please try again." }, { status: 400 });
+
+  }
   return NextResponse.json({ ok: true, live });
 }

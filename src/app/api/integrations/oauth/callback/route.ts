@@ -19,7 +19,9 @@ export async function GET(req: Request) {
 
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  if (url.searchParams.get("error")) return done(`error=${url.searchParams.get("error")}`);
+  // Provider error codes are echoed back to /integrations — keep them a single, encoded parameter.
+  const providerError = url.searchParams.get("error");
+  if (providerError) return done(`error=${encodeURIComponent(providerError.slice(0, 40))}`);
   if (!code || !state) return done("error=oauth_failed");
 
   let provider = "", clientId = "", nonce = "";

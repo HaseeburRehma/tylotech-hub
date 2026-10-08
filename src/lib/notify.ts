@@ -29,8 +29,9 @@ const isMissingColumn = (err: any) => err?.code === "42703" || /last_email_at/i.
 
 /** Fetch recipient ids/emails for a set of users. */
 async function fetchRecipients(admin: any, apply: (q: any) => any): Promise<Recipient[]> {
-  const res = await apply(admin.from("users").select("id,email"));
-  return (res.data ?? []) as Recipient[];
+  // `*` tolerates deactivated_at (0030) missing; deactivated people get nothing.
+  const res = await apply(admin.from("users").select("*"));
+  return ((res.data ?? []) as any[]).filter((u) => !u.deactivated_at).map((u) => ({ id: u.id, email: u.email })) as Recipient[];
 }
 
 /**
@@ -83,12 +84,11 @@ async function dispatchEmails(admin: any, users: Recipient[], n: NotifyInput) {
 export async function notifyUser(userId: string, n: NotifyInput) {
   const admin = createAdminClient();
   if (!admin) return;
+  const users = await fetchRecipients(admin, (q) => q.eq("id", userId));
+  if (!users.length) return; // unknown or deactivated
   await admin.from("notifications").insert(notifRow(userId, n));
   await sendPush(admin, [userId], n).catch(() => {});
-  if (n.email) {
-    const users = await fetchRecipients(admin, (q) => q.eq("id", userId));
-    await dispatchEmails(admin, users, n);
-  }
+  if (n.email) await dispatchEmails(admin, users, n);
 }
 
 /** In-app notification (+ throttled email) for every client-side user of a tenant. */

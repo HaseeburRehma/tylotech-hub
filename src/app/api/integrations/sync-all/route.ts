@@ -29,10 +29,11 @@ export async function POST(req: Request) {
   const { data: rows } = await admin.from("integrations").select("client_id").eq("status", "connected");
   const clientIds = Array.from(new Set((rows ?? []).map((r) => r.client_id).filter(Boolean))) as string[];
 
+  // Three clients in parallel (same as the daily cron) so this stays inside the time limit.
   let totalSynced = 0;
-  for (const clientId of clientIds) {
-    const { synced } = await syncClient(admin, clientId, { auto: false, notify: false });
-    totalSynced += synced;
+  for (let i = 0; i < clientIds.length; i += 3) {
+    const batch = await Promise.all(clientIds.slice(i, i + 3).map((id) => syncClient(admin, id, { auto: false, notify: false }).catch(() => ({ synced: 0 }))));
+    totalSynced += batch.reduce((a, b) => a + b.synced, 0);
   }
 
   return NextResponse.json({ ok: true, clients: clientIds.length, totalSynced });

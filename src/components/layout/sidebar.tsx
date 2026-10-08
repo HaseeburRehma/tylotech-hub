@@ -229,6 +229,7 @@ function NavList({
 }
 
 export function DarkModeToggle() {
+  const t = useT();
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
@@ -250,6 +251,7 @@ export function DarkModeToggle() {
       type="button"
       role="switch"
       aria-checked={dark}
+      aria-label={t("sidebar.darkMode")}
       onClick={toggle}
       className={cn(
         "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors",

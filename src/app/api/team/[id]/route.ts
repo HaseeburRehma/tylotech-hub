@@ -41,6 +41,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const { error: banErr } = await admin.auth.admin.updateUserById(params.id, { ban_duration: b.active ? "none" : "876000h" });
     if (banErr) return NextResponse.json({ error: banErr.message }, { status: 400 });
     row.deactivated_at = b.active ? null : new Date().toISOString();
+    // A deactivated account's phones must stop receiving pushes.
+    if (!b.active) await admin.from("user_devices").delete().eq("user_id", params.id);
   }
   if (!Object.keys(row).length) return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
 

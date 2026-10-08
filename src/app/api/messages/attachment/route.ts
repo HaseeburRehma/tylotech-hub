@@ -67,9 +67,14 @@ export async function POST(req: Request) {
   const bytes = new Uint8Array(await file.arrayBuffer());
 
   const { error: upErr } = await admin.storage.from("chat").upload(path, bytes, { contentType: mime, upsert: false });
-  if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 });
+  if (upErr) {
+    console.error("chat upload failed:", upErr.message);
+    return NextResponse.json({ error: "Upload failed." }, { status: 400 });
+  }
 
-  const { data, error } = await sb
+  // Written with the service role: attachment_path must only ever be the path
+  // generated above (browser sessions can't set attachment fields — 0037).
+  const { data, error } = await admin
     .from("messages")
     .insert({
       client_id: clientId,
@@ -88,7 +93,8 @@ export async function POST(req: Request) {
 
   if (error) {
     await admin.storage.from("chat").remove([path]);
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error("attachment insert failed:", error.message);
+    return NextResponse.json({ error: "Could not send the file." }, { status: 400 });
   }
 
   // Notify the other side (same routing as text messages).
@@ -96,13 +102,13 @@ export async function POST(req: Request) {
   const email = { senderName: user.name, preview: file.name, isFile: true };
   if (recipientId) {
     const href = internal ? "/internal/team" : isClient ? `/internal/clients/${clientId}` : "/chat";
-    await notifyUser(recipientId, { title: `New file from ${user.name}`, body: preview, href, type: "message", email });
+    await notifyUser(recipientId, { title: isClient ? `New file from ${user.name}` : `Neue Datei von ${user.name}`, body: preview, href, type: "message", email });
   } else if (internal) {
     await notifyStaff({ title: `Team chat · ${user.name}`, body: preview, href: "/internal/team", type: "message", email });
   } else if (isClient) {
     await notifyStaff({ title: `New file from ${user.name}`, body: preview, href: `/internal/clients/${clientId}`, type: "message", email });
   } else {
-    await notifyClientUsers(clientId!, { title: "New file from your TyloTech team", body: preview, href: "/chat", type: "message", email });
+    await notifyClientUsers(clientId!, { title: "Neue Datei von deinem TyloTech-Team", body: preview, href: "/chat", type: "message", email });
   }
 
   return NextResponse.json({ ok: true, message: data });

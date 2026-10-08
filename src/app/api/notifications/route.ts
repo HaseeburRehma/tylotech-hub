@@ -9,8 +9,13 @@ export const runtime = "nodejs";
 export async function GET() {
   const user = await getAuthUser();
   if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  const items = await listNotifications(user.id);
-  return NextResponse.json({ items, unread: items.filter((i) => !i.read).length });
+  const sb = createClient();
+  const [items, unreadRes] = await Promise.all([
+    listNotifications(user.id),
+    // Real unread total — the list only carries the newest 20.
+    sb ? sb.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("read", false) : Promise.resolve({ count: null }),
+  ]);
+  return NextResponse.json({ items, unread: unreadRes.count ?? items.filter((i) => !i.read).length });
 }
 
 export async function PATCH(req: Request) {

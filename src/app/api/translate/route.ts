@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   const user = await getAuthUser();
   if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
 
-  const rl = await getRateLimiter().limit(`translate:${user.id}`, config.rateLimit.api);
+  const rl = await getRateLimiter().limit(`translate:${user.id}`, config.rateLimit.ai);
   if (!rl.success) {
     return NextResponse.json({ error: "Slow down a moment." }, { status: 429, headers: rateLimitHeaders(rl) });
   }

@@ -28,6 +28,9 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
 
-  const { synced, results } = await syncClient(admin, clientId, { provider: body.provider, auto: body.auto });
+  // Clients always get the "recently synced" guard so they can't hammer the
+  // shared ad-platform quotas; background auto-refreshes never notify.
+  const auto = user.role === "client" ? true : !!body.auto;
+  const { synced, results } = await syncClient(admin, clientId, { provider: body.provider, auto, notify: !body.auto });
   return NextResponse.json({ ok: true, synced, results });
 }

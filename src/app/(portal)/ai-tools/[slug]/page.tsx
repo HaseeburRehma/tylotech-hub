@@ -31,6 +31,8 @@ import { useActiveClient } from "@/components/providers/active-client-provider";
 import { ClientLogo } from "@/components/layout/sidebar";
 import { AiHistoryModal } from "@/components/modals/ai-history-modal";
 import { useUser } from "@/components/providers/user-provider";
+import { createClient } from "@/lib/supabase/client";
+import { lockedToolSlugs } from "@/lib/tool-access";
 import { pushAiHistory, readAiHistory } from "@/lib/ai-history";
 
 type Field =
@@ -229,6 +231,23 @@ export default function ToolPage() {
   const targetClientId = user.role === "client" ? user.client_id : active?.id ?? null;
   const Icon = config.icon;
 
+  // Check up front whether this tool is off (globally or for this client), so a
+  // direct link or history entry doesn't let someone fill the form for nothing.
+  const [blocked, setBlocked] = useState<"tool_locked" | "tool_disabled" | null>(null);
+  useEffect(() => {
+    const sb = createClient();
+    if (!sb) return;
+    let alive = true;
+    (async () => {
+      const { data } = await sb.from("ai_tools").select("is_active").eq("slug", slug).maybeSingle();
+      if (data?.is_active === false) return alive && setBlocked("tool_disabled");
+      if (user.role === "client" && (await lockedToolSlugs(sb, user.client_id)).has(slug)) alive && setBlocked("tool_locked");
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [slug, user.role, user.client_id]);
+
   // Prefill the first text field from the AI Tools hero prompt (?topic=...).
   const prefill = searchParams.get("topic");
   useEffect(() => {
@@ -307,7 +326,8 @@ export default function ToolPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.output) {
         setIsError(true);
-        setOutput(data.error ?? t("ait.somethingWrong"));
+        // Known cases come back as codes so they show in the user's language.
+        setOutput(data.code ? t(`ait.err.${data.code}`) : t("ait.somethingWrong"));
         return;
       }
       setOutput(data.output);
@@ -407,7 +427,8 @@ export default function ToolPage() {
 
           <div className="mt-6">
             {formError && <p role="alert" className="mb-3 text-sm text-danger">{formError}</p>}
-            <Button onClick={run} loading={loading} className="w-full" size="lg">
+            {blocked && <p role="alert" className="rounded-lg bg-warning/10 px-3 py-2 text-sm text-warning">{t(`ait.err.${blocked}`)}</p>}
+            <Button onClick={run} loading={loading} disabled={!!blocked} className="w-full" size="lg">
               {!loading && <Sparkles className="h-4 w-4" />}
               {t(config.cta)}
             </Button>

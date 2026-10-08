@@ -68,7 +68,8 @@ export async function POST(req: Request) {
 
   if (error) {
     await admin.storage.from("documents").remove([path]);
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error("documents request failed:", error.message);
+    return NextResponse.json({ error: "Something went wrong — please try again." }, { status: 400 });
   }
   await logAudit(user, { action: "document.upload", clientId, targetType: "document", targetId: data?.id, summary: `${row.name} (${row.type})` }, admin);
   return NextResponse.json({ ok: true, document: data });
@@ -100,7 +101,10 @@ export async function DELETE(req: Request) {
   // Delete the row first; only then remove the file, so a failed delete never
   // leaves a listed document pointing at a missing file.
   const { data: deleted, error } = await admin.from("documents").delete().eq("id", id).select("id");
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("documents request failed:", error.message);
+    return NextResponse.json({ error: "Something went wrong — please try again." }, { status: 400 });
+  }
   if (!deleted?.length) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
   if (doc.file_url && !doc.file_url.startsWith("#") && !doc.file_url.startsWith("http")) {

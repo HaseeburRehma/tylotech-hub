@@ -211,11 +211,12 @@ export default function OnboardPage() {
                       <div className="flex items-center gap-2">
                         <input
                           type="color"
+                          aria-label={t("editClient.primary")}
                           value={form.primaryColor}
                           onChange={(e) => set("primaryColor", e.target.value)}
                           className="h-11 w-12 cursor-pointer rounded-lg border border-border bg-transparent"
                         />
-                        <Input value={form.primaryColor} onChange={(e) => set("primaryColor", e.target.value)} className="uppercase" />
+                        <Input id="primary" value={form.primaryColor} onChange={(e) => set("primaryColor", e.target.value)} className="uppercase" />
                       </div>
                     </div>
                     <div>
@@ -223,11 +224,12 @@ export default function OnboardPage() {
                       <div className="flex items-center gap-2">
                         <input
                           type="color"
+                          aria-label={t("editClient.secondary")}
                           value={form.secondaryColor}
                           onChange={(e) => set("secondaryColor", e.target.value)}
                           className="h-11 w-12 cursor-pointer rounded-lg border border-border bg-transparent"
                         />
-                        <Input value={form.secondaryColor} onChange={(e) => set("secondaryColor", e.target.value)} className="uppercase" />
+                        <Input id="secondary" value={form.secondaryColor} onChange={(e) => set("secondaryColor", e.target.value)} className="uppercase" />
                       </div>
                     </div>
                   </div>

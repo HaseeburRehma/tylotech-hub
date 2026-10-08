@@ -42,6 +42,9 @@ export async function POST(req: Request) {
     user_id: user.id,
     emoji,
   });
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("reactions request failed:", error.message);
+    return NextResponse.json({ error: "Something went wrong — please try again." }, { status: 400 });
+  }
   return NextResponse.json({ ok: true, action: "added" });
 }

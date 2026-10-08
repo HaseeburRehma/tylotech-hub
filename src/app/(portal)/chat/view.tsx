@@ -2,7 +2,7 @@
 
 import { ModalShell } from "@/components/ui/modal";
 import { Check, FileText, Plus, Rocket, Star, X, Zap } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
@@ -39,6 +39,14 @@ export function ChatView({
   clientId: string | null;
   clientCompany?: string;
 }) {
+  // Opening the chat counts as reading its notifications (the bell links here).
+  useEffect(() => {
+    fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hrefPrefix: "/chat" }),
+    }).catch(() => null);
+  }, []);
   const t = useT();
   const [requested, setRequested] = useState(false);
   const [requesting, setRequesting] = useState(false);
@@ -70,10 +78,13 @@ export function ChatView({
           <Button size="sm" variant="outline" className="lg:hidden" onClick={() => setShowUpdates(true)}>
             <Star className="h-4 w-4" /> {t("chat.updatesShort", { n: updates.length })}
           </Button>
-          <Button size="sm" onClick={requestTask} loading={requesting}>
-            {requested ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            {requested ? t("chat.requestSent") : t("chat.requestTask")}
-          </Button>
+          {/* Posts "I'd like to request a task" as the sender — only meaningful for clients. */}
+          {currentRole === "client" && (
+            <Button size="sm" onClick={requestTask} loading={requesting}>
+              {requested ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              {requested ? t("chat.requestSent") : t("chat.requestTask")}
+            </Button>
+          )}
         </PageHeader>
         {requestError && <p role="alert" className="mt-2 text-sm text-danger">{requestError}</p>}
         <ModalShell open={showUpdates} onClose={() => setShowUpdates(false)}>

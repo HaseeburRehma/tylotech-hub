@@ -22,7 +22,9 @@ export async function GET(req: Request) {
   const active = (clients ?? []).filter((c: any) => !c.archived_at);
 
   const results: { client: string; status: string; recipients?: number }[] = [];
-  for (const c of active) {
+  // Three clients at a time keeps the run inside the function time limit; a
+  // client whose run times out is retried by the next invocation (stale pending).
+  const one = async (c: { id: string }) => {
     const r = await runMonthlyReport(admin, c.id, period);
     results.push({ client: c.id, status: r.status, recipients: r.recipients });
     if (r.status !== "already_sent") {
@@ -34,6 +36,7 @@ export async function GET(req: Request) {
         summary: `${period}: ${r.status}${r.recipients != null ? ` · ${r.recipients} recipient(s)` : ""}${r.reason ? ` · ${r.reason}` : ""}`,
       }, admin);
     }
-  }
+  };
+  for (let i = 0; i < active.length; i += 3) await Promise.all(active.slice(i, i + 3).map(one));
   return NextResponse.json({ ok: true, period, clients: active.length, results });
 }

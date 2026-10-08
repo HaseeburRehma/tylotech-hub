@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { logAudit } from "@/lib/audit";
-import { listStaff, loadTemplates, notifyStepActive, resolveDefaultAssignee } from "@/lib/workflows";
+import { berlinToday, listStaff, loadTemplates, notifyStepActive, resolveDefaultAssignee } from "@/lib/workflows";
 import { UUID_RE, bad, staffContext } from "../_shared";
 
 export const runtime = "nodejs";
@@ -47,11 +47,11 @@ export async function POST(req: Request) {
     .single();
   if (error || !run) return bad(error?.message ?? "Could not start the process.");
 
-  const today = new Date();
+  // Deadlines count in Berlin calendar days (same as workflow_today() in the DB).
+  const [ty, tm, td] = berlinToday().split("-").map(Number);
   const dueFrom = (offset: number | null) => {
     if (offset == null) return null;
-    const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + offset));
-    return d.toISOString().slice(0, 10);
+    return new Date(Date.UTC(ty!, tm! - 1, td! + offset)).toISOString().slice(0, 10);
   };
   const rows = tpl.steps.map((s, i) => ({
     run_id: run.id,

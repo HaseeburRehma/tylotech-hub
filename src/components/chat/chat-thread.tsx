@@ -166,7 +166,9 @@ function ThreadPanel({
       animate={{ x: 0 }}
       exit={{ x: 340 }}
       transition={{ type: "spring", damping: 30, stiffness: 300 }}
-      className="flex w-[340px] shrink-0 flex-col border-l border-border bg-bg"
+      // Full screen on phones (a 340px side panel would squeeze the messages to
+      // nothing at 375px); a side panel from md up.
+      className="fixed inset-0 z-50 flex flex-col bg-bg md:static md:z-auto md:w-[340px] md:shrink-0 md:border-l md:border-border"
     >
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div>
@@ -1002,23 +1004,29 @@ export function ChatThread({
                     )}
 
                     <div
-                      className={cn("group relative", grouped ? "mt-0.5" : "mt-5")}
+                      className={cn("group relative rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40", grouped ? "mt-0.5" : "mt-5")}
                       onMouseEnter={() => setHoveredMsg(m.id)}
                       onMouseLeave={() => setHoveredMsg(null)}
+                      // Keyboard users: tab onto a message to reveal its actions.
+                      tabIndex={isTemp ? undefined : 0}
+                      onFocus={() => setHoveredMsg(m.id)}
+                      onBlur={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setHoveredMsg(null);
+                      }}
                     >
                       {/* Hover actions */}
                       {hoveredMsg === m.id && !isTemp && editingId !== m.id && (
                         <div className={cn("absolute -top-3 z-30 flex items-center gap-0.5 rounded-lg border border-border bg-surface px-1 py-0.5 shadow-sm", mine ? "right-0" : "left-10")}>
-                          <button onClick={() => setThreadParentId(m.id)} className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-2 hover:text-foreground">
+                          <button type="button" aria-label={t("chat.thread")} onClick={() => setThreadParentId(m.id)} className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-2 hover:text-foreground">
                             <MessageCircle className="h-3.5 w-3.5" />
                           </button>
                           {mine && hasText && (
-                            <button onClick={() => startEdit(m)} className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-2 hover:text-foreground">
+                            <button type="button" aria-label={t("chat.edit")} onClick={() => startEdit(m)} className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-2 hover:text-foreground">
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                           )}
                           {mine && (
-                            <button onClick={() => deleteMsg(m.id)} className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-2 hover:text-danger">
+                            <button type="button" aria-label={t("chat.delete")} onClick={() => deleteMsg(m.id)} className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-2 hover:text-danger">
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           )}
