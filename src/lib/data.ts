@@ -6,6 +6,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeHealth, type ClientHealth } from "@/lib/health";
+import { combinePortfolio, type ProviderSeriesPoint } from "@/lib/portfolio";
 import type { ChatPeer, Client, DocItem, Kpi, Message, Project, Role, SeriesPoint, Update } from "@/types";
 
 export interface TeamMember {
@@ -119,32 +120,55 @@ async function selectAll<T>(build: (from: number, to: number) => PromiseLike<{ d
 /** First day of the previous calendar year — enough for "YTD vs previous period". */
 const seriesSince = () => `${new Date().getUTCFullYear() - 1}-01-01`;
 
-export interface ProviderSeriesPoint extends SeriesPoint {
-  provider: string;
-}
 
-/** Raw per-provider daily rows (no combining) — lets a client component filter
- * by source instantly without a server round-trip per tab switch. */
+export type { ProviderSeriesPoint };
+
+const toPoint = (p: any): ProviderSeriesPoint => ({
+  date: p.date,
+  spend: Number(p.spend),
+  leads: Number(p.leads),
+  roas: Number(p.roas),
+  provider: p.provider,
+  position: p.position == null ? null : Number(p.position),
+});
+
+/**
+ * Raw per-provider daily rows (no combining) — lets a client component filter
+ * by source instantly without a server round-trip per tab switch.
+ * `clientId === "all"` (staff only, RLS-enforced) returns the portfolio: every
+ * client's rows summed per provider and day.
+ */
 export async function getSeriesByProvider(clientId: string | null): Promise<ProviderSeriesPoint[]> {
   const sb = createClient();
   if (!sb || !clientId) return [];
-  const data = await selectAll<any>((from, to) =>
-    sb
-      .from("metric_points")
-      .select("date,spend,leads,roas,provider")
-      .eq("client_id", clientId)
-      .gte("date", seriesSince())
-      .order("date", { ascending: true })
-      .order("provider", { ascending: true })
-      .range(from, to),
-  );
-  return data.map((p: any) => ({
-    date: p.date,
-    spend: Number(p.spend),
-    leads: Number(p.leads),
-    roas: Number(p.roas),
-    provider: p.provider,
-  }));
+  const rows = await selectAll<any>((from, to) => {
+    let q = sb.from("metric_points").select("client_id,date,spend,leads,roas,position,provider").gte("date", seriesSince());
+    if (clientId !== "all") q = q.eq("client_id", clientId);
+    return q.order("date", { ascending: true }).order("provider", { ascending: true }).order("client_id").range(from, to);
+  });
+  if (clientId !== "all") return rows.map(toPoint);
+  return combinePortfolio(rows.map(toPoint));
+}
+
+export interface SearchPageRow {
+  client_id: string;
+  page: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+  end_date: string;
+}
+
+/** "Top-Seiten aus der Search Console" — one client, or the whole portfolio ("all", staff). */
+export async function getSearchPages(clientId: string | null): Promise<SearchPageRow[]> {
+  const sb = createClient();
+  if (!sb || !clientId) return [];
+  let q = sb.from("search_console_pages").select("client_id,page,clicks,impressions,ctr,position,end_date");
+  if (clientId !== "all") q = q.eq("client_id", clientId);
+  const { data, error } = await q.order("clicks", { ascending: false }).order("impressions", { ascending: false }).limit(50);
+  if (error) return []; // pre-0038
+  return ((data ?? []) as any[]).map((r) => ({ ...r, ctr: Number(r.ctr), position: Number(r.position) }));
 }
 
 export async function getKpis(clientId: string | null): Promise<Kpi[]> {

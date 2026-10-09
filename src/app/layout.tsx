@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Sora } from "next/font/google";
+import { IBM_Plex_Mono, Inter, Sora } from "next/font/google";
 import { cookies } from "next/headers";
 import { ThemeProvider } from "@/lib/theme/theme-provider";
 import { buildClientTheme, TYLOTECH_THEME, type BrandTheme } from "@/lib/theme/themes";
@@ -11,6 +11,8 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 const sora = Sora({ subsets: ["latin"], variable: "--font-display", display: "swap" });
+// Eyebrow labels, table headers and URL paths (Leistung page design).
+const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
   title: "TyloTech Hub",
@@ -75,7 +77,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <html lang={locale} className={`${inter.variable} ${sora.variable}`} suppressHydrationWarning>
+    <html lang={locale} className={`${inter.variable} ${sora.variable} ${plexMono.variable}`} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{

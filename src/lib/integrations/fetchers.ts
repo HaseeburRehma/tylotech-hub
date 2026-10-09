@@ -25,8 +25,20 @@ export interface FetchedKpi {
   source: string;
 }
 
+/** One row of "Top-Seiten aus der Search Console" (last 30 complete days). */
+export interface SearchPage {
+  page: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
 export interface FetchedData {
-  series: { date: string; spend: number; leads: number; roas: number }[];
+  /** `position` is only set by Search Console (daily average position). */
+  series: { date: string; spend: number; leads: number; roas: number; position?: number }[];
+  /** Search Console only: top pages of the current window. */
+  pages?: { start: string; end: string; rows: SearchPage[] };
   kpis: FetchedKpi[];
 }
 
@@ -106,7 +118,11 @@ export function metaLeads(actions: { action_type?: string; value?: string | numb
     const hit = (actions ?? []).find((a) => a.action_type === type);
     if (hit) return Number(hit.value ?? 0) || 0;
   }
-  return 0;
+  // Some accounts only report Meta-attributed variants (e.g.
+  // offsite_content_view_add_meta_leads). They overlap too, so take the largest
+  // rather than summing — and never fall to 0 when Meta reports leads.
+  const others = (actions ?? []).filter((a) => /lead/i.test(a.action_type ?? "")).map((a) => Number(a.value ?? 0) || 0);
+  return others.length ? Math.max(...others) : 0;
 }
 
 /** Meta Marketing API — daily ad insights for an ad account. */
@@ -325,6 +341,31 @@ export async function fetchGoogleAds(accessToken: string, customerId: string): P
   };
 }
 
+/**
+ * Top pages by clicks for a window. A failure here never fails the sync — the
+ * daily numbers still land; the table just keeps its previous rows.
+ */
+async function fetchSearchPages(accessToken: string, property: string, start: string, end: string): Promise<SearchPage[] | null> {
+  const res = await fetch(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(property)}/searchAnalytics/query`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ startDate: start, endDate: end, dimensions: ["page"], rowLimit: 50 }),
+    cache: "no-store",
+  }).catch(() => null);
+  if (!res?.ok) return null;
+  const json: any = await res.json().catch(() => null);
+  if (!json) return null;
+  return ((json.rows ?? []) as any[])
+    .map((r) => ({
+      page: String(r.keys?.[0] ?? "").slice(0, 2048),
+      clicks: Math.round(Number(r.clicks ?? 0)),
+      impressions: Math.round(Number(r.impressions ?? 0)),
+      ctr: Number(r.ctr ?? 0),
+      position: Number(Number(r.position ?? 0).toFixed(2)),
+    }))
+    .filter((r) => r.page);
+}
+
 /** Google Search Console — daily search analytics for a verified property. */
 export async function fetchSearchConsole(accessToken: string, siteUrl: string): Promise<FetchResult> {
   if (!accessToken || !siteUrl) return null;
@@ -338,6 +379,7 @@ export async function fetchSearchConsole(accessToken: string, siteUrl: string): 
 
   let rows: any[] | null = null;
   let lastRes: Response | null = null;
+  let usedProp: string | null = null;
   for (const prop of candidates) {
     const res = await fetch(
       `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(prop)}/searchAnalytics/query`,
@@ -353,9 +395,11 @@ export async function fetchSearchConsole(accessToken: string, siteUrl: string): 
     const json: any = await res.json().catch(() => null);
     if (!json) continue;
     rows = json.rows ?? [];
+    usedProp = prop;
     if (rows && rows.length) break;
   }
   if (rows == null) return await errorFor(lastRes);
+  const pages = usedProp ? await fetchSearchPages(accessToken, usedProp, w.curStart, w.end) : null;
 
   // `leads` holds clicks, `roas` impressions (spend doesn't apply here).
   const typed = rows.map((r) => ({
@@ -379,7 +423,14 @@ export async function fetchSearchConsole(accessToken: string, siteUrl: string): 
   const p = prev.length ? agg(prev) : null;
 
   return {
-    series: typed.map((r) => ({ date: r.date, spend: 0, leads: Math.round(r.clicks), roas: Math.round(r.impressions) })),
+    series: typed.map((r) => ({
+      date: r.date,
+      spend: 0,
+      leads: Math.round(r.clicks),
+      roas: Math.round(r.impressions),
+      position: r.impressions ? Number(r.position.toFixed(2)) : undefined,
+    })),
+    ...(pages ? { pages: { start: w.curStart, end: w.end, rows: pages } } : {}),
     kpis: [
       { metric_name: "clicks", label: "Organic Clicks", value: Math.round(c.clicks), unit: "number", delta: change(c.clicks, p?.clicks), period: PERIOD, source: "Search Console" },
       { metric_name: "impressions", label: "Impressions", value: Math.round(c.impressions), unit: "number", delta: change(c.impressions, p?.impressions), period: PERIOD, source: "Search Console" },

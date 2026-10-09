@@ -64,7 +64,7 @@ export async function syncClient(
   // Keyed by provider so each source's daily numbers land in their own
   // metric_points rows instead of clobbering another source's row for the
   // same date (metric_points is unique on client_id, date, provider).
-  const pointsByProviderDate: Record<string, Record<string, { spend: number; leads: number; roas: number }>> = {};
+  const pointsByProviderDate: Record<string, Record<string, { spend: number; leads: number; roas: number; position?: number }>> = {};
   const prevSyncAt: Record<string, string | null> = {};
   let populated = false;
 
@@ -121,12 +121,23 @@ export async function syncClient(
       const keep = (ins.data ?? []).map((r: { id: string }) => r.id);
       if (!ins.error && keep.length) await admin.from("kpis").delete().eq("client_id", clientId).eq("source", source).not("id", "in", `(${keep.join(",")})`);
     }
+    // Search Console: replace this client's top pages with the fresh window.
+    if (data.pages) {
+      const { start, end, rows: pageRows } = data.pages;
+      await admin.from("search_console_pages").delete().eq("client_id", clientId);
+      if (pageRows.length) {
+        await admin.from("search_console_pages").insert(
+          pageRows.map((r) => ({ ...r, client_id: clientId, start_date: start, end_date: end, synced_at: nowIso })),
+        );
+      }
+    }
     const byDate = (pointsByProviderDate[row.provider] = pointsByProviderDate[row.provider] || {});
     for (const p of data.series) {
       const cur = (byDate[p.date] = byDate[p.date] || { spend: 0, leads: 0, roas: 0 });
       cur.spend += p.spend;
       cur.leads += p.leads;
       if (p.roas) cur.roas = p.roas;
+      if (p.position !== undefined) cur.position = p.position;
     }
     prevSyncAt[row.provider] = row.last_synced_at ?? null;
     const { lastError: _e, lastErrorAt: _a, lastErrorDetail: _d, ...cleanMeta } = cfg as Record<string, unknown>;
