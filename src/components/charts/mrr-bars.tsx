@@ -35,7 +35,10 @@ export function MrrBars({ data }: { data: { month: string; mrr: number }[] }) {
           axisLine={false}
           tick={{ fontSize: 11 }}
           width={44}
-          tickFormatter={(v) => `${v / 1000}k`}
+          allowDecimals={false}
+          // With no revenue yet recharts would scale 0–4 and print "0.001k".
+          domain={[0, (max: number) => Math.max(max, 1000)]}
+          tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 100) / 10}k` : `${v}`)}
         />
         <Tooltip cursor={{ fill: "rgb(var(--surface-2) / 0.5)" }} content={<Tip />} />
         <Bar dataKey="mrr" radius={[6, 6, 0, 0]} maxBarSize={34}>

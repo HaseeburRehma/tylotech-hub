@@ -2,7 +2,7 @@
 
 import { ModalShell } from "@/components/ui/modal";
 import { Sparkles, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/lib/i18n/provider";
 import { useActiveClient } from "@/components/providers/active-client-provider";
@@ -10,9 +10,12 @@ import { useActiveClient } from "@/components/providers/active-client-provider";
 export function RequestToolModal({
   open,
   onClose,
+  initialWhat,
 }: {
   open: boolean;
   onClose: () => void;
+  /** Pre-fills the request, e.g. when a client clicks a locked tool. */
+  initialWhat?: string;
 }) {
   const t = useT();
   const [what, setWhat] = useState("");
@@ -23,6 +26,9 @@ export function RequestToolModal({
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { clients } = useActiveClient();
+  useEffect(() => {
+    if (open && initialWhat) setWhat(initialWhat);
+  }, [open, initialWhat]);
 
   async function submit() {
     if (!what.trim()) return;

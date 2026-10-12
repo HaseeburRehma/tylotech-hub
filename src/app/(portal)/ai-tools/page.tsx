@@ -8,6 +8,7 @@ import {
   Clock,
   FileText,
   LayoutTemplate,
+  Lock,
   Mail,
   Megaphone,
   PenLine,
@@ -48,6 +49,8 @@ export default function AiToolsPage() {
   // Staff can switch a tool off globally (ai_tools.is_active) or per client
   // (client_tools); the generate API enforces both.
   const [inactive, setInactive] = useState<Set<string>>(new Set());
+  // Locked for this client's plan (client_tools) → shown as an upsell, not "off".
+  const [planLocked, setPlanLocked] = useState<Set<string>>(new Set());
   const [recent, setRecent] = useState<AiHistoryEntry[]>([]);
   useEffect(() => {
     setRecent(readAiHistory(user.id).slice(0, 4));
@@ -58,8 +61,10 @@ export default function AiToolsPage() {
       user.role === "client" ? lockedToolSlugs(sb, user.client_id) : Promise.resolve(new Set<string>()),
     ]).then(([{ data }, locked]) => {
       const off = new Set(locked);
-      for (const r of data ?? []) if (r.is_active === false) off.add(r.slug);
+      const globallyOff = new Set<string>();
+      for (const r of data ?? []) if (r.is_active === false) { off.add(r.slug); globallyOff.add(r.slug); }
       setInactive(off);
+      setPlanLocked(new Set(Array.from(locked).filter((slug) => !globallyOff.has(slug))));
     });
   }, [user.id, user.role, user.client_id]);
   const unlocked = AI_TOOLS.filter((tool) => !inactive.has(tool.slug)).length;
@@ -70,6 +75,7 @@ export default function AiToolsPage() {
   };
   const [prompt, setPrompt] = useState("");
   const [showRequestTool, setShowRequestTool] = useState(false);
+  const [requestPrefill, setRequestPrefill] = useState<string | undefined>(undefined);
   const [showHistory, setShowHistory] = useState(false);
   const firstName = user.name?.split(" ")[0] ?? "";
 
@@ -173,7 +179,7 @@ export default function AiToolsPage() {
               {t("ait.toolsAvailable", { n: unlocked, total: AI_TOOLS.length })}
             </Badge>
           </div>
-          <button onClick={() => setShowRequestTool(true)} className="text-sm text-muted hover:text-foreground transition-colors">
+          <button onClick={() => { setRequestPrefill(undefined); setShowRequestTool(true); }} className="text-sm text-muted hover:text-foreground transition-colors">
             {t("ait.requestOwnTool")}
           </button>
         </div>
@@ -182,6 +188,7 @@ export default function AiToolsPage() {
           {AI_TOOLS.map((tool, i) => {
             const Icon = ICONS[tool.icon] ?? Bot;
             const off = inactive.has(tool.slug);
+            const upgrade = planLocked.has(tool.slug);
             return (
               <motion.div
                 key={tool.id}
@@ -191,12 +198,19 @@ export default function AiToolsPage() {
               >
                 <Link
                   href={off ? "#" : `/ai-tools/${tool.slug}`}
-                  aria-disabled={off}
-                  tabIndex={off ? -1 : undefined}
-                  onClick={(e) => off && e.preventDefault()}
+                  aria-disabled={off && !upgrade}
+                  tabIndex={off && !upgrade ? -1 : undefined}
+                  onClick={(e) => {
+                    if (!off) return;
+                    e.preventDefault();
+                    if (upgrade) {
+                      setRequestPrefill(t("ait.unlockRequest", { tool: t(tool.name) }));
+                      setShowRequestTool(true);
+                    }
+                  }}
                   className={cn(
                     "group flex items-center gap-3.5 rounded-xl border border-border bg-surface p-4 transition-all",
-                    off ? "cursor-not-allowed opacity-50" : "hover:shadow-card",
+                    upgrade ? "hover:shadow-card" : off ? "cursor-not-allowed opacity-50" : "hover:shadow-card",
                   )}
                 >
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
@@ -205,9 +219,16 @@ export default function AiToolsPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-foreground">{t(tool.name)}</span>
-                      <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
-                        {off ? t("prompts.inactive") : t(tool.category)}
-                      </Badge>
+                      {upgrade ? (
+                        <Badge className="gap-1 bg-brand/15 text-[10px] uppercase tracking-wider text-brand">
+                          <Lock className="h-2.5 w-2.5" />
+                          {t("ait.upgrade")}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+                          {off ? t("prompts.inactive") : t(tool.category)}
+                        </Badge>
+                      )}
                     </div>
                     <p className="mt-0.5 truncate text-xs text-muted">{t(tool.description)}</p>
                   </div>
@@ -254,7 +275,7 @@ export default function AiToolsPage() {
         )}
       </div>
 
-      <RequestToolModal open={showRequestTool} onClose={() => setShowRequestTool(false)} />
+      <RequestToolModal open={showRequestTool} onClose={() => setShowRequestTool(false)} initialWhat={requestPrefill} />
     </div>
   );
 }

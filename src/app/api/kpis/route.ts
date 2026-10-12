@@ -64,7 +64,9 @@ export async function POST(req: Request) {
     if (delErr) return NextResponse.json({ error: delErr.message }, { status: 400 });
   }
 
-  if (rows.length || old?.length) {
+  // Only tell the client when there are numbers to look at — clearing manual
+  // KPIs isn't news for them.
+  if (rows.length) {
     await notifyClientUsers(b.clientId, {
       title: "Deine Kennzahlen wurden aktualisiert",
       body: "TyloTech hat deine Leistungszahlen aktualisiert.",
