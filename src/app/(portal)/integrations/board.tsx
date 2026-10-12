@@ -203,6 +203,9 @@ export function IntegrationsBoard({
           const Icon = ICONS[p.id] ?? Plug;
           const row = rowFor(p.id);
           const connected = row?.status === "connected";
+          // A manual-connect slot without a token, or Google Ads without the
+          // server's developer token, can't pull data — don't call it connected.
+          const notLive = connected && (!row?.has_token || (p.id === "google_ads" && !liveProviders.includes(p.id)));
           const canEditTarget = isStaff || row?.meta?.tokenOwner === "client";
           return (
             <motion.div
@@ -226,7 +229,9 @@ export function IntegrationsBoard({
                       <Badge variant="outline" className="mt-0.5">{p.category}</Badge>
                     </div>
                   </div>
-                  {connected ? (
+                  {notLive ? (
+                    <Badge variant="warning">{t("integ.notLive")}</Badge>
+                  ) : connected ? (
                     <Badge variant="success" className="gap-1">
                       <Check className="h-3 w-3" /> {t("common.connected")}
                     </Badge>
@@ -238,6 +243,11 @@ export function IntegrationsBoard({
                 </div>
 
                 <p className="mt-3 text-sm text-muted">{p.description}</p>
+                {notLive && (
+                  <p className="mt-2 rounded-lg bg-warning/10 px-2.5 py-1.5 text-[11px] text-warning">
+                    {t(row?.has_token ? "integ.notLiveDevToken" : "integ.notLiveNoToken")}
+                  </p>
+                )}
                 {isStaff && row?.meta?.lastErrorDetail && (
                   <p className="mt-2 rounded-lg bg-danger/10 px-2.5 py-1.5 text-[11px] text-danger">
                     {t("integ.lastErrorDetail", { detail: row.meta.lastErrorDetail })}
