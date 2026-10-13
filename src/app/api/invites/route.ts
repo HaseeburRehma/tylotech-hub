@@ -7,7 +7,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-const APP_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://tylotech-hub.vercel.app").replace(/\/$/, "");
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const MAX_INVITES = 10;
 
@@ -16,6 +15,8 @@ const MAX_INVITES = 10;
  * people into their own tenant only. Invitees get a link to set their password.
  */
 export async function POST(req: Request) {
+  // Links point at the site the invite was sent from (www.tylohq.de in production).
+  const APP_URL = new URL(req.url).origin;
   const user = await getAuthUser();
   if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
 

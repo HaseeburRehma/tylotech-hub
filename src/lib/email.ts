@@ -5,9 +5,10 @@
  * Every email is bilingual: German first (the app default), then English.
  */
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const EMAIL_FROM = process.env.EMAIL_FROM || "TyloTech <notifications@tylotech.de>";
+// Must be an address on a domain verified in the Resend account behind RESEND_API_KEY.
+const EMAIL_FROM = process.env.EMAIL_FROM || "TyloHQ <notifications@tylohq.de>";
 const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO || "info@tylotech.de";
-const APP_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://tylotech-hub.vercel.app").replace(/\/$/, "");
+const APP_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.tylohq.de").replace(/\/$/, "");
 
 export const emailConfigured = Boolean(RESEND_API_KEY);
 
@@ -27,6 +28,12 @@ async function send(
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({ from: EMAIL_FROM, to, subject, html, reply_to: EMAIL_REPLY_TO, ...(attachments ? { attachments } : {}) }),
   }).catch(() => null);
+  if (!res?.ok) {
+    // Surface the reason (e.g. "domain is not verified") in the server logs —
+    // otherwise a misconfigured sender fails silently.
+    const reason = res ? await res.text().catch(() => "") : "network error";
+    console.error(`email to ${to.replace(/^(.).*(@.*)$/, "$1…$2")} failed: ${res?.status ?? 0} ${reason.slice(0, 200)}`);
+  }
   return !!res?.ok;
 }
 
@@ -146,22 +153,27 @@ export async function sendInviteEmail(to: string, inviteUrl: string, inviterName
   if (!emailConfigured) return false;
   const inviter = esc(inviterName);
   const ws = esc(workspace);
+  // Same site as the invite link (the request's origin), never a stale default.
+  const site = new URL(inviteUrl).origin;
   const de = {
-    subject: `${inviterName} lädt Sie zu TyloTech ein`,
-    lead: `${inviter} hat Sie zum Head Quarter von <strong>${ws}</strong> eingeladen. Legen Sie Ihr Passwort fest, um loszulegen.`,
+    subject: `${inviterName} lädt dich zu TyloHQ ein`,
+    lead: `${inviter} hat dich ins TyloHQ von <strong>${ws}</strong> eingeladen. Lege dein Passwort fest, um loszulegen.`,
     cta: "Einladung annehmen",
+    after: `Danach meldest du dich unter <a href="${site}/login" style="color:#9a7b2c">${site.replace(/^https?:\/\//, "")}</a> an — mit denselben Zugangsdaten auch in der TyloHQ-App.`,
   };
   const en = {
-    subject: `${inviterName} invited you to TyloTech`,
-    lead: `${inviter} invited you to the <strong>${ws}</strong> Head Quarter. Set your password to get started.`,
+    subject: `${inviterName} invited you to TyloHQ`,
+    lead: `${inviter} invited you to the <strong>${ws}</strong> TyloHQ. Set your password to get started.`,
     cta: "Accept invitation",
+    after: `Afterwards, sign in at <a href="${site}/login" style="color:#9a7b2c">${site.replace(/^https?:\/\//, "")}</a> — the same login works in the TyloHQ app.`,
   };
   const button = (label: string) =>
     `<a href="${inviteUrl}" style="display:inline-block;background:#C9A84C;color:#111;text-decoration:none;font-weight:600;padding:11px 22px;border-radius:10px;font-size:14px">${label} →</a>`;
   const block = (lang: string, c: typeof de) => `
         <p style="margin:0 0 6px;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:#999">${lang}</p>
         <p style="margin:0 0 14px;font-size:14px;color:#555;line-height:1.5">${c.lead}</p>
-        ${button(c.cta)}`;
+        ${button(c.cta)}
+        <p style="margin:14px 0 0;font-size:12px;color:#888;line-height:1.5">${c.after}</p>`;
   const html = `<!doctype html><html><body style="margin:0;background:#f4f4f5;padding:24px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
     <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e5e5">
@@ -177,8 +189,7 @@ export async function sendInviteEmail(to: string, inviteUrl: string, inviterName
     </table>
   </td></tr></table>
   </body></html>`;
-  await send(to, `${de.subject} · ${en.subject}`, html);
-  return true;
+  return send(to, `${de.subject} · ${en.subject}`, html);
 }
 
 

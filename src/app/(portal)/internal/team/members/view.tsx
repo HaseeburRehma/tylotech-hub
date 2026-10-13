@@ -32,6 +32,20 @@ export function MembersView({ members, currentUserId, isAdmin }: { members: Staf
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
   const [inviting, setInviting] = useState(false);
+  const [resending, setResending] = useState<string | null>(null);
+
+  async function resend(m: StaffRow) {
+    setResending(m.id);
+    setNotice(null);
+    const res = await fetch("/api/invites/resend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: m.id }),
+    }).catch(() => null);
+    const d = (res ? await res.json().catch(() => ({})) : {}) as { error?: string };
+    setResending(null);
+    setNotice(res?.ok ? { ok: true, text: t("members.resent", { email: m.email }) } : { ok: false, text: d.error ?? t("ait.actionFailed") });
+  }
 
   async function update(id: string, body: Record<string, unknown>) {
     setBusy(id);
@@ -125,6 +139,7 @@ export function MembersView({ members, currentUserId, isAdmin }: { members: Staf
                     <span className="truncate">{m.name}</span>
                     {self && <Badge variant="neutral">{t("members.you")}</Badge>}
                     {!m.active && <Badge variant="danger">{t("members.deactivated")}</Badge>}
+                    {m.active && !m.lastSignIn && <Badge variant="warning">{t("members.pending")}</Badge>}
                   </p>
                   <p className="truncate text-xs text-muted">
                     {m.email} · {t("members.lastSignIn", { date: fmt(m.lastSignIn) })}
@@ -132,6 +147,11 @@ export function MembersView({ members, currentUserId, isAdmin }: { members: Staf
                 </div>
               </div>
 
+              {m.active && !m.lastSignIn && !self && (
+                <Button size="sm" variant="outline" loading={resending === m.id} onClick={() => resend(m)}>
+                  <Mail className="h-3.5 w-3.5" /> {t("members.resendInvite")}
+                </Button>
+              )}
               {isAdmin ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <Input
