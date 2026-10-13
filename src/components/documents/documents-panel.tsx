@@ -22,6 +22,7 @@ import { DocItem, DocType } from "@/types";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
 import { useUser } from "@/components/providers/user-provider";
+import { APP_TZ } from "@/lib/utils";
 
 // `label` values are i18n keys — translated at render via t().
 const META: Record<DocType, { label: string; icon: LucideIcon; variant: "info" | "brand" | "success" | "warning" }> = {
@@ -213,7 +214,7 @@ export function DocumentsPanel({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">{d.name}</p>
                     <p className="text-xs text-muted">
-                      {new Date(d.created_at).toLocaleDateString("en-DE", { day: "numeric", month: "long", year: "numeric" })}
+                      {new Date(d.created_at).toLocaleDateString("en-DE", { timeZone: APP_TZ, day: "numeric", month: "long", year: "numeric" })}
                       {d.size ? ` · ${d.size}` : ""}
                     </p>
                   </div>

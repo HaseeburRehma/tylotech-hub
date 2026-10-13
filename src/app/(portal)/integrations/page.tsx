@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { PageHeader } from "@/components/ui/page-header";
 import { getAuthUser } from "@/lib/auth";
 import { activeClientRef } from "@/lib/active-client-server";
@@ -6,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getClientByRef } from "@/lib/data";
 import { PROVIDERS, isProviderLive } from "@/lib/integrations/providers";
-import { translate, LOCALE_COOKIE, DEFAULT_LOCALE, LOCALES, type Locale } from "@/lib/i18n/dictionary";
+import { translate } from "@/lib/i18n/dictionary";
+import { serverLocale } from "@/lib/i18n/server";
 import { IntegrationsBoard } from "./board";
 
 export default async function IntegrationsPage({
@@ -17,8 +17,7 @@ export default async function IntegrationsPage({
   const user = await getAuthUser();
   const supabase = createClient();
   const isStaff = user?.role !== "client";
-  const cookieLocale = cookies().get(LOCALE_COOKIE)?.value as Locale | undefined;
-  const locale: Locale = cookieLocale && LOCALES.includes(cookieLocale) ? cookieLocale : DEFAULT_LOCALE;
+  const locale = serverLocale();
 
   let clients: { id: string; company: string; slug: string | null }[] = [];
   if (supabase && isStaff) {

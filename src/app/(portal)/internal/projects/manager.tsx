@@ -28,6 +28,7 @@ import { PROJECT_STATUS } from "@/lib/status";
 import { cn } from "@/lib/utils";
 import type { Project, ProjectStatus } from "@/types";
 import type { TeamMember } from "@/lib/data";
+import { APP_TZ } from "@/lib/utils";
 
 type StatusFilter = "all" | ProjectStatus;
 type SortKey = "due_asc" | "due_desc" | "name" | "progress";
@@ -442,7 +443,7 @@ export function ProjectsManager({
 
 function formatDue(due: string | null | undefined) {
   return due
-    ? new Date(due).toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" })
+    ? new Date(due).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" })
     : "—";
 }
 

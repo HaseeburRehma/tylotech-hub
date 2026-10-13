@@ -37,6 +37,7 @@ import { useUser } from "@/components/providers/user-provider";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { ChatPeer, Client, DocItem, Kpi, Message, Project, Role, Update } from "@/types";
 import type { TeamMember } from "@/lib/data";
+import { APP_TZ } from "@/lib/utils";
 
 const TABS = [
   { key: "overview", labelKey: "cd.tab.overview" },
@@ -157,7 +158,7 @@ export function ClientDetail({
   const doneProjects = projects.filter((p) => p.status === "done");
   const costPerLead = leads30d > 0 ? spend30d / leads30d : 0;
 
-  const clientSince = new Date(client.created_at).toLocaleDateString("de-DE", {
+  const clientSince = new Date(client.created_at).toLocaleDateString("de-DE", { timeZone: APP_TZ,
     month: "long",
     year: "numeric",
   });
@@ -378,7 +379,7 @@ export function ClientDetail({
                             ? t("cd.due", {
                                 date: new Date(p.due).toLocaleDateString(
                                   "de-DE",
-                                  { day: "numeric", month: "short", year: "numeric" },
+                                  { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" },
                                 ),
                               })
                             : t("cd.dueOpen")}
@@ -507,7 +508,7 @@ export function ClientDetail({
                     <p className="text-xs text-muted">{u.description}</p>
                   </div>
                   <span className="shrink-0 text-xs text-muted">
-                    {new Date(u.created_at).toLocaleDateString("de-DE", {
+                    {new Date(u.created_at).toLocaleDateString("de-DE", { timeZone: APP_TZ,
                       day: "numeric",
                       month: "short",
                     })}

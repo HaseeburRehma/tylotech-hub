@@ -29,6 +29,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ChatPeer, Message, Role } from "@/types";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
+import { APP_TZ } from "@/lib/utils";
 
 /** The conversation's client logo — shown instead of initials for client senders. */
 const ClientLogoContext = createContext<string | null>(null);
@@ -52,7 +53,7 @@ function formatBytes(bytes: number): string {
 
 function formatTime(iso: string): string {
   try {
-    return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return new Date(iso).toLocaleTimeString("de-DE", { timeZone: APP_TZ, hour: "2-digit", minute: "2-digit" });
   } catch {
     return "";
   }
@@ -61,11 +62,12 @@ function formatTime(iso: string): string {
 function formatDate(iso: string, t: (k: string) => string): string {
   try {
     const d = new Date(iso);
+    // Calendar days in Berlin time, so server and browser agree on "today".
+    const dayKey = (x: Date) => x.toLocaleDateString("en-CA", { timeZone: APP_TZ });
     const now = new Date();
-    const diff = now.getTime() - d.getTime();
-    if (diff < 86400000 && d.getDate() === now.getDate()) return t("chat.today");
-    if (diff < 172800000) return t("chat.yesterday");
-    return d.toLocaleDateString("de-DE", { weekday: "long", month: "short", day: "numeric" });
+    if (dayKey(d) === dayKey(now)) return t("chat.today");
+    if (dayKey(d) === dayKey(new Date(now.getTime() - 86400000))) return t("chat.yesterday");
+    return d.toLocaleDateString("de-DE", { timeZone: APP_TZ, weekday: "long", month: "short", day: "numeric" });
   } catch {
     return "";
   }

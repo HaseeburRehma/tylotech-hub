@@ -10,6 +10,7 @@ import { PROJECT_STATUS } from "@/lib/status";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import type { Project, ProjectStatus } from "@/types";
+import { APP_TZ } from "@/lib/utils";
 
 const ORDER: ProjectStatus[] = ["blocked", "in_progress", "review", "planning", "done"];
 
@@ -67,7 +68,7 @@ export function ProjectsView({ projects, staff }: { projects: Project[]; staff: 
                   {p.due && (
                     <span className={cn("inline-flex items-center gap-1.5", overdue && "font-medium text-danger")}>
                       <CalendarDays className="h-3.5 w-3.5" />
-                      {new Date(p.due).toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" })}
+                      {new Date(p.due).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" })}
                       {overdue && ` · ${t("projects.overdue")}`}
                     </span>
                   )}

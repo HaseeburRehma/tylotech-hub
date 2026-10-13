@@ -1,11 +1,11 @@
 import { ArrowLeft } from "lucide-react";
-import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { RunHeader } from "@/components/workflows/run-parts";
 import { RunSteps } from "@/components/workflows/run-steps";
-import { LOCALE_COOKIE, translate } from "@/lib/i18n/dictionary";
+import { translate } from "@/lib/i18n/dictionary";
+import { serverLocale } from "@/lib/i18n/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { listStaff, loadRuns } from "@/lib/workflows";
@@ -26,7 +26,7 @@ export default async function RunPage({ params }: { params: { id: string } }) {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <Link href="/internal/processes" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> {translate(cookies().get(LOCALE_COOKIE)?.value === "en" ? "en" : "de", "wf.title")}
+        <ArrowLeft className="h-4 w-4" /> {translate(serverLocale(), "wf.title")}
       </Link>
       <Card className="space-y-6 p-6">
         <RunHeader

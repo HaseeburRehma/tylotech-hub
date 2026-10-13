@@ -26,6 +26,12 @@ export function formatNumber(value: number) {
   return new Intl.NumberFormat("en").format(value);
 }
 
+/**
+ * TyloTech's business timezone. Every displayed date/time is formatted in it, so
+ * server-rendered and browser-rendered text match for viewers anywhere.
+ */
+export const APP_TZ = "Europe/Berlin";
+
 export function formatRelativeTime(date: Date | string, locale?: string) {
   // Follows the UI language (<html lang>, set from the locale cookie).
   const lang = locale ?? (typeof document !== "undefined" ? document.documentElement.lang : "de");
@@ -39,7 +45,7 @@ export function formatRelativeTime(date: Date | string, locale?: string) {
   if (hours < 24) return rtf.format(-hours, "hour");
   const days = Math.round(hours / 24);
   if (days < 7) return rtf.format(-days, "day");
-  return d.toLocaleDateString(loc, { day: "numeric", month: "short" });
+  return d.toLocaleDateString(loc, { timeZone: APP_TZ, day: "numeric", month: "short" });
 }
 
 export function initials(name: string) {

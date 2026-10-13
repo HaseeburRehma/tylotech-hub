@@ -11,9 +11,10 @@ import {
   YAxis,
 } from "recharts";
 import { SeriesPoint } from "@/types";
+import { APP_TZ } from "@/lib/utils";
 
 function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString("en", { day: "numeric", month: "short" });
+  return new Date(d).toLocaleDateString("en", { timeZone: APP_TZ, day: "numeric", month: "short" });
 }
 
 function ChartTooltip({ active, payload, label, labels }: any) {

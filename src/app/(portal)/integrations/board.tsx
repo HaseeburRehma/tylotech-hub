@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useT } from "@/lib/i18n/provider";
 import type { IntegrationProvider } from "@/lib/integrations/providers";
+import { APP_TZ } from "@/lib/utils";
 
 const ICONS: Record<string, LucideIcon> = {
   meta_ads: Megaphone,
@@ -256,7 +257,7 @@ export function IntegrationsBoard({
                 {isStaff && row?.meta?.tokenExpiresAt && (
                   <p className={`mt-2 text-[11px] ${Date.parse(row.meta.tokenExpiresAt) - Date.now() < 7 * 86_400_000 ? "text-warning" : "text-muted"}`}>
                     {t("integ.tokenExpires", {
-                      date: new Date(row.meta.tokenExpiresAt).toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" }),
+                      date: new Date(row.meta.tokenExpiresAt).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" }),
                     })}
                   </p>
                 )}
@@ -333,7 +334,7 @@ export function IntegrationsBoard({
                   <span className="text-[11px] text-muted/70">
                     {connected
                       ? row?.last_synced_at
-                        ? t("integ.syncedAt", { date: new Date(row.last_synced_at).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) })
+                        ? t("integ.syncedAt", { date: new Date(row.last_synced_at).toLocaleString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) })
                         : row?.account_label ?? t("common.connected")
                       : t("integ.pullLive")}
                   </span>

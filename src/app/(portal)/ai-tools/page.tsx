@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { readAiHistory, type AiHistoryEntry } from "@/lib/ai-history";
 import { lockedToolSlugs } from "@/lib/tool-access";
+import { APP_TZ } from "@/lib/utils";
 
 const ICONS: Record<string, LucideIcon> = {
   PenLine,
@@ -263,7 +264,7 @@ export default function AiToolsPage() {
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-sm font-semibold text-foreground">{def ? t(def.name) : e.tool}</span>
                     <span className="shrink-0 text-[11px] text-muted">
-                      {new Date(e.at).toLocaleDateString("de-DE", { day: "numeric", month: "short" })}
+                      {new Date(e.at).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short" })}
                     </span>
                   </div>
                   <p className="mt-0.5 text-xs text-muted">{e.brand}</p>

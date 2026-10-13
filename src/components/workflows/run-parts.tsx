@@ -11,6 +11,7 @@ import { useUser } from "@/components/providers/user-provider";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { activeStep, isOverdue, runProgress, type Run, type RunStatus, type StaffOption } from "@/lib/workflows-shared";
+import { APP_TZ } from "@/lib/utils";
 
 export function RunStatusBadge({ status }: { status: RunStatus }) {
   const t = useT();
@@ -75,7 +76,7 @@ export function RunHeader({ run, partner, partnerHref }: { run: Run; partner: st
             ) : (
               partner
             )}{" "}
-            · {t("wf.startedOn")} {new Date(run.started_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}
+            · {t("wf.startedOn")} {new Date(run.started_at).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "2-digit", month: "2-digit", year: "numeric" })}
           </p>
         </div>
         <div className="flex items-center gap-2">

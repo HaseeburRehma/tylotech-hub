@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Download, FileText, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useT } from "@/lib/i18n/provider";
+import { APP_TZ } from "@/lib/utils";
 
 export interface ViewerItem {
   id: string;
@@ -56,7 +57,7 @@ export function AttachmentViewer({
 
   if (!mounted) return null;
   const when = item
-    ? new Date(item.createdAt).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+    ? new Date(item.createdAt).toLocaleString("de-DE", { timeZone: APP_TZ, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
     : "";
   const navBtn = "absolute top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20";
 

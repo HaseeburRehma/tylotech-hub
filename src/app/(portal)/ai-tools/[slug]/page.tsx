@@ -34,6 +34,7 @@ import { useUser } from "@/components/providers/user-provider";
 import { createClient } from "@/lib/supabase/client";
 import { lockedToolSlugs } from "@/lib/tool-access";
 import { pushAiHistory, readAiHistory } from "@/lib/ai-history";
+import { APP_TZ } from "@/lib/utils";
 
 type Field =
   | { name: string; label: string; type: "input" | "textarea"; placeholder: string; required?: boolean }
@@ -543,8 +544,8 @@ export default function ToolPage() {
                 {generatedAt && (
                   <>
                     {" · "}
-                    {generatedAt.toLocaleDateString("de-DE", { day: "numeric", month: "numeric" })},{" "}
-                    {generatedAt.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
+                    {generatedAt.toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "numeric" })},{" "}
+                    {generatedAt.toLocaleTimeString("de-DE", { timeZone: APP_TZ, hour: "2-digit", minute: "2-digit" })}
                   </>
                 )}
               </p>

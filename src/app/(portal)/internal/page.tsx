@@ -1,7 +1,6 @@
-import { cookies } from "next/headers";
 import { listClientHealth, listClients, listProjects, listTeamLoad } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
-import { LOCALE_COOKIE } from "@/lib/i18n/dictionary";
+import { serverLocale } from "@/lib/i18n/server";
 import { InternalView, type PipelineColumn } from "./view";
 import type { ProjectStatus } from "@/types";
 
@@ -61,8 +60,7 @@ export default async function InternalPage() {
     return value;
   };
 
-  const cookieLocale = cookies().get(LOCALE_COOKIE)?.value;
-  const locale = cookieLocale === "en" ? "en-GB" : "de-DE";
+  const locale = serverLocale() === "en" ? "en-GB" : "de-DE";
   const now = new Date();
   const mrrSeries = Array.from({ length: 12 }).map((_, i) => {
     const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (11 - i) + 1, 0)); // end of that month

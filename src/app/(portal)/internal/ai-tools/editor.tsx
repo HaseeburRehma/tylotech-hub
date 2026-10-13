@@ -11,6 +11,7 @@ import { useT } from "@/lib/i18n/provider";
 import { useUser } from "@/components/providers/user-provider";
 import { cn } from "@/lib/utils";
 import type { AiToolRow } from "@/lib/data";
+import { APP_TZ } from "@/lib/utils";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   PenLine,
@@ -256,7 +257,7 @@ function PromptPanel({
               <span>
                 {t("prompts.lastEdited", {
                   name: tool.updated_by_name,
-                  date: new Date(tool.updated_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" }),
+                  date: new Date(tool.updated_at).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" }),
                 })}
               </span>
             </>

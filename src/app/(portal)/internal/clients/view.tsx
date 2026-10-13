@@ -24,6 +24,7 @@ import { Menu, MenuItem, MenuLabel, MenuSeparator } from "@/components/ui/menu";
 import { useT } from "@/lib/i18n/provider";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { ClientListRow, TeamMember } from "@/lib/data";
+import { APP_TZ } from "@/lib/utils";
 
 type PlanFilter = "all" | "Growth" | "Scale" | "new" | "archived" | "risk";
 type SortKey = "budget" | "mrr" | "leads" | "name" | "newest" | "health";
@@ -403,7 +404,7 @@ export function ClientsView({
 
                 {/* Since */}
                 <td className="hidden px-4 py-3 text-right text-xs text-muted md:table-cell">
-                  {new Date(client.created_at).toLocaleDateString("de-DE", {
+                  {new Date(client.created_at).toLocaleDateString("de-DE", { timeZone: APP_TZ,
                     month: "long",
                     year: "numeric",
                   })}

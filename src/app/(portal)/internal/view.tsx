@@ -17,6 +17,7 @@ import { useUser } from "@/components/providers/user-provider";
 import { formatCurrency } from "@/lib/utils";
 import type { Client } from "@/types";
 import type { TeamLoad } from "@/lib/data";
+import { APP_TZ } from "@/lib/utils";
 
 export interface PipelineProject {
   name: string;
@@ -326,7 +327,7 @@ export function InternalView({
                       {p.due && (
                         <div className="mt-2 flex items-center gap-1 text-[11px] text-muted">
                           <Clock className="h-3 w-3" />
-                          {new Date(p.due).toLocaleDateString("de-DE", {
+                          {new Date(p.due).toLocaleDateString("de-DE", { timeZone: APP_TZ,
                             day: "numeric",
                             month: "short",
                           })}

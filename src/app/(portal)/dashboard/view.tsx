@@ -32,6 +32,7 @@ import { LOWER_IS_BETTER, shownDelta } from "@/lib/status";
 import { useActiveClient } from "@/components/providers/active-client-provider";
 import type { Kpi, Project, SeriesPoint, Update } from "@/types";
 import type { IntegrationHealthRow, PortfolioSummary } from "@/lib/data";
+import { APP_TZ } from "@/lib/utils";
 
 function DeltaBadge({ value, goodWhenDown = false }: { value: number; goodWhenDown?: boolean }) {
   const positive = goodWhenDown ? value < 0 : value >= 0;
@@ -126,7 +127,7 @@ export function ClientDashboardView({
   const firstName = user.name.split(" ")[0];
   const period =
     kpis[0]?.period ||
-    new Date().toLocaleDateString("de-DE", { month: "long", year: "numeric" });
+    new Date().toLocaleDateString("de-DE", { timeZone: APP_TZ, month: "long", year: "numeric" });
 
   useEffect(() => {
     if (!user.client_id) return;
@@ -300,7 +301,7 @@ export function ClientDashboardView({
                       {p.name}
                     </p>
                     <p className="text-[11px] text-muted">
-                      {p.assigned_to} {p.due && `· ${new Date(p.due).toLocaleDateString("de-DE", { day: "numeric", month: "short" })}`}
+                      {p.assigned_to} {p.due && `· ${new Date(p.due).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short" })}`}
                     </p>
                   </div>
                   <Badge variant={s.variant} className="shrink-0 text-[10px]">
@@ -350,7 +351,7 @@ export function StaffDashboardView({
   const t = useT();
   const { active: activeClient } = useActiveClient();
   const firstName = user.name.split(" ")[0];
-  const period = new Date().toLocaleDateString("de-DE", { month: "long", year: "numeric" });
+  const period = new Date().toLocaleDateString("de-DE", { timeZone: APP_TZ, month: "long", year: "numeric" });
 
   return (
     <div className="space-y-6">
@@ -478,7 +479,7 @@ export function StaffDashboardView({
                     <p className="mt-0.5 text-xs text-muted">
                       {row.lastSyncedAt
                         ? t("dash.staff.lastSynced", {
-                            date: new Date(row.lastSyncedAt).toLocaleDateString("de-DE", {
+                            date: new Date(row.lastSyncedAt).toLocaleDateString("de-DE", { timeZone: APP_TZ,
                               day: "numeric",
                               month: "short",
                             }),
@@ -545,7 +546,7 @@ export function StaffDashboardView({
                       </p>
                       <p className="text-[11px] text-muted">
                         {p.clientName}
-                        {p.due && ` · ${new Date(p.due).toLocaleDateString("de-DE", { day: "numeric", month: "short" })}`}
+                        {p.due && ` · ${new Date(p.due).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short" })}`}
                       </p>
                     </div>
                     <Badge variant={s.variant} className="shrink-0 text-[10px]">

@@ -1,9 +1,8 @@
-import { cookies } from "next/headers";
 import { lockedToolSlugs } from "@/lib/tool-access";
 import { listStaff, loadRuns, loadTemplates } from "@/lib/workflows";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import { LOCALE_COOKIE } from "@/lib/i18n/dictionary";
+import { serverLocale } from "@/lib/i18n/server";
 import type { ReportRun } from "@/components/reports/monthly-report-panel";
 import { getAuthUser, isStaff } from "@/lib/auth";
 import {
@@ -55,7 +54,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     sbUser ? loadTemplates(sbUser) : Promise.resolve([]),
     admin ? listStaff(admin) : Promise.resolve([]),
   ]);
-  const locale = cookies().get(LOCALE_COOKIE)?.value === "en" ? "en" : "de";
+  const locale = serverLocale();
 
   // Same window as the portfolio summary: 30 complete days ending yesterday.
   const day = (offset: number) => {

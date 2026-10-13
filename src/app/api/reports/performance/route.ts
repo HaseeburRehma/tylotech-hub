@@ -5,6 +5,7 @@ import { getAuthUser } from "@/lib/auth";
 import { getClient, getKpis } from "@/lib/data";
 import { ReportDocument, type ReportProps } from "@/lib/pdf/report-document";
 import { formatCurrency } from "@/lib/utils";
+import { APP_TZ } from "@/lib/utils";
 
 export const runtime = "nodejs";
 
@@ -46,10 +47,10 @@ export async function GET(request: Request) {
       end.setDate(end.getDate() - 1);
       const start = new Date(end);
       start.setDate(end.getDate() - 29);
-      const f = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+      const f = (d: Date) => d.toLocaleDateString("en-GB", { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" });
       return `Last 30 days · ${f(start)} – ${f(end)}`;
     })(),
-    generatedAt: new Date().toLocaleString("en-DE"),
+    generatedAt: new Date().toLocaleString("en-GB", { timeZone: APP_TZ }),
     kpis,
   };
 
