@@ -183,7 +183,7 @@ export function ClientDetail({
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            <Avatar name={client.company} size={52} />
+            <Avatar name={client.company} src={client.logo_url} logo size={52} />
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="font-display text-2xl font-semibold tracking-tight">
@@ -749,6 +749,7 @@ export function ClientDetail({
             currentName={staff.name}
             currentRole={staff.role}
             clientId={client.id}
+            clientLogoUrl={client.logo_url}
             peers={peers}
             initialSelected={chatWith}
             title={`${client.company} · Team`}

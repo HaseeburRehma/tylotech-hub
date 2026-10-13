@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
@@ -61,6 +62,9 @@ export function NotificationsBell({ userId, variant = "topbar" }: { userId: stri
   const [items, setItems] = useState<Item[]>([]);
   const [unread, setUnread] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const instanceId = useId();
 
   const load = useCallback(async () => {
@@ -95,7 +99,9 @@ export function NotificationsBell({ userId, variant = "topbar" }: { userId: stri
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (ref.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
@@ -117,6 +123,83 @@ export function NotificationsBell({ userId, variant = "topbar" }: { userId: stri
     if (i.href) router.push(i.href);
   }
 
+  const panel = (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          ref={panelRef}
+          initial={{ opacity: 0, y: -8, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -8, scale: 0.97 }}
+          transition={{ duration: 0.15 }}
+          className={cn(
+            "z-[60] rounded-2xl border border-border bg-surface shadow-float",
+            variant === "sidebar"
+              ? "fixed left-[268px] top-3 w-[360px] max-h-[calc(100vh-1.5rem)] overflow-y-auto"
+              : "fixed inset-x-4 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[360px]",
+          )}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4">
+            <p className="text-base font-semibold text-foreground">{t("notif.title")}</p>
+            {unread > 0 && (
+              <button onClick={markAll} className="text-xs font-medium text-brand hover:underline">
+                {t("notif.markAll")}
+              </button>
+            )}
+          </div>
+
+          {/* Items */}
+          <div className="max-h-[400px] overflow-y-auto px-2">
+            {items.length === 0 ? (
+              <p className="px-3 py-10 text-center text-sm text-muted">{t("notif.caughtUp")}</p>
+            ) : (
+              items.map((i) => {
+                const nType = i.type || guessType(i.title);
+                const Icon = TYPE_ICON[nType] ?? Bell;
+                const iconColor = TYPE_COLOR[nType] ?? "bg-surface-2 text-muted";
+                return (
+                  <button
+                    key={i.id}
+                    onClick={() => openItem(i)}
+                    className={cn(
+                      "relative flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-surface-2",
+                      !i.read && "bg-brand/[0.04]",
+                    )}
+                  >
+                    <span className={cn("mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", iconColor)}>
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium text-foreground">{i.title}</span>
+                      {i.body && <span className="mt-0.5 block text-xs text-muted line-clamp-2">{i.body}</span>}
+                      <span className="mt-1 block text-[11px] text-muted/60">{formatRelativeTime(i.created_at)}</span>
+                    </span>
+                    {!i.read && (
+                      <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-brand" />
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="border-t border-border px-5 py-3">
+            <Link
+              href="/settings?tab=notifications"
+              onClick={() => setOpen(false)}
+              className="flex items-center justify-center gap-1.5 text-sm text-muted transition-colors hover:text-foreground"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              {t("notif.settingsLink")}
+            </Link>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   return (
     <div ref={ref} className="relative">
       <button
@@ -137,79 +220,9 @@ export function NotificationsBell({ userId, variant = "topbar" }: { userId: stri
         )}
       </button>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -8, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.97 }}
-            transition={{ duration: 0.15 }}
-            className={cn(
-              "z-[60] rounded-2xl border border-border bg-surface shadow-float",
-              variant === "sidebar"
-                ? "fixed left-[268px] top-3 w-[360px] max-h-[calc(100vh-1.5rem)] overflow-y-auto"
-                : "fixed inset-x-4 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[360px]",
-            )}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4">
-              <p className="text-base font-semibold text-foreground">{t("notif.title")}</p>
-              {unread > 0 && (
-                <button onClick={markAll} className="text-xs font-medium text-brand hover:underline">
-                  {t("notif.markAll")}
-                </button>
-              )}
-            </div>
-
-            {/* Items */}
-            <div className="max-h-[400px] overflow-y-auto px-2">
-              {items.length === 0 ? (
-                <p className="px-3 py-10 text-center text-sm text-muted">{t("notif.caughtUp")}</p>
-              ) : (
-                items.map((i) => {
-                  const nType = i.type || guessType(i.title);
-                  const Icon = TYPE_ICON[nType] ?? Bell;
-                  const iconColor = TYPE_COLOR[nType] ?? "bg-surface-2 text-muted";
-                  return (
-                    <button
-                      key={i.id}
-                      onClick={() => openItem(i)}
-                      className={cn(
-                        "relative flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-surface-2",
-                        !i.read && "bg-brand/[0.04]",
-                      )}
-                    >
-                      <span className={cn("mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", iconColor)}>
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-medium text-foreground">{i.title}</span>
-                        {i.body && <span className="mt-0.5 block text-xs text-muted line-clamp-2">{i.body}</span>}
-                        <span className="mt-1 block text-[11px] text-muted/60">{formatRelativeTime(i.created_at)}</span>
-                      </span>
-                      {!i.read && (
-                        <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-brand" />
-                      )}
-                    </button>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="border-t border-border px-5 py-3">
-              <Link
-                href="/settings?tab=notifications"
-                onClick={() => setOpen(false)}
-                className="flex items-center justify-center gap-1.5 text-sm text-muted transition-colors hover:text-foreground"
-              >
-                <Settings className="h-3.5 w-3.5" />
-                {t("notif.settingsLink")}
-              </Link>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* The sidebar sits in a sticky (own stacking context) column, so its panel
+          is portalled to <body>; otherwise the page content paints over it. */}
+      {variant === "sidebar" ? mounted && createPortal(panel, document.body) : panel}
     </div>
   );
 }

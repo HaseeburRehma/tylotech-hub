@@ -28,6 +28,7 @@ import { useActiveClient } from "@/components/providers/active-client-provider";
 import { createClient } from "@/lib/supabase/client";
 import { BrandPreview } from "./brand-preview";
 import { NotificationsBell } from "./notifications-bell";
+import { useLogoTone } from "@/lib/logo-tone";
 import type { SidebarClient } from "./app-shell";
 
 const ROLE_LABEL: Record<string, string> = {
@@ -37,7 +38,24 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 export function ClientLogo({ client, size }: { client: SidebarClient; size: number }) {
+  const [logoFailed, setLogoFailed] = useState(false);
+  const tone = useLogoTone(client.logoUrl);
   const rgb = client.color ? hexToRgb(client.color) : null;
+  if (client.logoUrl && !logoFailed) {
+    return (
+      <span
+        aria-hidden
+        style={{ width: size, height: size, padding: Math.max(2, Math.round(size * 0.12)) }}
+        className={cn(
+          "flex shrink-0 items-center justify-center overflow-hidden rounded-md ring-1 ring-border",
+          tone === "light" ? "bg-[#18181b]" : "bg-white",
+        )}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={client.logoUrl} alt="" onError={() => setLogoFailed(true)} className="h-full w-full object-contain" />
+      </span>
+    );
+  }
   return (
     <span
       aria-hidden

@@ -29,6 +29,7 @@ export function ChatView({
   currentRole,
   clientId,
   clientCompany,
+  clientLogoUrl = null,
 }: {
   initialMessages: Message[];
   updates: Update[];
@@ -38,6 +39,7 @@ export function ChatView({
   currentRole: Role;
   clientId: string | null;
   clientCompany?: string;
+  clientLogoUrl?: string | null;
 }) {
   // Opening the chat counts as reading its notifications (the bell links here).
   useEffect(() => {
@@ -109,6 +111,7 @@ export function ChatView({
             currentName={currentName}
             currentRole={currentRole}
             clientId={clientId}
+            clientLogoUrl={clientLogoUrl}
             peers={peers}
             title={t("chat.team")}
             subtitle={clientCompany ? t("chat.groupMembersClient", { n: String(peers.length), client: clientCompany }) : t("chat.groupMembers", { n: String(peers.length) })}

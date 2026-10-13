@@ -21,13 +21,26 @@ import {
   X,
 } from "lucide-react";
 import { Menu, MenuItem, MenuLabel } from "@/components/ui/menu";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback, type ComponentProps } from "react";
 import { Avatar } from "@/components/ui/avatar";
+import { AttachmentViewer, type ViewerItem } from "@/components/chat/attachment-viewer";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { ChatPeer, Message, Role } from "@/types";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
+
+/** The conversation's client logo — shown instead of initials for client senders. */
+const ClientLogoContext = createContext<string | null>(null);
+
+function SenderAvatar({ name, role, size, className }: { name: string; role?: string | null; size: number; className?: string }) {
+  const logo = useContext(ClientLogoContext);
+  return role === "client" && logo ? (
+    <Avatar name={name} src={logo} logo size={size} className={className} />
+  ) : (
+    <Avatar name={name} size={size} className={className} />
+  );
+}
 
 const GROUP = "group";
 
@@ -97,7 +110,7 @@ function MentionPopup({
             i === idx ? "bg-brand/10 text-foreground" : "text-muted hover:bg-surface-2 hover:text-foreground",
           )}
         >
-          <Avatar name={p.name} size={24} />
+          <SenderAvatar name={p.name} role={p.role} size={24} />
           <span className="font-medium">{p.name}</span>
           <span className="ml-auto text-[10px] text-muted/60">{p.role}</span>
         </button>
@@ -187,7 +200,7 @@ function ThreadPanel({
             <div key={m.id} className={cn("group relative", prevSame ? "mt-0.5" : "mt-3")}>
               {!prevSame && (
                 <div className="mb-1 flex items-center gap-2">
-                  <Avatar name={m.sender_name} size={24} />
+                  <SenderAvatar name={m.sender_name} role={m.sender_role} size={24} />
                   <span className="text-[12px] font-semibold text-foreground">{m.sender_name}</span>
                   <span className="text-[10px] text-muted/60">{formatTime(m.created_at)}</span>
                 </div>
@@ -237,7 +250,15 @@ function extractMentions(text: string, peers: ChatPeer[]): string[] {
   return mentions;
 }
 
-export function ChatThread({
+export function ChatThread({ clientLogoUrl = null, ...props }: ComponentProps<typeof ChatThreadInner> & { clientLogoUrl?: string | null }) {
+  return (
+    <ClientLogoContext.Provider value={clientLogoUrl}>
+      <ChatThreadInner {...props} />
+    </ClientLogoContext.Provider>
+  );
+}
+
+function ChatThreadInner({
   initialMessages,
   currentUserId,
   currentName,
@@ -661,15 +682,41 @@ export function ChatThread({
     ? (subtitle ?? t("chat.groupEveryone"))
     : activePeer?.title ?? t("chat.directMessage");
 
-  const channelList: { key: string; name: string; sub: string; isGroup?: boolean }[] = [
+  const channelList: { key: string; name: string; sub: string; isGroup?: boolean; role?: Role }[] = [
     { key: GROUP, name: title, sub: internal ? t("chat.groupIntern") : t("chat.groupEveryone"), isGroup: true },
-    ...peers.map((p) => ({ key: p.id, name: p.name, sub: p.title ?? p.role })),
+    ...peers.map((p) => ({ key: p.id, name: p.name, sub: p.title ?? p.role, role: p.role })),
   ];
 
   const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
+  // Staff see the client's logo on that client's group conversation; the client
+  // sees the TyloTech team members instead.
+  const clientLogo = useContext(ClientLogoContext);
+
+  // In-app attachment preview (same tab): every finished attachment in view.
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const viewerItems: ViewerItem[] = useMemo(
+    () =>
+      shown
+        .filter((m) => m.attachment_mime && !m.id.startsWith("temp-"))
+        .map((m) => ({
+          id: m.id,
+          name: m.attachment_name ?? "Datei",
+          mime: m.attachment_mime!,
+          url: `/api/messages/attachment?id=${m.id}`,
+          sender: m.sender_name,
+          createdAt: m.created_at,
+        })),
+    [shown],
+  );
+  const openViewer = (id: string) => {
+    const i = viewerItems.findIndex((v) => v.id === id);
+    if (i >= 0) setViewerIndex(i);
+  };
+  const groupLogo = !internal && currentRole !== "client" ? clientLogo : null;
 
   return (
     <div className={cn("flex h-full min-h-0 overflow-hidden rounded-2xl border border-border bg-bg", className)}>
+      <AttachmentViewer items={viewerItems} index={viewerIndex} onIndex={setViewerIndex} onClose={() => setViewerIndex(null)} />
       {/* ── Chat sidebar ─────────────────────────────────────────── */}
       {peers.length > 0 && (
         <div className="hidden w-[260px] shrink-0 flex-col border-r border-border bg-surface/50 md:flex">
@@ -714,12 +761,17 @@ export function ChatThread({
                   )}
                 >
                   {ch.isGroup ? (
-                    <div className="relative flex shrink-0">
-                      <Avatar name="A" size={32} className="ring-2 ring-surface" />
-                      <Avatar name="B" size={32} className="-ml-2 ring-2 ring-surface" />
-                    </div>
+                    groupLogo ? (
+                      <Avatar name={ch.name} src={groupLogo} logo size={36} />
+                    ) : (
+                      <div className="relative flex shrink-0">
+                        {peers.slice(0, 2).map((p, i) => (
+                          <Avatar key={p.id} name={p.name} size={32} className={cn("ring-2 ring-surface", i > 0 && "-ml-2")} />
+                        ))}
+                      </div>
+                    )
                   ) : (
-                    <Avatar name={ch.name} size={36} />
+                    <SenderAvatar name={ch.name} role={ch.role} size={36} />
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
@@ -763,7 +815,7 @@ export function ChatThread({
                   </div>
                   <div className="flex items-center gap-2 pl-5">
                     <div className="flex -space-x-1">
-                      <Avatar name={m.sender_name} size={18} className="ring-1 ring-surface" />
+                      <SenderAvatar name={m.sender_name} role={m.sender_role} size={18} className="ring-1 ring-surface" />
                     </div>
                     <span className="text-xs text-muted">{m.reply_count} {t("chat.replies")} · {formatRelativeTime(m.last_reply_at ?? m.created_at)}</span>
                     {(unread[m.id] ?? 0) > 0 && (
@@ -790,7 +842,7 @@ export function ChatThread({
                   }}
                   className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors border-l-2 border-l-transparent hover:bg-surface-2"
                 >
-                  <Avatar name={m.sender_name} size={36} />
+                  <SenderAvatar name={m.sender_name} role={m.sender_role} size={36} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
                       <span className="truncate text-sm font-semibold text-foreground">{m.sender_name}</span>
@@ -815,13 +867,17 @@ export function ChatThread({
             const identity = (
               <div className="flex min-w-0 items-center gap-3">
                 {selected === GROUP ? (
-                  <div className="relative flex shrink-0">
-                    {peers.slice(0, 3).map((p, i) => (
-                      <Avatar key={p.id} name={p.name} size={32} className={cn("ring-2 ring-bg", i > 0 && "-ml-2")} />
-                    ))}
-                  </div>
+                  groupLogo ? (
+                    <Avatar name={headerTitle} src={groupLogo} logo size={36} />
+                  ) : (
+                    <div className="relative flex shrink-0">
+                      {peers.slice(0, 3).map((p, i) => (
+                        <Avatar key={p.id} name={p.name} size={32} className={cn("ring-2 ring-bg", i > 0 && "-ml-2")} />
+                      ))}
+                    </div>
+                  )
                 ) : (
-                  <Avatar name={headerTitle} size={36} />
+                  <SenderAvatar name={headerTitle} role={peers.find((p) => p.id === selected)?.role} size={36} />
                 )}
                 <div className="min-w-0 text-left">
                   <p className="truncate text-sm font-semibold text-foreground">{headerTitle}</p>
@@ -874,7 +930,7 @@ export function ChatThread({
                           {channelList.map((ch) => (
                             <MenuItem
                               key={ch.key}
-                              icon={<Avatar name={ch.name} size={18} />}
+                              icon={ch.isGroup && groupLogo ? <Avatar name={ch.name} src={groupLogo} logo size={18} /> : <SenderAvatar name={ch.name} role={ch.role} size={18} />}
                               selected={selected === ch.key}
                               onSelect={() => {
                                 setSelected(ch.key);
@@ -1035,14 +1091,14 @@ export function ChatThread({
 
                       {!grouped ? (
                         <div className="flex gap-3">
-                          <Avatar name={m.sender_name} size={36} className="mt-0.5 shrink-0" />
+                          <SenderAvatar name={m.sender_name} role={m.sender_role} size={36} className="mt-0.5 shrink-0" />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-baseline gap-2">
                               <span className="text-sm font-semibold text-foreground">{m.sender_name}</span>
                               <span className="text-[11px] text-muted">{formatTime(m.created_at)}</span>
                             </div>
 
-                            {hasAttachment && renderAttachment(m, isTemp, attUrl)}
+                            {hasAttachment && renderAttachment(m, isTemp, attUrl, () => openViewer(m.id))}
 
                             {editingId === m.id ? (
                               <div className="mt-1 flex flex-col gap-1.5">
@@ -1077,7 +1133,7 @@ export function ChatThread({
                       ) : (
                         <div className="pl-[48px]">
                           <span className="invisible absolute left-3 top-1.5 text-[10px] text-muted/40 group-hover:visible">{formatTime(m.created_at)}</span>
-                          {hasAttachment && renderAttachment(m, isTemp, attUrl)}
+                          {hasAttachment && renderAttachment(m, isTemp, attUrl, () => openViewer(m.id))}
                           {editingId === m.id ? (
                             <div className="flex flex-col gap-1.5">
                               <textarea autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)}
@@ -1238,7 +1294,7 @@ export function ChatThread({
   );
 }
 
-function renderAttachment(m: Message, isTemp: boolean, attUrl: string) {
+function renderAttachment(m: Message, isTemp: boolean, attUrl: string, onOpen: () => void) {
   const mime = m.attachment_mime || "";
   return (
     <div className="mt-1 mb-1">
@@ -1248,23 +1304,23 @@ function renderAttachment(m: Message, isTemp: boolean, attUrl: string) {
           <span className="max-w-[200px] truncate">{m.attachment_name}</span>
         </div>
       ) : mime.startsWith("image/") ? (
-        <a href={attUrl} target="_blank" rel="noopener noreferrer">
+        <button type="button" onClick={onOpen} className="block cursor-zoom-in" aria-label={m.attachment_name ?? "image"}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={attUrl} alt={m.attachment_name ?? "image"} className="max-h-72 max-w-sm rounded-xl border border-border object-cover transition-opacity hover:opacity-90" />
-        </a>
+        </button>
       ) : mime.startsWith("video/") ? (
         <video src={attUrl} controls className="max-h-72 max-w-sm rounded-xl border border-border" />
       ) : mime.startsWith("audio/") ? (
         <audio src={attUrl} controls className="w-64 max-w-full" />
       ) : (
-        <a href={attUrl} target="_blank" rel="noopener noreferrer"
-          className="inline-flex items-center gap-2.5 rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-sm transition-colors hover:border-brand/40">
+        <button type="button" onClick={onOpen}
+          className="inline-flex items-center gap-2.5 rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-left text-sm transition-colors hover:border-brand/40">
           <FileText className="h-5 w-5 shrink-0 text-brand" />
           <span className="min-w-0">
             <span className="block max-w-[200px] truncate font-medium text-foreground">{m.attachment_name}</span>
             {m.attachment_size ? <span className="block text-[10px] text-muted">{mime.split("/")[0].toUpperCase()} · {formatBytes(m.attachment_size)}</span> : null}
           </span>
-        </a>
+        </button>
       )}
     </div>
   );

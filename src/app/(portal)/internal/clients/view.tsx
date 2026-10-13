@@ -335,7 +335,7 @@ export function ClientsView({
                     href={`/internal/clients/${client.id}`}
                     className="flex items-center gap-3"
                   >
-                    <Avatar name={client.company} size={36} />
+                    <Avatar name={client.company} src={client.logo_url} logo size={36} />
                     <div className="min-w-0">
                       <p className="truncate font-medium text-foreground">
                         {client.company}

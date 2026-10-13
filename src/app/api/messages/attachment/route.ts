@@ -123,12 +123,13 @@ export async function GET(req: Request) {
   const admin = createAdminClient();
   if (!sb || !admin) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
 
-  const id = new URL(req.url).searchParams.get("id");
+  const params = new URL(req.url).searchParams;
+  const id = params.get("id");
   if (!id) return NextResponse.json({ error: "id required." }, { status: 400 });
 
   // RLS ensures the requester can only read messages they participate in.
-  const { data: msg } = await sb.from("messages").select("client_id,attachment_path").eq("id", id).single();
-  const row = msg as { client_id?: string | null; attachment_path?: string } | null;
+  const { data: msg } = await sb.from("messages").select("client_id,attachment_path,attachment_name").eq("id", id).single();
+  const row = msg as { client_id?: string | null; attachment_path?: string; attachment_name?: string | null } | null;
   const path = row?.attachment_path;
   if (!path) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
@@ -140,7 +141,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
-  const { data, error } = await admin.storage.from("chat").createSignedUrl(path, 3600);
+  // Default: inline (the in-app viewer shows images/PDFs); ?download=1 saves the file.
+  const download = params.get("download") === "1" ? { download: row?.attachment_name || true } : undefined;
+  const { data, error } = await admin.storage.from("chat").createSignedUrl(path, 3600, download);
   if (error || !data) return NextResponse.json({ error: "Could not generate link." }, { status: 400 });
   return NextResponse.redirect(data.signedUrl);
 }
