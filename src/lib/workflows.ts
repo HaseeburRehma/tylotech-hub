@@ -21,7 +21,7 @@ const ddmm = (d: string | null) =>
   d ? new Date(`${d}T00:00:00Z`).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }) : null;
 
 /** "Du bist dran: [Step] bei [Partner]" — in-app (+ push via notifyUser) and email. */
-export async function notifyStepActive(admin: SupabaseClient, stepId: string, actorId?: string) {
+export async function notifyStepActive(admin: SupabaseClient, stepId: string, actorId?: string, opts: { email?: boolean } = {}) {
   const { data: step } = await admin
     .from("workflow_run_steps")
     .select("id,title,instructions,due_date,assignee_user_id,run_id,workflow_runs(name,client_id,clients(company))")
@@ -40,7 +40,7 @@ export async function notifyStepActive(admin: SupabaseClient, stepId: string, ac
   });
   const { data: u } = await admin.from("users").select("email").eq("id", step.assignee_user_id).maybeSingle();
   const { data: au } = await admin.auth.admin.getUserById(step.assignee_user_id);
-  if (u?.email && au?.user?.user_metadata?.notify_email !== false) {
+  if (opts.email !== false && u?.email && au?.user?.user_metadata?.notify_email !== false) {
     await sendStepAssignedEmail(u.email, {
       step: step.title,
       process: run?.name ?? "Prozess",

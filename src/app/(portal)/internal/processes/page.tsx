@@ -22,7 +22,7 @@ export default async function ProcessesPage({ searchParams }: { searchParams: { 
       runs={runs}
       templates={templates}
       staff={staff}
-      clients={clients.map((c) => ({ id: c.id, company: c.company }))}
+      clients={clients.map((c) => ({ id: c.id, company: c.company, logoUrl: c.logo_url ?? null }))}
     />
   );
 }

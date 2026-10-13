@@ -145,5 +145,7 @@ export async function GET(req: Request) {
   const download = params.get("download") === "1" ? { download: row?.attachment_name || true } : undefined;
   const { data, error } = await admin.storage.from("chat").createSignedUrl(path, 3600, download);
   if (error || !data) return NextResponse.json({ error: "Could not generate link." }, { status: 400 });
+  // Apps (mobile) ask for the link itself so they can show it in their own viewer.
+  if (params.get("json") === "1") return NextResponse.json({ url: data.signedUrl });
   return NextResponse.redirect(data.signedUrl);
 }

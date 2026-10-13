@@ -29,7 +29,7 @@ export function ProcessesView({
   runs: Run[];
   templates: Template[];
   staff: StaffOption[];
-  clients: { id: string; company: string }[];
+  clients: { id: string; company: string; logoUrl?: string | null }[];
 }) {
   const t = useT();
   const [starting, setStarting] = useState(false);
