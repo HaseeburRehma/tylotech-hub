@@ -15,9 +15,30 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Slow down a moment." }, { status: 429, headers: rateLimitHeaders(rl) });
   }
 
-  const b = (await req.json().catch(() => ({}))) as { text?: string; target?: string };
-  const text = b.text?.trim();
+  const b = (await req.json().catch(() => ({}))) as { text?: string; texts?: unknown; target?: string };
   const target = b.target === "de" ? "de" : b.target === "en" ? "en" : null;
+
+  // Batch mode for "translate this conversation": up to 25 messages per call,
+  // counted as one request against the rate limit.
+  if (Array.isArray(b.texts)) {
+    if (!target) return NextResponse.json({ error: "target (en|de) is required." }, { status: 400 });
+    const texts = b.texts.slice(0, 25).map((x) => String(x ?? "").trim().slice(0, 5000));
+    if (texts.reduce((n, x) => n + x.length, 0) > 30000) return NextResponse.json({ error: "Text is too long." }, { status: 413 });
+    const out: (string | null)[] = new Array(texts.length).fill(null);
+    let next = 0;
+    // A few at a time — gentle on the translation service.
+    await Promise.all(
+      Array.from({ length: 4 }, async () => {
+        while (next < texts.length) {
+          const i = next++;
+          if (texts[i]) out[i] = await translateMessage(texts[i]!, target as Lang);
+        }
+      }),
+    );
+    return NextResponse.json({ translations: out });
+  }
+
+  const text = b.text?.trim();
   if (!text || !target) {
     return NextResponse.json({ error: "text and target (en|de) are required." }, { status: 400 });
   }

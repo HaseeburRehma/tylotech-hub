@@ -20,6 +20,7 @@ import {
   Upload,
   X,
   Smile,
+  Languages,
 } from "lucide-react";
 import { Menu, MenuItem, MenuLabel } from "@/components/ui/menu";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback, type ComponentProps } from "react";
@@ -242,6 +243,7 @@ function ThreadPanel({
                 if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submit(); }
               }}
               rows={1}
+              autoFocus
               placeholder={`${t("chat.reply")}…`}
               className="max-h-[160px] min-h-[36px] flex-1 resize-none bg-transparent px-1 py-2 text-sm leading-relaxed outline-none placeholder:text-muted/60"
             />
@@ -379,7 +381,8 @@ function ChatThreadInner({
   );
   const { byMessage: reactionsByMsg, toggle: toggleReaction } = useReactions(convMessageIds, currentUserId);
   const tr = useOnDemandTranslation();
-  const [showOriginal, setShowOriginal] = useState<Record<string, boolean>>({});
+  // Per-message override of the conversation-wide translation switch.
+  const [msgView, setMsgView] = useState<Record<string, "orig" | "tr">>({});
   const nameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const p of peers) map.set(p.id, p.name);
@@ -402,7 +405,8 @@ function ChatThreadInner({
     const mineMsg = m.sender_id === currentUserId;
     const stored = !mineMsg && m.content_translated && m.translated_to === tr.locale ? m.content_translated : null;
     const translated = stored ?? (!mineMsg ? tr.done[m.id] : undefined) ?? null;
-    const original = !!showOriginal[m.id];
+    const view = msgView[m.id];
+    const original = !(view === "tr" || (view !== "orig" && tr.auto));
     const text = translated && !original ? translated : m.content;
     return (
       <>
@@ -411,7 +415,7 @@ function ChatThreadInner({
         {translated && (
           <button
             type="button"
-            onClick={() => setShowOriginal((o) => ({ ...o, [m.id]: !o[m.id] }))}
+            onClick={() => setMsgView((v) => ({ ...v, [m.id]: original ? "tr" : "orig" }))}
             className="ml-2 whitespace-nowrap align-baseline text-[11px] text-muted transition-colors hover:text-foreground"
           >
             · {t("chat.translated")} · {original ? t("chat.showTranslation") : t("chat.showOriginal")}
@@ -423,8 +427,33 @@ function ChatThreadInner({
   };
   const translateMsg = (m: Message) => {
     const has = (m.content_translated && m.translated_to === tr.locale) || tr.done[m.id];
-    if (has) setShowOriginal((o) => ({ ...o, [m.id]: false }));
-    else void tr.translate(m.id, m.content);
+    setMsgView((v) => ({ ...v, [m.id]: "tr" }));
+    if (!has) void tr.translate(m.id, m.content);
+  };
+
+  // Switch on → translate what's on screen from others (newest 40), in batches.
+  useEffect(() => {
+    if (!tr.auto) return;
+    const todo = visible
+      .filter(
+        (m) =>
+          m.sender_id !== currentUserId &&
+          !m.id.startsWith("temp-") &&
+          m.content?.trim() &&
+          !(m.content_translated && m.translated_to === tr.locale) &&
+          !tr.done[m.id] && !tr.same[m.id] && !tr.busy[m.id] && !tr.failed[m.id],
+      )
+      .slice(-40)
+      .map((m) => ({ id: m.id, text: m.content }));
+    if (todo.length) void tr.translateMany(todo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tr.auto, tr.locale, visible]);
+
+  /** Double-click a message (text, image, file, voice note) → reply to it in its thread. */
+  const replyTo = (m: Message) => {
+    if (m.id.startsWith("temp-") || m.parent_id) return;
+    window.getSelection()?.removeAllRanges(); // double-click selects a word otherwise
+    setThreadParentId(m.id);
   };
   const footerFor = (m: Message, mineMsg: boolean, isTempMsg: boolean, hasTextMsg: boolean, groupedMsg = false) => (
     <>
@@ -1091,6 +1120,26 @@ function ChatThreadInner({
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
+              role="switch"
+              aria-checked={tr.auto}
+              onClick={() => tr.setAuto(!tr.auto)}
+              title={t("chat.autoTranslateHint")}
+              className={cn(
+                "mr-1 flex h-8 items-center gap-2 rounded-lg border px-2.5 text-xs font-medium transition-colors",
+                tr.auto ? "border-brand/40 bg-brand/10 text-foreground" : "border-border text-muted hover:text-foreground",
+              )}
+            >
+              <Languages className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{t("chat.autoTranslate")}</span>
+              <span
+                aria-hidden
+                className={cn("relative h-4 w-7 rounded-full transition-colors", tr.auto ? "bg-brand" : "bg-surface-2 ring-1 ring-border")}
+              >
+                <span className={cn("absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all", tr.auto ? "left-3.5" : "left-0.5")} />
+              </span>
+            </button>
+            <button
+              type="button"
               aria-label={t("chat.search")}
               aria-pressed={searchOpen}
               onClick={() => {
@@ -1193,6 +1242,12 @@ function ChatThreadInner({
                       className={cn("group relative rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40", grouped ? "mt-0.5" : "mt-5")}
                       onMouseEnter={() => setHoveredMsg(m.id)}
                       onMouseLeave={() => setHoveredMsg(null)}
+                      onDoubleClick={(e) => {
+                        // Not while editing or when double-clicking a button/link inside.
+                        if (editingId === m.id || (e.target as HTMLElement).closest("button,a,textarea,input")) return;
+                        replyTo(m);
+                      }}
+                      title={!isTemp && !m.parent_id ? t("chat.doubleClickReply") : undefined}
                       // Keyboard users: tab onto a message to reveal its actions.
                       tabIndex={isTemp ? undefined : 0}
                       onFocus={() => setHoveredMsg(m.id)}

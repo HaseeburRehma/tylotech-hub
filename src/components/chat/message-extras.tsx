@@ -238,8 +238,15 @@ export function MessageActions({
           <SmilePlus className="h-3.5 w-3.5" />
         </button>
         {onThread && (
-          <button type="button" onClick={onThread} aria-label={t("chat.replyInThread")} title={t("chat.replyInThread")} className={btn}>
+          <button
+            type="button"
+            onClick={onThread}
+            aria-label={t("chat.replyInThread")}
+            title={t("chat.doubleClickReply")}
+            className="flex h-7 items-center gap-1 rounded-md px-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+          >
             <MessageCircle className="h-3.5 w-3.5" />
+            {t("chat.reply")}
           </button>
         )}
         {canTranslate && (
@@ -273,11 +280,44 @@ export function MessageActions({
 
 // ── Translation (stored + on demand) ───────────────────────────────────────
 /** On-demand translations of other people's messages into the UI language. */
+const AUTO_KEY = "tylohq.chat.autoTranslate";
+
+/**
+ * Translations of other people's messages into the UI language: a remembered
+ * per-person switch ("auto": show the conversation translated) plus single and
+ * batch translation through /api/translate (Google, see lib/ai/translate.ts).
+ */
 export function useOnDemandTranslation() {
   const { locale } = useI18n();
   const [done, setDone] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [failed, setFailed] = useState<Record<string, boolean>>({});
+  // Already in the reader's language — never ask again.
+  const [same, setSame] = useState<Record<string, boolean>>({});
+  const [auto, setAutoState] = useState(true);
+
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(AUTO_KEY);
+      if (v === "0") setAutoState(false);
+    } catch {
+      /* storage blocked: keep the default */
+    }
+  }, []);
+  const setAuto = useCallback((on: boolean) => {
+    setAutoState(on);
+    try {
+      localStorage.setItem(AUTO_KEY, on ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const apply = useCallback((id: string, text: string, translation: string | null | undefined) => {
+    if (translation == null) setFailed((f) => ({ ...f, [id]: true }));
+    else if (translation.trim() === text.trim()) setSame((m) => ({ ...m, [id]: true }));
+    else setDone((d) => ({ ...d, [id]: translation }));
+  }, []);
 
   const translate = useCallback(
     async (id: string, text: string) => {
@@ -290,14 +330,32 @@ export function useOnDemandTranslation() {
       }).catch(() => null);
       const data = (res ? await res.json().catch(() => ({})) : {}) as { translation?: string };
       setBusy((b) => ({ ...b, [id]: false }));
-      if (res?.ok && data.translation) {
-        // Same text back = already in your language; nothing to toggle.
-        if (data.translation.trim() !== text.trim()) setDone((d) => ({ ...d, [id]: data.translation! }));
-      } else setFailed((f) => ({ ...f, [id]: true }));
+      apply(id, text, res?.ok ? data.translation : null);
     },
-    [locale],
+    [locale, apply],
   );
-  return { locale, done, busy, failed, translate };
+
+  /** Translate many messages, 25 per request (one rate-limit hit each). */
+  const translateMany = useCallback(
+    async (items: { id: string; text: string }[]) => {
+      for (let i = 0; i < items.length; i += 25) {
+        const chunk = items.slice(i, i + 25);
+        setBusy((b) => ({ ...b, ...Object.fromEntries(chunk.map((x) => [x.id, true])) }));
+        const res = await fetch("/api/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ texts: chunk.map((x) => x.text), target: locale }),
+        }).catch(() => null);
+        const data = (res ? await res.json().catch(() => ({})) : {}) as { translations?: (string | null)[] };
+        setBusy((b) => ({ ...b, ...Object.fromEntries(chunk.map((x) => [x.id, false])) }));
+        chunk.forEach((x, k) => apply(x.id, x.text, res?.ok ? data.translations?.[k] : null));
+        if (!res?.ok) break; // rate-limited or down: stop, the switch can retry later
+      }
+    },
+    [locale, apply],
+  );
+
+  return { locale, done, busy, failed, same, auto, setAuto, translate, translateMany };
 }
 
 // ── Read receipts ("Gesehen") ──────────────────────────────────────────────
