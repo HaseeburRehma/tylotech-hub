@@ -31,10 +31,12 @@ import {
   MessageActions,
   ReactionChips,
   SeenLine,
+  TypingLine,
   convKeyOf,
   useChatReads,
   useOnDemandTranslation,
   useReactions,
+  useTyping,
 } from "@/components/chat/message-extras";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
@@ -393,7 +395,13 @@ function ChatThreadInner({
   const nameOf = useCallback((id: string) => nameById.get(id) ?? "—", [nameById]);
   const convKey = convKeyOf({ clientId, internal, selected, currentUserId, group: GROUP });
   const latestAt = visible.length ? visible[visible.length - 1]!.created_at : null;
-  const reads = useChatReads(convKey, internal ? null : clientId, currentUserId, latestAt);
+  const { reads, myPrevReadAt } = useChatReads(convKey, internal ? null : clientId, currentUserId, latestAt);
+  const typing = useTyping(convKey, currentUserId, currentName);
+  // First message from others since you last had this conversation open.
+  const firstUnreadId = useMemo(() => {
+    if (!myPrevReadAt) return null;
+    return visible.find((m) => m.sender_id !== currentUserId && !m.id.startsWith("temp-") && m.created_at > myPrevReadAt)?.id ?? null;
+  }, [visible, myPrevReadAt, currentUserId]);
   const lastMineId = useMemo(
     () => [...visible].reverse().find((m) => m.sender_id === currentUserId && !m.id.startsWith("temp-"))?.id ?? null,
     [visible, currentUserId],
@@ -441,7 +449,7 @@ function ChatThreadInner({
           !m.id.startsWith("temp-") &&
           m.content?.trim() &&
           !(m.content_translated && m.translated_to === tr.locale) &&
-          !tr.done[m.id] && !tr.same[m.id] && !tr.busy[m.id] && !tr.failed[m.id],
+          !tr.done[m.id] && !tr.same[m.id] && !tr.busy[m.id] && !tr.failed[m.id] && !tr.skipped[m.id],
       )
       .slice(-40)
       .map((m) => ({ id: m.id, text: m.content }));
@@ -475,6 +483,12 @@ function ChatThreadInner({
         : q.attachment_name
           ? `📎 ${q.attachment_name}`
           : "…";
+  /** Double-click → open the message's thread (reply box focused there). */
+  const openThread = (m: Message) => {
+    if (m.id.startsWith("temp-") || m.parent_id) return;
+    window.getSelection()?.removeAllRanges(); // double-click selects a word otherwise
+    setThreadParentId(m.id);
+  };
   /** Scroll to the quoted original and briefly highlight it. */
   const jumpTo = (id: string) => {
     const el = document.getElementById(`msg-${id}`);
@@ -506,9 +520,9 @@ function ChatThreadInner({
       />
       {!isTempMsg && editingId !== m.id && (
         <MessageActions
-          // Above the message, aligned with the start of its text (sits in the
-          // gap above; over the sender line it starts after the avatar).
-          className={cn("absolute bottom-full z-30 mb-0.5", groupedMsg ? "left-[48px]" : "left-0")}
+          // Right end of the message's own row: never covers the messages above
+          // (beside the sender line, or the first text line for follow-ups).
+          className={cn("absolute right-1 z-30", groupedMsg ? "-top-0.5" : "-top-1")}
           visible={hoveredMsg === m.id}
           canEdit={mineMsg && hasTextMsg}
           canDelete={mineMsg}
@@ -692,6 +706,7 @@ function ChatThreadInner({
     const mentionIds = extractMentions(content, peers);
     const replyToId = quoting?.id ?? null;
     setQuoting(null);
+    typing.stop();
     const tempId = `temp-${Date.now()}`;
     seen.current.add(tempId);
     setMessages((m) => [...m, {
@@ -864,6 +879,7 @@ function ChatThreadInner({
   function onComposerInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const newVal = e.target.value;
     setVal(newVal);
+    if (newVal.trim()) typing.notify();
     const pos = e.target.selectionStart ?? 0;
     const before = newVal.slice(0, pos);
     const atMatch = before.match(/@(\w*)$/);
@@ -1286,6 +1302,13 @@ function ChatThreadInner({
 
                 return (
                   <div key={m.id}>
+                    {firstUnreadId === m.id && (
+                      <div className="my-4 flex items-center gap-3" role="separator">
+                        <div className="h-px flex-1 bg-brand/40" />
+                        <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-[11px] font-semibold text-brand">{t("chat.newMessages")}</span>
+                        <div className="h-px flex-1 bg-brand/40" />
+                      </div>
+                    )}
                     {divider && (
                       <div className="my-5 flex items-center gap-3">
                         <div className="h-px flex-1 bg-border" />
@@ -1306,7 +1329,7 @@ function ChatThreadInner({
                       onDoubleClick={(e) => {
                         // Not while editing or when double-clicking a button/link inside.
                         if (editingId === m.id || (e.target as HTMLElement).closest("button,a,textarea,input")) return;
-                        replyTo(m);
+                        openThread(m);
                       }}
                       title={!isTemp && !m.parent_id ? t("chat.doubleClickReply") : undefined}
                       // Keyboard users: tab onto a message to reveal its actions.
@@ -1398,6 +1421,7 @@ function ChatThreadInner({
               <div ref={endRef} />
             </div>
 
+            <TypingLine names={typing.names} />
             {/* Composer */}
             {uploadError && <p className="shrink-0 border-t border-border px-4 pt-2 text-xs text-danger">{uploadError}</p>}
             <form

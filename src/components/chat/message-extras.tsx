@@ -245,7 +245,7 @@ export function MessageActions({
             type="button"
             onClick={onReply}
             aria-label={t("chat.reply")}
-            title={t("chat.doubleClickReply")}
+            title={t("chat.reply")}
             className="flex h-7 items-center gap-1 rounded-md px-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
           >
             <Reply className="h-3.5 w-3.5" />
@@ -253,7 +253,7 @@ export function MessageActions({
           </button>
         )}
         {onThread && (
-          <button type="button" onClick={onThread} aria-label={t("chat.replyInThread")} title={t("chat.replyInThread")} className={btn}>
+          <button type="button" onClick={onThread} aria-label={t("chat.replyInThread")} title={t("chat.doubleClickThread")} className={btn}>
             <MessageCircle className="h-3.5 w-3.5" />
           </button>
         )}
@@ -280,7 +280,7 @@ export function MessageActions({
           setPicker(false);
           onReact(e);
         }}
-        className="left-0 top-9"
+        className="right-0 top-9"
       />
     </div>
   );
@@ -302,6 +302,8 @@ export function useOnDemandTranslation() {
   const [failed, setFailed] = useState<Record<string, boolean>>({});
   // Already in the reader's language — never ask again.
   const [same, setSame] = useState<Record<string, boolean>>({});
+  // Automatic translation didn't work for these — don't retry on every render.
+  const [skipped, setSkipped] = useState<Record<string, boolean>>({});
   const [auto, setAutoState] = useState(true);
 
   useEffect(() => {
@@ -352,18 +354,25 @@ export function useOnDemandTranslation() {
         const res = await fetch("/api/translate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ texts: chunk.map((x) => x.text), target: locale }),
+          // Ids let the server reuse/store translations — each message is translated once.
+          body: JSON.stringify({ items: chunk, target: locale }),
         }).catch(() => null);
         const data = (res ? await res.json().catch(() => ({})) : {}) as { translations?: (string | null)[] };
         setBusy((b) => ({ ...b, ...Object.fromEntries(chunk.map((x) => [x.id, false])) }));
-        chunk.forEach((x, k) => apply(x.id, x.text, res?.ok ? data.translations?.[k] : null));
-        if (!res?.ok) break; // rate-limited or down: stop, the switch can retry later
+        chunk.forEach((x, k) => {
+          const tr = res?.ok ? data.translations?.[k] : null;
+          // Automatic translation fails quietly (original stays visible) and
+          // isn't retried in a loop; only a click on "Übersetzen" shows an error.
+          if (tr == null) setSkipped((m) => ({ ...m, [x.id]: true }));
+          else apply(x.id, x.text, tr);
+        });
+        if (!res?.ok) break; // rate-limited or down: stop for now
       }
     },
     [locale, apply],
   );
 
-  return { locale, done, busy, failed, same, auto, setAuto, translate, translateMany };
+  return { locale, done, busy, failed, same, skipped, auto, setAuto, translate, translateMany };
 }
 
 // ── Read receipts ("Gesehen") ──────────────────────────────────────────────
@@ -386,11 +395,31 @@ export function convKeyOf(opts: { clientId: string | null; internal: boolean; se
  */
 export function useChatReads(convKey: string, clientId: string | null, currentUserId: string, latestAt: string | null) {
   const [reads, setReads] = useState<ChatRead[]>([]);
+  // When *you* last read this conversation before opening it now — drives the
+  // "Neue Nachrichten" divider (undefined = still loading, null = never).
+  const [myPrevReadAt, setMyPrevReadAt] = useState<string | null | undefined>(undefined);
+  const prevLoaded = useRef<Promise<void> | null>(null);
   const available = useRef(true);
+
+  useEffect(() => {
+    const sb = createClient();
+    setMyPrevReadAt(undefined);
+    if (!sb) return;
+    prevLoaded.current = Promise.resolve(
+      sb
+        .from("chat_reads")
+        .select("last_read_at")
+        .eq("conv_key", convKey)
+        .eq("user_id", currentUserId)
+        .maybeSingle()
+        .then(({ data }) => setMyPrevReadAt((data as { last_read_at?: string } | null)?.last_read_at ?? null)),
+    );
+  }, [convKey, currentUserId]);
 
   const markRead = useCallback(async () => {
     const sb = createClient();
     if (!sb || !available.current || document.visibilityState !== "visible") return;
+    await prevLoaded.current; // capture the previous read time before overwriting it
     const { error } = await sb
       .from("chat_reads")
       .upsert({ user_id: currentUserId, conv_key: convKey, client_id: clientId, last_read_at: new Date().toISOString() }, { onConflict: "user_id,conv_key" });
@@ -436,7 +465,84 @@ export function useChatReads(convKey: string, clientId: string | null, currentUs
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [markRead]);
 
-  return reads.filter((r) => r.user_id !== currentUserId);
+  return { reads: reads.filter((r) => r.user_id !== currentUserId), myPrevReadAt };
+}
+
+// ── Typing indicator ("… tippt") ───────────────────────────────────────────
+/**
+ * Live "is typing" for a conversation via Realtime broadcast (no database).
+ * `notify()` on input (throttled), `stop()` after sending; entries expire
+ * after 5 s without a signal.
+ */
+export function useTyping(convKey: string, currentUserId: string, currentName: string) {
+  const [typing, setTyping] = useState<Record<string, { name: string; at: number }>>({});
+  const channelRef = useRef<ReturnType<NonNullable<ReturnType<typeof createClient>>["channel"]> | null>(null);
+  const lastSent = useRef(0);
+
+  useEffect(() => {
+    const sb = createClient();
+    if (!sb) return;
+    const channel = sb
+      .channel(`typing:${convKey}`, { config: { broadcast: { self: false } } })
+      .on("broadcast", { event: "typing" }, ({ payload }) => {
+        const p = payload as { id?: string; name?: string };
+        if (!p.id || p.id === currentUserId) return;
+        setTyping((t) => ({ ...t, [p.id!]: { name: p.name || "…", at: Date.now() } }));
+      })
+      .on("broadcast", { event: "stop" }, ({ payload }) => {
+        const id = (payload as { id?: string }).id;
+        if (id) setTyping((t) => {
+          const next = { ...t };
+          delete next[id];
+          return next;
+        });
+      })
+      .subscribe();
+    channelRef.current = channel;
+    const sweep = window.setInterval(() => {
+      setTyping((t) => {
+        const now = Date.now();
+        const live = Object.entries(t).filter(([, v]) => now - v.at < 5000);
+        return live.length === Object.keys(t).length ? t : Object.fromEntries(live);
+      });
+    }, 1500);
+    return () => {
+      window.clearInterval(sweep);
+      sb.removeChannel(channel);
+      channelRef.current = null;
+      setTyping({});
+    };
+  }, [convKey, currentUserId]);
+
+  const notify = useCallback(() => {
+    const now = Date.now();
+    if (now - lastSent.current < 2500) return;
+    lastSent.current = now;
+    void channelRef.current?.send({ type: "broadcast", event: "typing", payload: { id: currentUserId, name: currentName } });
+  }, [currentUserId, currentName]);
+  const stop = useCallback(() => {
+    lastSent.current = 0;
+    void channelRef.current?.send({ type: "broadcast", event: "stop", payload: { id: currentUserId } });
+  }, [currentUserId]);
+
+  return { names: Object.values(typing).map((v) => v.name), notify, stop };
+}
+
+/** "Anna tippt…" with animated dots. */
+export function TypingLine({ names }: { names: string[] }) {
+  const { t } = useI18n();
+  if (!names.length) return null;
+  const label = names.length === 1 ? t("chat.typingOne", { name: names[0]! }) : t("chat.typingMany", { names: names.slice(0, 2).join(", ") });
+  return (
+    <div className="flex items-center gap-2 px-5 pb-1 text-[11px] text-muted" aria-live="polite">
+      <span className="flex gap-0.5">
+        {[0, 1, 2].map((i) => (
+          <span key={i} className="h-1 w-1 animate-bounce rounded-full bg-muted" style={{ animationDelay: `${i * 120}ms` }} />
+        ))}
+      </span>
+      {label}
+    </div>
+  );
 }
 
 const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("de-DE", { timeZone: APP_TZ, hour: "2-digit", minute: "2-digit" });

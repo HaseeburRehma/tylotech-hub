@@ -22,8 +22,21 @@ export async function translateMessage(text: string, target: Lang): Promise<stri
   const trimmed = text.trim();
   if (!trimmed) return null;
   const input = trimmed.slice(0, MAX_CHARS);
-  return (await googleCloudTranslate(input, target)) ?? (await googleFreeTranslate(input, target)) ?? (await claudeTranslate(input, target));
+  const key = `${target}\u0000${input}`;
+  const hit = cache.get(key);
+  if (hit !== undefined) return hit;
+  const out =
+    (await googleCloudTranslate(input, target)) ?? (await googleFreeTranslate(input, target)) ?? (await claudeTranslate(input, target));
+  if (out) {
+    // Small per-instance cache: the same text is never sent twice in a row.
+    if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value!);
+    cache.set(key, out);
+  }
+  return out;
 }
+
+const CACHE_MAX = 1000;
+const cache = new Map<string, string>();
 
 /** Official Cloud Translation API v2 (needs GOOGLE_TRANSLATE_API_KEY). */
 async function googleCloudTranslate(text: string, target: Lang): Promise<string | null> {
