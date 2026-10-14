@@ -449,11 +449,52 @@ function ChatThreadInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tr.auto, tr.locale, visible]);
 
-  /** Double-click a message (text, image, file, voice note) → reply to it in its thread. */
+  // WhatsApp-style quoted reply: the message being answered, shown above the composer.
+  const [quoting, setQuoting] = useState<Message | null>(null);
+  useEffect(() => setQuoting(null), [selected]);
+  const [flashId, setFlashId] = useState<string | null>(null);
+  /** Double-click (or "Antworten") on a message, image, file or voice note → quote it. */
   const replyTo = (m: Message) => {
     if (m.id.startsWith("temp-") || m.parent_id) return;
     window.getSelection()?.removeAllRanges(); // double-click selects a word otherwise
-    setThreadParentId(m.id);
+    setQuoting(m);
+    window.setTimeout(() => composerRef.current?.focus(), 0);
+  };
+  // The quote shows the text the way the reader sees it (translated when the switch is on).
+  const shownText = (q: Message) => {
+    if (q.sender_id === currentUserId) return q.content;
+    const translated = (q.content_translated && q.translated_to === tr.locale ? q.content_translated : null) ?? tr.done[q.id];
+    const view = msgView[q.id];
+    return translated && (view === "tr" || (view !== "orig" && tr.auto)) ? translated : q.content;
+  };
+  const snippetOf = (q: Message) =>
+    q.content?.trim()
+      ? shownText(q).trim().replace(/\s+/g, " ").slice(0, 140)
+      : q.attachment_mime?.startsWith("image/")
+        ? `📷 ${q.attachment_name ?? t("chat.photo")}`
+        : q.attachment_name
+          ? `📎 ${q.attachment_name}`
+          : "…";
+  /** Scroll to the quoted original and briefly highlight it. */
+  const jumpTo = (id: string) => {
+    const el = document.getElementById(`msg-${id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setFlashId(id);
+    window.setTimeout(() => setFlashId((f) => (f === id ? null : f)), 1600);
+  };
+  const renderQuote = (replyToId: string) => {
+    const q = messages.find((x) => x.id === replyToId);
+    return (
+      <button
+        type="button"
+        onClick={() => q && jumpTo(q.id)}
+        className="mb-1 mt-1 flex w-full max-w-md flex-col items-start rounded-lg border-l-[3px] border-brand bg-surface-2/70 px-2.5 py-1.5 text-left transition-colors hover:bg-surface-2"
+      >
+        <span className="text-[11px] font-semibold text-brand">{q ? q.sender_name : t("chat.quoteMissing")}</span>
+        {q && <span className="line-clamp-2 text-xs text-muted">{snippetOf(q)}</span>}
+      </button>
+    );
   };
   const footerFor = (m: Message, mineMsg: boolean, isTempMsg: boolean, hasTextMsg: boolean, groupedMsg = false) => (
     <>
@@ -474,6 +515,7 @@ function ChatThreadInner({
           canTranslate={!mineMsg && hasTextMsg}
           translating={!!tr.busy[m.id]}
           onReact={(e) => void toggleReaction(m.id, e)}
+          onReply={!m.parent_id ? () => replyTo(m) : undefined}
           onThread={!m.parent_id ? () => setThreadParentId(m.id) : undefined}
           onTranslate={() => translateMsg(m)}
           onEdit={() => startEdit(m)}
@@ -582,11 +624,12 @@ function ChatThreadInner({
       : { schema: "public" as const, table: "messages" as const, filter: `client_id=eq.${clientId}` };
     const mine = (m: any) => (internal ? m.client_id == null : m.client_id === clientId);
     const participant = (m: any) => !m.recipient_id || m.sender_id === currentUserId || m.recipient_id === currentUserId;
-    const SELECT = "id,client_id,sender_id,sender_name,sender_role,recipient_id,parent_id,reply_count,last_reply_at,content,content_translated,translated_to,attachment_name,attachment_mime,attachment_size,edited_at,created_at";
+    // "*" so new columns (reply_to_id, migration 0040) arrive without breaking older databases.
+    const SELECT = "*";
     const toMsg = (m: any): Message => ({
       id: m.id, client_id: m.client_id, sender_id: m.sender_id, sender_name: m.sender_name ?? "TyloTech",
       sender_role: (m.sender_role ?? "team") as Role, recipient_id: m.recipient_id ?? null,
-      parent_id: m.parent_id ?? null, reply_count: m.reply_count ?? 0, last_reply_at: m.last_reply_at ?? null,
+      parent_id: m.parent_id ?? null, reply_to_id: m.reply_to_id ?? null, reply_count: m.reply_count ?? 0, last_reply_at: m.last_reply_at ?? null,
       content: m.content ?? "", content_translated: m.content_translated ?? null, translated_to: m.translated_to ?? null,
       attachment_name: m.attachment_name ?? null, attachment_mime: m.attachment_mime ?? null,
       attachment_size: m.attachment_size ?? null, edited_at: m.edited_at ?? null, created_at: m.created_at,
@@ -647,24 +690,37 @@ function ChatThreadInner({
     setUploadError(null);
     const recipientId = selected === GROUP ? null : selected;
     const mentionIds = extractMentions(content, peers);
+    const replyToId = quoting?.id ?? null;
+    setQuoting(null);
     const tempId = `temp-${Date.now()}`;
     seen.current.add(tempId);
     setMessages((m) => [...m, {
       id: tempId, client_id: clientId ?? "", sender_id: currentUserId, sender_name: currentName, sender_role: currentRole,
-      recipient_id: recipientId, content, created_at: new Date().toISOString(),
+      recipient_id: recipientId, reply_to_id: replyToId, content, created_at: new Date().toISOString(),
     }]);
     const res = await fetch("/api/messages", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content, clientId, recipientId, internal, mentions: mentionIds }),
+      body: JSON.stringify({ content, clientId, recipientId, internal, mentions: mentionIds, replyToId }),
     }).catch(() => null);
     if (res?.ok) {
       const { message } = await res.json();
       if (message?.id) {
         seen.current.add(message.id);
-        setMessages((m) => m.some((x) => x.id === message.id) ? m.filter((x) => x.id !== tempId) : m.map((x) => (x.id === tempId ? { ...x, id: message.id } : x)));
+        // Server is the source of truth for reply_to_id / parent_id (it may
+        // fall back to a thread reply before migration 0040).
+        const fix = { id: message.id, reply_to_id: message.reply_to_id ?? null, parent_id: message.parent_id ?? null };
+        setMessages((m) => m.some((x) => x.id === message.id) ? m.filter((x) => x.id !== tempId) : m.map((x) => (x.id === tempId ? { ...x, ...fix } : x)));
+        // Fell back to a thread reply: recount from the list (realtime may already have counted it).
+        if (fix.parent_id) {
+          setMessages((m) => {
+            const count = m.filter((x) => x.parent_id === fix.parent_id).length;
+            return m.map((x) => (x.id === fix.parent_id ? { ...x, reply_count: count, last_reply_at: new Date().toISOString() } : x));
+          });
+        }
       }
       return;
     }
+    if (replyToId) setQuoting(messages.find((x) => x.id === replyToId) ?? null);
     // Failed: remove the optimistic bubble and give the text back to the user.
     setMessages((m) => m.filter((x) => x.id !== tempId));
     setVal((v) => (v ? v : content));
@@ -1239,7 +1295,12 @@ function ChatThreadInner({
                     )}
 
                     <div
-                      className={cn("group relative rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40", grouped ? "mt-0.5" : "mt-5")}
+                      id={`msg-${m.id}`}
+                      className={cn(
+                        "group relative rounded-lg transition-colors duration-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40",
+                        grouped ? "mt-0.5" : "mt-5",
+                        flashId === m.id && "bg-brand/10",
+                      )}
                       onMouseEnter={() => setHoveredMsg(m.id)}
                       onMouseLeave={() => setHoveredMsg(null)}
                       onDoubleClick={(e) => {
@@ -1264,6 +1325,7 @@ function ChatThreadInner({
                               <span className="text-[11px] text-muted">{formatTime(m.created_at)}</span>
                             </div>
 
+                            {m.reply_to_id && renderQuote(m.reply_to_id)}
                             {hasAttachment && renderAttachment(m, isTemp, attUrl, () => openViewer(m.id))}
 
                             {editingId === m.id ? (
@@ -1299,7 +1361,8 @@ function ChatThreadInner({
                       ) : (
                         <div className="relative pl-[48px]">
                           <span className="invisible absolute left-3 top-1.5 text-[10px] text-muted/40 group-hover:visible">{formatTime(m.created_at)}</span>
-                          {hasAttachment && renderAttachment(m, isTemp, attUrl, () => openViewer(m.id))}
+                          {m.reply_to_id && renderQuote(m.reply_to_id)}
+                            {hasAttachment && renderAttachment(m, isTemp, attUrl, () => openViewer(m.id))}
                           {editingId === m.id ? (
                             <div className="flex flex-col gap-1.5">
                               <textarea autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)}
@@ -1355,6 +1418,24 @@ function ChatThreadInner({
               </AnimatePresence>
 
               <div className={cn("rounded-2xl border bg-bg transition-colors", dragOver ? "border-brand bg-brand/[0.04]" : "border-border focus-within:border-brand/40")}>
+                {quoting && (
+                  <div className="flex items-start gap-2 border-b border-border/60 px-3 py-2">
+                    <div className="min-w-0 flex-1 rounded-lg border-l-[3px] border-brand bg-surface-2/70 px-2.5 py-1.5">
+                      <p className="text-[11px] font-semibold text-brand">
+                        {t("chat.replyingTo", { name: quoting.sender_id === currentUserId ? t("chat.yourself") : quoting.sender_name })}
+                      </p>
+                      <p className="line-clamp-2 text-xs text-muted">{snippetOf(quoting)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setQuoting(null)}
+                      aria-label={t("chat.cancelReply")}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
                 {pendingAtt.length > 0 && (
                   <div className="flex flex-wrap gap-2 border-b border-border/60 p-2">
                     {pendingAtt.map((a) => (
@@ -1379,6 +1460,11 @@ function ChatThreadInner({
                   value={val}
                   onChange={onComposerInput}
                   onKeyDown={(e) => {
+                    if (e.key === "Escape" && quoting) {
+                      e.preventDefault();
+                      setQuoting(null);
+                      return;
+                    }
                     if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
                       e.preventDefault();
                       void submit();

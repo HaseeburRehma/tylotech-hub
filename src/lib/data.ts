@@ -439,6 +439,7 @@ function mapMsg(m: any): Message {
     sender_role: (m.sender_role ?? "team") as Role,
     recipient_id: m.recipient_id ?? null,
     parent_id: m.parent_id ?? null,
+    reply_to_id: m.reply_to_id ?? null,
     reply_count: m.reply_count ?? 0,
     last_reply_at: m.last_reply_at ?? null,
     content: m.content ?? "",

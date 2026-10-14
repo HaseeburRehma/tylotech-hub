@@ -36,6 +36,7 @@ export async function POST(req: Request) {
     recipientId?: string | null;
     internal?: boolean;
     parentId?: string | null;
+    replyToId?: string | null;
     mentions?: string[];
   };
   const content = body.content?.trim();
@@ -86,28 +87,50 @@ export async function POST(req: Request) {
   const contentTranslated = internal ? null : await translateCapped(user.id, content, target);
 
   // Thread support: validate parentId if provided.
-  const parentId: string | null = body.parentId ?? null;
+  let parentId: string | null = body.parentId ?? null;
   if (parentId) {
     const { data: parent } = await sb.from("messages").select("id,client_id").eq("id", parentId).maybeSingle();
     // A reply must stay in the same conversation as the message it answers.
     if (!parent || (parent.client_id ?? null) !== clientId) return NextResponse.json({ error: "Parent message not found." }, { status: 400 });
   }
 
-  const { data, error } = await sb
+  // Quoted reply: the quoted message must be one you can see, in this same
+  // conversation (same tenant, same group/DM pair) and not a thread reply.
+  let replyToId: string | null = typeof body.replyToId === "string" && body.replyToId ? body.replyToId : null;
+  if (replyToId) {
+    const { data: q } = await sb.from("messages").select("id,client_id,sender_id,recipient_id,parent_id").eq("id", replyToId).maybeSingle();
+    const pair = (a: string | null, b: string | null) => [a, b].sort().join(":");
+    const sameConv =
+      !!q &&
+      (q.client_id ?? null) === clientId &&
+      !q.parent_id &&
+      (recipientId ? !!q.recipient_id && pair(q.sender_id, q.recipient_id) === pair(user.id, recipientId) : !q.recipient_id);
+    if (!sameConv) return NextResponse.json({ error: "Quoted message not found." }, { status: 400 });
+  }
+
+  const row: Record<string, unknown> = {
+    client_id: clientId,
+    sender_id: user.id,
+    sender_name: user.name,
+    sender_role: user.role,
+    recipient_id: recipientId,
+    parent_id: parentId,
+    content,
+    content_translated: contentTranslated,
+    translated_to: internal ? null : target,
+  };
+  let { data, error } = await sb
     .from("messages")
-    .insert({
-      client_id: clientId,
-      sender_id: user.id,
-      sender_name: user.name,
-      sender_role: user.role,
-      recipient_id: recipientId,
-      parent_id: parentId,
-      content,
-      content_translated: contentTranslated,
-      translated_to: internal ? null : target,
-    })
+    .insert(replyToId ? { ...row, reply_to_id: replyToId } : row)
     .select()
     .single();
+  // Before migration 0040 the column doesn't exist: answer in the quoted
+  // message's thread instead, so replying still works.
+  if (error && replyToId && /reply_to_id/i.test(error.message)) {
+    ({ data, error } = await sb.from("messages").insert({ ...row, parent_id: replyToId }).select().single());
+    if (!error) parentId = replyToId;
+    replyToId = null;
+  }
 
   if (error) {
     console.error("message insert failed:", error.message);

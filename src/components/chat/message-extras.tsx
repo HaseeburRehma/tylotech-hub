@@ -6,7 +6,7 @@
  * chat-thread.tsx so the thread component stays readable.
  */
 import { AnimatePresence, motion } from "framer-motion";
-import { Languages, Loader2, MessageCircle, Pencil, SmilePlus, Trash2 } from "lucide-react";
+import { Languages, Loader2, MessageCircle, Pencil, Reply, SmilePlus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/provider";
@@ -205,6 +205,7 @@ export function MessageActions({
   canTranslate,
   translating,
   onReact,
+  onReply,
   onThread,
   onTranslate,
   onEdit,
@@ -218,6 +219,8 @@ export function MessageActions({
   canTranslate: boolean;
   translating: boolean;
   onReact: (emoji: string) => void;
+  /** Quote this message in the composer (WhatsApp-style reply). */
+  onReply?: () => void;
   onThread?: () => void;
   onTranslate: () => void;
   onEdit: () => void;
@@ -237,16 +240,21 @@ export function MessageActions({
         <button type="button" onClick={() => setPicker((p) => !p)} aria-label={t("chat.react")} title={t("chat.react")} className={btn}>
           <SmilePlus className="h-3.5 w-3.5" />
         </button>
-        {onThread && (
+        {onReply && (
           <button
             type="button"
-            onClick={onThread}
-            aria-label={t("chat.replyInThread")}
+            onClick={onReply}
+            aria-label={t("chat.reply")}
             title={t("chat.doubleClickReply")}
             className="flex h-7 items-center gap-1 rounded-md px-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
           >
-            <MessageCircle className="h-3.5 w-3.5" />
+            <Reply className="h-3.5 w-3.5" />
             {t("chat.reply")}
+          </button>
+        )}
+        {onThread && (
+          <button type="button" onClick={onThread} aria-label={t("chat.replyInThread")} title={t("chat.replyInThread")} className={btn}>
+            <MessageCircle className="h-3.5 w-3.5" />
           </button>
         )}
         {canTranslate && (

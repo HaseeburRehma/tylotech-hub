@@ -60,6 +60,8 @@ export interface Message {
   recipient_id?: string | null;
   /** null = top-level message; otherwise a reply in the parent's thread. */
   parent_id?: string | null;
+  /** WhatsApp-style quoted reply: the message this one answers (shown inline). */
+  reply_to_id?: string | null;
   reply_count?: number;
   last_reply_at?: string | null;
   content: string;
