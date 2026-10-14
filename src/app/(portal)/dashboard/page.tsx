@@ -30,12 +30,25 @@ export default async function DashboardPage() {
     ]);
     const connectedSources = (integ.data ?? []).filter((r: { status: string }) => r.status === "connected").length;
 
+    // No ad data? Chart what the client does have: GA4 sessions/users, else
+    // Search Console clicks — instead of an empty "connect an ad source" box.
+    let chart: { kind: "ads" | "ga4" | "seo"; series: typeof series } = { kind: "ads", series };
+    if (!series.length && clientId) {
+      const ga4 = await getSeries(clientId, "ga4");
+      if (ga4.length) chart = { kind: "ga4", series: ga4.slice(-30) };
+      else {
+        const seo = await getSeries(clientId, "search_console");
+        if (seo.length) chart = { kind: "seo", series: seo.slice(-30) };
+      }
+    }
+
     return (
       <ClientDashboardView
         kpis={kpis}
         projects={projects.slice(0, 5)}
         updates={updates.slice(0, 4)}
-        series={series}
+        series={chart.series}
+        seriesKind={chart.kind}
         connectedSources={connectedSources}
         totalSources={PROVIDERS.length}
       />

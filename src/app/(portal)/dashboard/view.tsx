@@ -106,11 +106,25 @@ function formatKpiValue(kpi: Kpi) {
   }
 }
 
+// Headline numbers first: money and leads, then traffic, then SEO detail
+// (same order as the mobile app); unknown metrics keep their order at the end.
+const KPI_ORDER = [
+  "ad_spend", "spend", "leads", "cpl", "roas", "revenue",
+  "sessions", "users", "conversion_rate",
+  "organic_clicks", "clicks", "impressions", "avg_position", "ctr",
+  "ai_referral_sessions", "ai_referral_share",
+];
+const kpiRank = (name: string) => {
+  const i = KPI_ORDER.indexOf(name);
+  return i === -1 ? KPI_ORDER.length : i;
+};
+
 export function ClientDashboardView({
   kpis,
   projects,
   updates,
   series,
+  seriesKind = "ads",
   connectedSources,
   totalSources,
 }: {
@@ -118,6 +132,8 @@ export function ClientDashboardView({
   projects: Project[];
   updates: Update[];
   series: SeriesPoint[];
+  /** What the chart shows: ad spend/leads, or GA4 / Search Console when there are no ads. */
+  seriesKind?: "ads" | "ga4" | "seo";
   connectedSources: number;
   totalSources: number;
 }) {
@@ -125,6 +141,16 @@ export function ClientDashboardView({
   const router = useRouter();
   const t = useT();
   const firstName = user.name.split(" ")[0];
+  // GA4 rows carry sessions in "roas" and users in "leads"; Search Console
+  // carries clicks in "leads" (same mapping as the Leistung page).
+  const chartKeys: ("spend" | "leads" | "roas")[] =
+    seriesKind === "ga4" ? ["roas", "leads"] : seriesKind === "seo" ? ["leads"] : ["spend", "leads"];
+  const chartLabels: Partial<Record<"spend" | "leads" | "roas", string>> =
+    seriesKind === "ga4"
+      ? { roas: t("perf.metricSessions"), leads: t("perf.metricDailyUsers") }
+      : seriesKind === "seo"
+        ? { leads: t("perf.metricClicks") }
+        : { spend: t("dash.spend"), leads: t("dash.leads") };
   const period =
     kpis[0]?.period ||
     new Date().toLocaleDateString("de-DE", { timeZone: APP_TZ, month: "long", year: "numeric" });
@@ -174,7 +200,7 @@ export function ClientDashboardView({
       {/* KPI Cards */}
       {kpis.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {kpis.map((kpi, i) => (
+          {[...kpis].sort((a, b) => kpiRank(a.metric_name) - kpiRank(b.metric_name)).map((kpi, i) => (
             <KpiCardNew
               key={kpi.id}
               index={i}
@@ -197,16 +223,17 @@ export function ClientDashboardView({
       <Card className="overflow-hidden">
         <div className="flex items-center justify-between px-6 pt-5">
           <div className="flex items-center gap-4 text-xs">
-            <span className="flex items-center gap-1.5 text-muted">
-              <span className="h-2 w-2 rounded-full bg-brand" /> {t("dash.spend")}
-            </span>
-            <span className="flex items-center gap-1.5 text-muted">
-              <span className="h-2 w-2 rounded-full bg-info" /> {t("dash.leads")}
-            </span>
+            {chartKeys.map((k) => (
+              <span key={k} className="flex items-center gap-1.5 text-muted">
+                <span className={cn("h-2 w-2 rounded-full", k === "spend" ? "bg-brand" : k === "leads" ? "bg-info" : "bg-success")} />
+                {chartLabels[k]}
+              </span>
+            ))}
           </div>
+          {seriesKind !== "ads" && <span className="text-[11px] text-muted">{t(seriesKind === "ga4" ? "dash.chartGa4" : "dash.chartSeo")}</span>}
         </div>
         {series.length > 0 ? (
-          <PerfArea data={series} keys={["spend", "leads"]} />
+          <PerfArea data={series} keys={chartKeys} labels={chartLabels} />
         ) : (
           <div className="flex h-[260px] items-center justify-center text-sm text-muted">
             {t("dash.noSeries")}

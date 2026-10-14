@@ -110,7 +110,7 @@ export default function SignupPage() {
               <Label htmlFor="name">{t("auth.fullName")}</Label>
               <div className="relative">
                 <User className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                <Input id="name" required value={form.name} onChange={set("name")} placeholder="Dawood Suleman" className="h-12 pl-10" />
+                <Input id="name" required value={form.name} onChange={set("name")} placeholder="Max Mustermann" className="h-12 pl-10" />
               </div>
             </div>
             <div>
