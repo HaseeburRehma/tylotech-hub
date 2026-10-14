@@ -41,7 +41,7 @@ export async function GET(req: Request) {
   for (const u of ups.data ?? [])
     results.push({ type: "Update", label: u.title, href: staff ? `/internal/clients/${u.client_id}` : "/chat" });
   for (const c of (clis.data ?? []).filter((c: any) => !c.archived_at))
-    results.push({ type: "Client", label: c.company, href: `/internal/clients/${c.id}` });
+    results.push({ type: "Client", label: c.company, href: `/internal/clients/${c.slug ?? c.id}` });
 
   return NextResponse.json({ results });
 }

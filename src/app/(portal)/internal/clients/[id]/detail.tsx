@@ -73,7 +73,10 @@ export function ClientDetail({
   workflowTemplates = [],
   workflowStaff = [],
   locale = "de",
+  initialTab,
 }: {
+  /** ?tab= from the URL (e.g. chat notifications open the chat directly). */
+  initialTab?: string;
   client: Client;
   messages: Message[];
   updates: Update[];
@@ -97,7 +100,17 @@ export function ClientDetail({
   locale?: string;
 }) {
   const t = useT();
-  const [tab, setTab] = useState<TabKey>("overview");
+  const [tab, setTabState] = useState<TabKey>(
+    TABS.some((x) => x.key === initialTab) ? (initialTab as TabKey) : "overview",
+  );
+  // Keep ?tab= in the address bar so reloads and shared links reopen the same tab.
+  const setTab = (next: TabKey) => {
+    setTabState(next);
+    const url = new URL(window.location.href);
+    if (next === "overview") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", next);
+    window.history.replaceState(window.history.state, "", url);
+  };
   const [showKpiEditor, setShowKpiEditor] = useState(false);
   const [editing, setEditing] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);

@@ -1,7 +1,7 @@
 import { lockedToolSlugs } from "@/lib/tool-access";
 import { listStaff, loadRuns, loadTemplates } from "@/lib/workflows";
 import { createClient } from "@/lib/supabase/server";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { serverLocale } from "@/lib/i18n/server";
 import type { ReportRun } from "@/components/reports/monthly-report-panel";
 import { getAuthUser, isStaff } from "@/lib/auth";
@@ -22,10 +22,26 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { PROVIDERS, isProviderLive } from "@/lib/integrations/providers";
 import { ClientDetail } from "./detail";
 
-export default async function ClientDetailPage({ params }: { params: { id: string } }) {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export default async function ClientDetailPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: Record<string, string | string[] | undefined>;
+}) {
   const [user, client] = await Promise.all([getAuthUser(), getClientByRef(params.id)]);
   if (!client) notFound();
   if (!isStaff(user)) notFound();
+  // Readable URLs: old links with the client's UUID (notifications, emails)
+  // land on /internal/clients/<slug>, keeping ?tab= etc.
+  if (UUID_RE.test(params.id) && client.slug) {
+    const qs = new URLSearchParams(
+      Object.entries(searchParams).flatMap(([k, v]) => (Array.isArray(v) ? v.map((x) => [k, x]) : v ? [[k, v]] : [])),
+    ).toString();
+    redirect(`/internal/clients/${client.slug}${qs ? `?${qs}` : ""}`);
+  }
 
   const admin = createAdminClient();
   const [messages, updates, documents, projects, kpis, peers, integrationsRes, teamMembers, portfolio, series] =
@@ -68,6 +84,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
   return (
     <ClientDetail
+      initialTab={typeof searchParams.tab === "string" ? searchParams.tab : undefined}
       client={client}
       messages={messages}
       updates={updates}

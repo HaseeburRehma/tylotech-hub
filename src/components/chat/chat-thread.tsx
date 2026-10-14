@@ -19,11 +19,22 @@ import {
   Trash2,
   Upload,
   X,
+  Smile,
 } from "lucide-react";
 import { Menu, MenuItem, MenuLabel } from "@/components/ui/menu";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback, type ComponentProps } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { AttachmentViewer, type ViewerItem } from "@/components/chat/attachment-viewer";
+import {
+  EmojiPicker,
+  MessageActions,
+  ReactionChips,
+  SeenLine,
+  convKeyOf,
+  useChatReads,
+  useOnDemandTranslation,
+  useReactions,
+} from "@/components/chat/message-extras";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { ChatPeer, Message, Role } from "@/types";
@@ -132,7 +143,10 @@ function ThreadPanel({
   onClose,
   onSend,
   peers,
+  renderBody,
 }: {
+  /** Message text (with translation toggle) + reactions, from the main thread. */
+  renderBody: (m: Message) => React.ReactNode;
   parent: Message;
   replies: Message[];
   currentUserId: string;
@@ -149,6 +163,7 @@ function ThreadPanel({
   const endRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const [sending, setSending] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -208,7 +223,7 @@ function ThreadPanel({
                 </div>
               )}
               <div className={cn("pl-8 text-sm leading-relaxed text-foreground", i === 0 && "border-b border-border pb-3 mb-3")}>
-                {m.content && <span dangerouslySetInnerHTML={{ __html: renderRich(m.content) }} />}
+                {renderBody(m)}
               </div>
             </div>
           );
@@ -230,6 +245,25 @@ function ThreadPanel({
               placeholder={`${t("chat.reply")}…`}
               className="max-h-[160px] min-h-[36px] flex-1 resize-none bg-transparent px-1 py-2 text-sm leading-relaxed outline-none placeholder:text-muted/60"
             />
+            <div className="relative mb-0.5">
+              <button
+                type="button"
+                onClick={() => setEmojiOpen((o) => !o)}
+                aria-label={t("chat.addEmoji")}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+              >
+                <Smile className="h-4 w-4" />
+              </button>
+              <EmojiPicker
+                open={emojiOpen}
+                onClose={() => setEmojiOpen(false)}
+                onPick={(e) => {
+                  setVal((v) => v + e);
+                  composerRef.current?.focus();
+                }}
+                className="bottom-10 right-0"
+              />
+            </div>
             <Button type="submit" size="icon" aria-label={t("chat.sendReply")} disabled={!val.trim() || sending} className="mb-0.5 h-8 w-8 shrink-0 disabled:opacity-40">
               <Send className="h-4 w-4" />
             </Button>
@@ -336,6 +370,100 @@ function ChatThreadInner({
           m.sender_name.toLowerCase().includes(q),
       )
     : visible;
+
+  // Reactions, translations and read receipts (message-extras.tsx).
+  const convMessageIds = useMemo(
+    () => messages.filter((m) => threadKeyOf(m) === selected).map((m) => m.id),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [messages, selected],
+  );
+  const { byMessage: reactionsByMsg, toggle: toggleReaction } = useReactions(convMessageIds, currentUserId);
+  const tr = useOnDemandTranslation();
+  const [showOriginal, setShowOriginal] = useState<Record<string, boolean>>({});
+  const nameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of peers) map.set(p.id, p.name);
+    for (const m of messages) if (!map.has(m.sender_id)) map.set(m.sender_id, m.sender_name);
+    map.set(currentUserId, currentName);
+    return map;
+  }, [peers, messages, currentUserId, currentName]);
+  const nameOf = useCallback((id: string) => nameById.get(id) ?? "—", [nameById]);
+  const convKey = convKeyOf({ clientId, internal, selected, currentUserId, group: GROUP });
+  const latestAt = visible.length ? visible[visible.length - 1]!.created_at : null;
+  const reads = useChatReads(convKey, internal ? null : clientId, currentUserId, latestAt);
+  const lastMineId = useMemo(
+    () => [...visible].reverse().find((m) => m.sender_id === currentUserId && !m.id.startsWith("temp-"))?.id ?? null,
+    [visible, currentUserId],
+  );
+  const [emojiOpen, setEmojiOpen] = useState(false);
+
+  /** Message text in the reader's language: stored or on-demand translation, with a toggle back to the original. */
+  const renderText = (m: Message) => {
+    const mineMsg = m.sender_id === currentUserId;
+    const stored = !mineMsg && m.content_translated && m.translated_to === tr.locale ? m.content_translated : null;
+    const translated = stored ?? (!mineMsg ? tr.done[m.id] : undefined) ?? null;
+    const original = !!showOriginal[m.id];
+    const text = translated && !original ? translated : m.content;
+    return (
+      <>
+        <span dangerouslySetInnerHTML={{ __html: renderRich(text) }} />
+        {m.edited_at && <span className="ml-1 text-[10px] text-muted/40">({t("chat.edited")})</span>}
+        {translated && (
+          <button
+            type="button"
+            onClick={() => setShowOriginal((o) => ({ ...o, [m.id]: !o[m.id] }))}
+            className="ml-2 whitespace-nowrap align-baseline text-[11px] text-muted transition-colors hover:text-foreground"
+          >
+            · {t("chat.translated")} · {original ? t("chat.showTranslation") : t("chat.showOriginal")}
+          </button>
+        )}
+        {tr.failed[m.id] && <span className="ml-2 text-[11px] text-danger">{t("chat.translateFailed")}</span>}
+      </>
+    );
+  };
+  const translateMsg = (m: Message) => {
+    const has = (m.content_translated && m.translated_to === tr.locale) || tr.done[m.id];
+    if (has) setShowOriginal((o) => ({ ...o, [m.id]: false }));
+    else void tr.translate(m.id, m.content);
+  };
+  const footerFor = (m: Message, mineMsg: boolean, isTempMsg: boolean, hasTextMsg: boolean) => (
+    <>
+      <ReactionChips
+        reactions={reactionsByMsg[m.id] ?? []}
+        currentUserId={currentUserId}
+        nameOf={nameOf}
+        onToggle={(e) => void toggleReaction(m.id, e)}
+      />
+      {!isTempMsg && editingId !== m.id && (
+        <MessageActions
+          // Right-aligned just under the message (in the gap to the next one): never
+          // covers the sender's name/avatar of this or the next message.
+          className="absolute right-0 top-full z-30 -mt-1"
+          visible={hoveredMsg === m.id}
+          canEdit={mineMsg && hasTextMsg}
+          canDelete={mineMsg}
+          canTranslate={!mineMsg && hasTextMsg}
+          translating={!!tr.busy[m.id]}
+          onReact={(e) => void toggleReaction(m.id, e)}
+          onThread={!m.parent_id ? () => setThreadParentId(m.id) : undefined}
+          onTranslate={() => translateMsg(m)}
+          onEdit={() => startEdit(m)}
+          onDelete={() => deleteMsg(m.id)}
+        />
+      )}
+    </>
+  );
+  const insertAtCaret = (text: string) => {
+    const el = composerRef.current;
+    const start = el?.selectionStart ?? val.length;
+    const end = el?.selectionEnd ?? val.length;
+    setVal(val.slice(0, start) + text + val.slice(end));
+    requestAnimationFrame(() => {
+      if (!el) return;
+      el.focus();
+      el.selectionStart = el.selectionEnd = start + text.length;
+    });
+  };
 
   useEffect(() => {
     if (initialSelected && peers.some((p) => p.id === initialSelected)) setSelected(initialSelected);
@@ -1072,29 +1200,10 @@ function ChatThreadInner({
                         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setHoveredMsg(null);
                       }}
                     >
-                      {/* Hover actions */}
-                      {hoveredMsg === m.id && !isTemp && editingId !== m.id && (
-                        <div className={cn("absolute -top-3 z-30 flex items-center gap-0.5 rounded-lg border border-border bg-surface px-1 py-0.5 shadow-sm", mine ? "right-0" : "left-10")}>
-                          <button type="button" aria-label={t("chat.thread")} onClick={() => setThreadParentId(m.id)} className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-2 hover:text-foreground">
-                            <MessageCircle className="h-3.5 w-3.5" />
-                          </button>
-                          {mine && hasText && (
-                            <button type="button" aria-label={t("chat.edit")} onClick={() => startEdit(m)} className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-2 hover:text-foreground">
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                          {mine && (
-                            <button type="button" aria-label={t("chat.delete")} onClick={() => deleteMsg(m.id)} className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-2 hover:text-danger">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      )}
-
                       {!grouped ? (
                         <div className="flex gap-3">
                           <SenderAvatar name={m.sender_name} role={m.sender_role} size={36} className="mt-0.5 shrink-0" />
-                          <div className="min-w-0 flex-1">
+                          <div className="relative min-w-0 flex-1">
                             <div className="flex items-baseline gap-2">
                               <span className="text-sm font-semibold text-foreground">{m.sender_name}</span>
                               <span className="text-[11px] text-muted">{formatTime(m.created_at)}</span>
@@ -1116,8 +1225,7 @@ function ChatThreadInner({
                               </div>
                             ) : hasText ? (
                               <div className="mt-1 rounded-xl border-l-2 border-brand/30 pl-3 py-1 text-sm leading-relaxed text-foreground">
-                                <span dangerouslySetInnerHTML={{ __html: renderRich(m.content) }} />
-                                {m.edited_at && <span className="ml-1 text-[10px] text-muted/40">({t("chat.edited")})</span>}
+                                {renderText(m)}
                               </div>
                             ) : null}
 
@@ -1130,10 +1238,11 @@ function ChatThreadInner({
                                 {replyCount} {t("chat.replies")}
                               </button>
                             )}
+                            {footerFor(m, mine, isTemp, hasText)}
                           </div>
                         </div>
                       ) : (
-                        <div className="pl-[48px]">
+                        <div className="relative pl-[48px]">
                           <span className="invisible absolute left-3 top-1.5 text-[10px] text-muted/40 group-hover:visible">{formatTime(m.created_at)}</span>
                           {hasAttachment && renderAttachment(m, isTemp, attUrl, () => openViewer(m.id))}
                           {editingId === m.id ? (
@@ -1150,8 +1259,7 @@ function ChatThreadInner({
                             </div>
                           ) : hasText ? (
                             <div className="rounded-xl border-l-2 border-brand/30 pl-3 py-1 text-sm leading-relaxed text-foreground">
-                              <span dangerouslySetInnerHTML={{ __html: renderRich(m.content) }} />
-                              {m.edited_at && <span className="ml-1 text-[10px] text-muted/40">({t("chat.edited")})</span>}
+                              {renderText(m)}
                             </div>
                           ) : null}
                           {replyCount > 0 && (
@@ -1159,7 +1267,11 @@ function ChatThreadInner({
                               <MessageCircle className="h-3.5 w-3.5" /> {replyCount} {t("chat.replies")}
                             </button>
                           )}
+                          {footerFor(m, mine, isTemp, hasText)}
                         </div>
+                      )}
+                      {lastMineId === m.id && (
+                        <SeenLine messageAt={m.created_at} reads={reads} nameOf={nameOf} isDm={selected !== GROUP} />
                       )}
                     </div>
                   </div>
@@ -1232,6 +1344,22 @@ function ChatThreadInner({
                     <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50">
                       {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setEmojiOpen((o) => !o)}
+                      aria-label={t("chat.addEmoji")}
+                      title={t("chat.addEmoji")}
+                      aria-expanded={emojiOpen}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+                    >
+                      <Smile className="h-4 w-4" />
+                    </button>
+                    <EmojiPicker
+                      open={emojiOpen}
+                      onClose={() => setEmojiOpen(false)}
+                      onPick={(e) => insertAtCaret(e)}
+                      className="bottom-14 left-3"
+                    />
                     <Menu
                       width={220}
                       trigger={({ toggle, open }) => (
@@ -1287,6 +1415,17 @@ function ChatThreadInner({
                 onClose={() => setThreadParentId(null)}
                 onSend={sendReply}
                 peers={peers}
+                renderBody={(m) => (
+                  <>
+                    {m.content ? renderText(m) : null}
+                    <ReactionChips
+                      reactions={reactionsByMsg[m.id] ?? []}
+                      currentUserId={currentUserId}
+                      nameOf={nameOf}
+                      onToggle={(e) => void toggleReaction(m.id, e)}
+                    />
+                  </>
+                )}
               />
             )}
           </AnimatePresence>

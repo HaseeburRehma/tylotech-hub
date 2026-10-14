@@ -333,7 +333,7 @@ export function ClientsView({
                 {/* Client name + subtitle */}
                 <td className="px-4 py-3">
                   <Link
-                    href={`/internal/clients/${client.id}`}
+                    href={`/internal/clients/${client.slug ?? client.id}`}
                     className="flex items-center gap-3"
                   >
                     <Avatar name={client.company} src={client.logo_url} logo size={36} />
@@ -422,7 +422,7 @@ export function ClientsView({
                     </button>
                   ) : null}
                   <Link
-                    href={`/internal/clients/${client.id}`}
+                    href={`/internal/clients/${client.slug ?? client.id}`}
                     className="inline-flex items-center text-muted transition-colors group-hover:text-foreground"
                   >
                     <ChevronRight className="h-4 w-4" />

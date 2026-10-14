@@ -149,7 +149,7 @@ export async function POST(req: Request) {
     for (const uid of mentionIds) {
       if (uid !== user.id) {
         // Staff open the partner's chat in the internal area; clients their own /chat.
-        const href = internal ? "/internal/team" : roleOf.get(uid) === "client" ? "/chat" : `/internal/clients/${clientId}`;
+        const href = internal ? "/internal/team" : roleOf.get(uid) === "client" ? "/chat" : `/internal/clients/${clientId}?tab=chat`;
         try {
           await notifyUser(uid, {
             title: roleOf.get(uid) === "client" ? `${user.name} hat dich erwähnt` : `${user.name} mentioned you`,
@@ -167,14 +167,14 @@ export async function POST(req: Request) {
   const email = { senderName: user.name, preview: content };
   if (recipientId) {
     // Direct message → notify only the recipient.
-    const href = internal ? "/internal/team" : isClient ? `/internal/clients/${clientId}` : "/chat";
+    const href = internal ? "/internal/team" : isClient ? `/internal/clients/${clientId}?tab=chat` : "/chat";
     // Clients read German, the team English (same split as the chat translation).
     await notifyUser(recipientId, { title: isClient ? `New message from ${user.name}` : `Neue Nachricht von ${user.name}`, body: preview, href, type: "message", email });
   } else if (internal) {
     // Internal group → notify all staff.
     await notifyStaff({ title: `Team chat · ${user.name}`, body: preview, href: "/internal/team", type: "message", email });
   } else if (isClient) {
-    await notifyStaff({ title: `New message from ${user.name}`, body: preview, href: `/internal/clients/${clientId}`, type: "message", email });
+    await notifyStaff({ title: `New message from ${user.name}`, body: preview, href: `/internal/clients/${clientId}?tab=chat`, type: "message", email });
   } else {
     await notifyClientUsers(clientId!, { title: "Neue Nachricht von deinem TyloTech-Team", body: preview, href: "/chat", type: "message", email });
   }

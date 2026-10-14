@@ -101,12 +101,12 @@ export async function POST(req: Request) {
   const preview = `📎 ${file.name}`;
   const email = { senderName: user.name, preview: file.name, isFile: true };
   if (recipientId) {
-    const href = internal ? "/internal/team" : isClient ? `/internal/clients/${clientId}` : "/chat";
+    const href = internal ? "/internal/team" : isClient ? `/internal/clients/${clientId}?tab=chat` : "/chat";
     await notifyUser(recipientId, { title: isClient ? `New file from ${user.name}` : `Neue Datei von ${user.name}`, body: preview, href, type: "message", email });
   } else if (internal) {
     await notifyStaff({ title: `Team chat · ${user.name}`, body: preview, href: "/internal/team", type: "message", email });
   } else if (isClient) {
-    await notifyStaff({ title: `New file from ${user.name}`, body: preview, href: `/internal/clients/${clientId}`, type: "message", email });
+    await notifyStaff({ title: `New file from ${user.name}`, body: preview, href: `/internal/clients/${clientId}?tab=chat`, type: "message", email });
   } else {
     await notifyClientUsers(clientId!, { title: "Neue Datei von deinem TyloTech-Team", body: preview, href: "/chat", type: "message", email });
   }

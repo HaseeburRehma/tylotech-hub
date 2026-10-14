@@ -1,14 +1,16 @@
 import { inflateSync } from "zlib";
 
 /**
- * Server-side "is this logo mostly light?" for apps that can't sample pixels
- * (the mobile app). PNG is decoded with zlib; SVG is judged by its fill /
- * stroke colours; anything else (AVIF, JPEG, …) is treated as dark, which keeps
- * the default white tile. The web app does the same check in the browser.
+ * Server-side tile choice for apps that can't sample pixels (the mobile app),
+ * same rule as the browser (src/lib/logo-tone.ts): logos sit on a dark tile,
+ * except transparent logos with real near-black parts → "dark" (white tile).
+ * PNG is decoded with zlib; SVG is judged by its fill/stroke colours; anything
+ * else (AVIF, JPEG, …) gets the default dark tile ("light").
  */
 export type LogoTone = "light" | "dark";
 
-const LIGHT_LUMA = 215;
+const DARK_LUMA = 70;
+const DARK_SHARE = 0.06;
 const luma = (r: number, g: number, b: number) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
 
 export function pngTone(buf: Buffer): LogoTone | null {
@@ -49,8 +51,9 @@ export function pngTone(buf: Buffer): LogoTone | null {
   if (raw.length < (stride + 1) * height) return null;
   const prev = new Uint8Array(stride);
   const cur = new Uint8Array(stride);
-  let sum = 0;
-  let n = 0;
+  let n = 0; // opaque sampled pixels
+  let dark = 0;
+  let sampled = 0;
   const step = Math.max(1, Math.floor(Math.max(width, height) / 64)); // sample ~64×64
 
   for (let y = 0; y < height; y++) {
@@ -86,15 +89,17 @@ export function pngTone(buf: Buffer): LogoTone | null {
           r = cur[i]!; g = cur[i + 1]!; bl = cur[i + 2]!;
           if (type === 6) alpha = cur[i + 3]!;
         }
+        sampled++;
         if (alpha < 64) continue;
-        sum += luma(r, g, bl);
         n++;
+        if (luma(r, g, bl) < DARK_LUMA) dark++;
       }
     }
     prev.set(cur);
   }
   if (!n) return null;
-  return sum / n > LIGHT_LUMA ? "light" : "dark";
+  const transparent = n < sampled * 0.95;
+  return transparent && dark / n > DARK_SHARE ? "dark" : "light";
 }
 
 const NAMED: Record<string, [number, number, number]> = { white: [255, 255, 255], black: [0, 0, 0] };
@@ -113,29 +118,28 @@ export function svgTone(svg: string): LogoTone | null {
       if (nums.length >= 3) colors.push([nums[0]!, nums[1]!, nums[2]!]);
     }
   }
-  if (!colors.length) return null; // default fill is black → dark
-  const avg = colors.reduce((s, [r, g, b]) => s + luma(r, g, b), 0) / colors.length;
-  return avg > LIGHT_LUMA ? "light" : "dark";
+  if (!colors.length) return "dark"; // no colours → SVG's default black fill
+  return colors.some(([r, g, b]) => luma(r, g, b) < DARK_LUMA) ? "dark" : "light";
 }
 
 const cache = new Map<string, LogoTone>();
 
 export async function logoTone(url: string | null | undefined): Promise<LogoTone> {
-  if (!url) return "dark";
+  if (!url) return "light";
   const hit = cache.get(url);
   if (hit) return hit;
-  let tone: LogoTone = "dark";
+  let tone: LogoTone = "light";
   try {
     const res = await fetch(url, { cache: "force-cache" });
     if (res.ok) {
       const type = res.headers.get("content-type") ?? "";
       const buf = Buffer.from(await res.arrayBuffer());
       if (buf.length <= 5 * 1024 * 1024) {
-        tone = (type.includes("svg") ? svgTone(buf.toString("utf8")) : pngTone(buf)) ?? "dark";
+        tone = (type.includes("svg") ? svgTone(buf.toString("utf8")) : pngTone(buf)) ?? "light";
       }
     }
   } catch {
-    /* keep "dark" */
+    /* keep the dark tile */
   }
   cache.set(url, tone);
   return tone;
