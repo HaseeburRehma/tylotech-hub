@@ -426,7 +426,7 @@ function ChatThreadInner({
     if (has) setShowOriginal((o) => ({ ...o, [m.id]: false }));
     else void tr.translate(m.id, m.content);
   };
-  const footerFor = (m: Message, mineMsg: boolean, isTempMsg: boolean, hasTextMsg: boolean) => (
+  const footerFor = (m: Message, mineMsg: boolean, isTempMsg: boolean, hasTextMsg: boolean, groupedMsg = false) => (
     <>
       <ReactionChips
         reactions={reactionsByMsg[m.id] ?? []}
@@ -436,9 +436,9 @@ function ChatThreadInner({
       />
       {!isTempMsg && editingId !== m.id && (
         <MessageActions
-          // Right-aligned just under the message (in the gap to the next one): never
-          // covers the sender's name/avatar of this or the next message.
-          className="absolute right-0 top-full z-30 -mt-1"
+          // Above the message, aligned with the start of its text (sits in the
+          // gap above; over the sender line it starts after the avatar).
+          className={cn("absolute bottom-full z-30 mb-0.5", groupedMsg ? "left-[48px]" : "left-0")}
           visible={hoveredMsg === m.id}
           canEdit={mineMsg && hasTextMsg}
           canDelete={mineMsg}
@@ -1267,7 +1267,7 @@ function ChatThreadInner({
                               <MessageCircle className="h-3.5 w-3.5" /> {replyCount} {t("chat.replies")}
                             </button>
                           )}
-                          {footerFor(m, mine, isTemp, hasText)}
+                          {footerFor(m, mine, isTemp, hasText, true)}
                         </div>
                       )}
                       {lastMineId === m.id && (

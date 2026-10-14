@@ -265,7 +265,7 @@ export function MessageActions({
           setPicker(false);
           onReact(e);
         }}
-        className="bottom-9 right-0"
+        className="left-0 top-9"
       />
     </div>
   );
@@ -290,8 +290,10 @@ export function useOnDemandTranslation() {
       }).catch(() => null);
       const data = (res ? await res.json().catch(() => ({})) : {}) as { translation?: string };
       setBusy((b) => ({ ...b, [id]: false }));
-      if (res?.ok && data.translation) setDone((d) => ({ ...d, [id]: data.translation! }));
-      else setFailed((f) => ({ ...f, [id]: true }));
+      if (res?.ok && data.translation) {
+        // Same text back = already in your language; nothing to toggle.
+        if (data.translation.trim() !== text.trim()) setDone((d) => ({ ...d, [id]: data.translation! }));
+      } else setFailed((f) => ({ ...f, [id]: true }));
     },
     [locale],
   );

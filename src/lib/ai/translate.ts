@@ -4,20 +4,72 @@ import { config } from "@/lib/config";
 export type Lang = "en" | "de";
 
 const LANG_NAME: Record<Lang, string> = { en: "English", de: "German" };
+const MAX_CHARS = 5000;
 
 /**
- * Translate a chat message into the target language with Claude.
- *
- * Client messages are confidential, so they only go to our contracted AI
- * provider — never to an unofficial, keyless translation endpoint. Returns
- * `null` when no key is set or the call fails; callers degrade gracefully:
- * the send path stores null (chat never breaks) and /api/translate returns 502
- * so the UI shows "translation unavailable" instead of a dead toggle.
+ * Translate a chat message into the target language. Tries, in order:
+ *  1. Google Cloud Translation (official API) when GOOGLE_TRANSLATE_API_KEY is
+ *     set — free up to 500k characters/month and covered by Google's data
+ *     processing terms; preferred for client data.
+ *  2. Google Translate's free public endpoint (no key). Works today, but it is
+ *     unofficial: no DPA, rate-limited, and Google may change or block it.
+ *  3. Claude, when ANTHROPIC_API_KEY is set and has credit.
+ * Returns null when every option fails; callers degrade gracefully (the send
+ * path stores null, /api/translate returns 502 → "translation unavailable").
+ * Text already in the target language comes back unchanged.
  */
 export async function translateMessage(text: string, target: Lang): Promise<string | null> {
   const trimmed = text.trim();
   if (!trimmed) return null;
-  return claudeTranslate(trimmed, target);
+  const input = trimmed.slice(0, MAX_CHARS);
+  return (await googleCloudTranslate(input, target)) ?? (await googleFreeTranslate(input, target)) ?? (await claudeTranslate(input, target));
+}
+
+/** Official Cloud Translation API v2 (needs GOOGLE_TRANSLATE_API_KEY). */
+async function googleCloudTranslate(text: string, target: Lang): Promise<string | null> {
+  const key = process.env.GOOGLE_TRANSLATE_API_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(key)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ q: text, target, format: "text" }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) {
+      console.error("googleCloudTranslate failed:", res.status, (await res.text()).slice(0, 200));
+      return null;
+    }
+    const json = (await res.json()) as { data?: { translations?: { translatedText?: string }[] } };
+    return json.data?.translations?.[0]?.translatedText?.trim() || null;
+  } catch (err) {
+    console.error("googleCloudTranslate failed:", err);
+    return null;
+  }
+}
+
+/** Google Translate's free web endpoint (client=gtx). Unofficial — see note above. */
+async function googleFreeTranslate(text: string, target: Lang): Promise<string | null> {
+  try {
+    const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${target}&dt=t`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+      body: new URLSearchParams({ q: text }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) {
+      console.error("googleFreeTranslate failed:", res.status);
+      return null;
+    }
+    // Shape: [[["translated", "original", …], …], null, "detected-source-lang", …]
+    const json = (await res.json()) as [Array<[string | null, ...unknown[]]> | null, unknown, string?];
+    const parts = Array.isArray(json?.[0]) ? json[0] : [];
+    const out = parts.map((p) => (Array.isArray(p) && typeof p[0] === "string" ? p[0] : "")).join("").trim();
+    return out || null;
+  } catch (err) {
+    console.error("googleFreeTranslate failed:", err);
+    return null;
+  }
 }
 
 /** Claude translation. Returns null when no key is set or the API call fails. */

@@ -15,7 +15,10 @@ export const runtime = "nodejs";
  */
 async function translateCapped(userId: string, content: string, target: "en" | "de") {
   const rl = await getRateLimiter().limit(`msg-translate:${userId}`, config.rateLimit.ai);
-  return rl.success ? translateMessage(content, target) : null;
+  if (!rl.success) return null;
+  const out = await translateMessage(content, target);
+  // Already in the target language → nothing to translate (no "Übersetzt" tag).
+  return out && out.trim() !== content.trim() ? out : null;
 }
 
 export async function POST(req: Request) {
