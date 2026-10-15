@@ -11,6 +11,7 @@ import { notifyUser } from "@/lib/notify";
 
 export * from "@/lib/workflows-shared";
 import type { RunStatus, RunStep, Run, StaffOption, Template, TemplateStep } from "@/lib/workflows-shared";
+import { addInterval, berlinToday } from "@/lib/workflows-shared";
 
 export async function listStaff(admin: SupabaseClient): Promise<StaffOption[]> {
   const { data } = await admin.from("users").select("*").in("role", ["admin", "team"]).order("name");
@@ -69,19 +70,25 @@ export async function loadRuns(
   sb: SupabaseClient,
   filter: { clientId?: string; runId?: string; status?: RunStatus[] } = {},
 ): Promise<Run[]> {
-  let q = sb
-    .from("workflow_runs")
-    .select("*, workflow_run_steps(*)")
-    .order("started_at", { ascending: false })
-    .limit(200);
-  if (filter.clientId) q = q.eq("client_id", filter.clientId);
-  if (filter.runId) q = q.eq("id", filter.runId);
-  if (filter.status?.length) q = q.in("status", filter.status);
-  const { data, error } = await q;
+  const build = (select: string) => {
+    let q = sb.from("workflow_runs").select(select).order("started_at", { ascending: false }).limit(200);
+    if (filter.clientId) q = q.eq("client_id", filter.clientId);
+    if (filter.runId) q = q.eq("id", filter.runId);
+    if (filter.status?.length) q = q.in("status", filter.status);
+    return q;
+  };
+  // With attachments (migration 0041); fall back to plain steps on older databases.
+  let { data, error } = await build("*, workflow_run_steps(*, workflow_step_attachments(*))");
+  if (error) ({ data, error } = await build("*, workflow_run_steps(*)"));
   if (error) return [];
   return ((data ?? []) as any[]).map(({ workflow_run_steps, ...r }) => ({
     ...r,
-    steps: ((workflow_run_steps ?? []) as RunStep[]).sort((a, b) => a.order_index - b.order_index),
+    steps: ((workflow_run_steps ?? []) as any[])
+      .map(({ workflow_step_attachments, ...s }) => ({
+        ...s,
+        attachments: ((workflow_step_attachments ?? []) as any[]).sort((a, b) => a.created_at.localeCompare(b.created_at)),
+      }))
+      .sort((a, b) => a.order_index - b.order_index) as RunStep[],
   }));
 }
 
@@ -94,4 +101,73 @@ export async function loadTemplates(sb: SupabaseClient, opts: { includeArchived?
     ...t,
     steps: ((workflow_template_steps ?? []) as TemplateStep[]).sort((a, b) => a.order_index - b.order_index),
   }));
+}
+
+/**
+ * Start the next round of a run: same steps, people and offsets; step 1 active.
+ * Step 1's deadline moves on by the repeat interval (one week when the run has
+ * no interval), or comes from its day offset. Returns the new run id.
+ */
+export async function repeatRun(admin: SupabaseClient, runId: string, actorId: string): Promise<string | null> {
+  const [prev] = await loadRuns(admin, { runId });
+  if (!prev || !prev.steps.length) return null;
+  const every = prev.repeat_every ?? "week";
+  const today = berlinToday();
+  const first = prev.steps[0]!;
+  const firstDue =
+    first.due_date != null
+      ? (() => {
+          // Move the previous deadline forward until it's no longer in the past.
+          let d = addInterval(first.due_date, every);
+          while (d < today) d = addInterval(d, every);
+          return d;
+        })()
+      : first.due_offset_days != null
+        ? addDays(today, first.due_offset_days)
+        : null;
+
+  const base = {
+    template_id: prev.template_id,
+    name: prev.name,
+    context_type: prev.context_type,
+    context_id: prev.context_id,
+    client_id: prev.client_id,
+    started_by: actorId,
+  };
+  let ins = await admin
+    .from("workflow_runs")
+    .insert({ ...base, repeat_every: prev.repeat_every ?? null, repeated_from: prev.id, iteration: (prev.iteration ?? 1) + 1 })
+    .select("id")
+    .single();
+  if (ins.error && /repeat_every|repeated_from|iteration/i.test(ins.error.message)) {
+    ins = await admin.from("workflow_runs").insert(base).select("id").single();
+  }
+  if (ins.error || !ins.data) return null;
+  const newId = ins.data.id as string;
+
+  const rows = prev.steps.map((s, i) => ({
+    run_id: newId,
+    template_step_id: s.template_step_id ?? null,
+    order_index: i,
+    title: s.title,
+    instructions: s.instructions,
+    assignee_user_id: s.assignee_user_id,
+    status: i === 0 ? "active" : "locked",
+    due_offset_days: s.due_offset_days ?? null,
+    due_date: i === 0 ? firstDue : null,
+    activated_at: i === 0 ? new Date().toISOString() : null,
+  }));
+  const { data: inserted, error } = await admin.from("workflow_run_steps").insert(rows).select("id,order_index");
+  if (error || !inserted) {
+    await admin.from("workflow_runs").delete().eq("id", newId);
+    return null;
+  }
+  const step1 = inserted.find((s) => s.order_index === 0);
+  if (step1) await notifyStepActive(admin, step1.id, actorId).catch(() => {});
+  return newId;
+}
+
+function addDays(date: string, days: number) {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(Date.UTC(y!, m! - 1, d! + days)).toISOString().slice(0, 10);
 }

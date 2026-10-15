@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeStep, isOverdue, resolveDefaultAssignee, runProgress, type StaffOption } from "./workflows-shared";
+import { activeStep, addInterval, isOverdue, resolveDefaultAssignee, runProgress, type StaffOption } from "./workflows-shared";
 
 const staff: StaffOption[] = [
   { id: "a", name: "Abdul", title: "SEO Expert", role: "team" },
@@ -37,5 +37,18 @@ describe("runProgress / activeStep / isOverdue", () => {
     expect(isOverdue({ status: "active", due_date: "2026-10-07" }, "2026-10-07")).toBe(false);
     expect(isOverdue({ status: "locked", due_date: "2026-10-01" }, "2026-10-07")).toBe(false);
     expect(isOverdue({ status: "active", due_date: null }, "2026-10-07")).toBe(false);
+  });
+});
+
+describe("addInterval", () => {
+  it("adds a week across month and year ends", () => {
+    expect(addInterval("2026-10-14", "week")).toBe("2026-10-21");
+    expect(addInterval("2026-12-28", "week")).toBe("2027-01-04");
+  });
+  it("adds a month and clamps to the last day", () => {
+    expect(addInterval("2026-10-14", "month")).toBe("2026-11-14");
+    expect(addInterval("2027-01-31", "month")).toBe("2027-02-28");
+    expect(addInterval("2028-01-31", "month")).toBe("2028-02-29");
+    expect(addInterval("2026-12-15", "month")).toBe("2027-01-15");
   });
 });

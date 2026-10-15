@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { logAudit } from "@/lib/audit";
-import { notifyRunCompleted, notifyStepActive } from "@/lib/workflows";
+import { notifyRunCompleted, notifyStepActive, repeatRun } from "@/lib/workflows";
 import { DATE_RE, UUID_RE, bad, engineError, staffContext } from "../../_shared";
 
 export const runtime = "nodejs";
@@ -28,6 +28,15 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (!step) return bad("Step not found.", 404);
   const run = (Array.isArray(step.workflow_runs) ? step.workflow_runs[0] : step.workflow_runs) as { name: string; client_id: string | null; status: string } | null;
   const isAdmin = ctx.user.role === "admin";
+  // A repeating run starts its next round when it finishes — once: a round that
+  // already has a successor (e.g. reopened and finished again) doesn't spawn another.
+  const autoRepeat = async (runId: string, actorId: string) => {
+    const { data: r, error } = await ctx.admin.from("workflow_runs").select("id,repeat_every").eq("id", runId).maybeSingle();
+    if (error || !r?.repeat_every) return null;
+    const { data: next } = await ctx.admin.from("workflow_runs").select("id").eq("repeated_from", runId).limit(1);
+    if (next?.length) return null;
+    return repeatRun(ctx.admin, runId, actorId).catch(() => null);
+  };
   const audit = (action: string, summary: string) =>
     logAudit(ctx.user, { action, clientId: run?.client_id ?? null, targetType: "workflow_step", targetId: step.id, summary: `${run?.name ?? ""} · ${summary}` }, ctx.admin);
 
@@ -41,9 +50,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (error) return engineError(error.message);
     const result = (Array.isArray(data) ? data[0] : data) as { next_step_id: string | null; run_completed: boolean } | null;
     if (result?.next_step_id) await notifyStepActive(ctx.admin, result.next_step_id, ctx.user.id).catch(() => {});
-    if (result?.run_completed) await notifyRunCompleted(ctx.admin, step.run_id, ctx.user.id).catch(() => {});
+    let nextRunId: string | null = null;
+    if (result?.run_completed) {
+      await notifyRunCompleted(ctx.admin, step.run_id, ctx.user.id).catch(() => {});
+      nextRunId = await autoRepeat(step.run_id, ctx.user.id);
+    }
     await audit(b.action === "skip" ? "workflow.step_skip" : "workflow.step_done", step.title);
-    return NextResponse.json({ ok: true, nextStepId: result?.next_step_id ?? null, runCompleted: !!result?.run_completed });
+    return NextResponse.json({ ok: true, nextStepId: result?.next_step_id ?? null, runCompleted: !!result?.run_completed, nextRunId });
   }
 
   if (b.action === "reopen") {

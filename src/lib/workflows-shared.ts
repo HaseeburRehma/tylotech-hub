@@ -30,13 +30,32 @@ export interface RunStep {
   title: string;
   instructions: string | null;
   assignee_user_id: string | null;
+  template_step_id?: string | null;
+  due_offset_days?: number | null;
   status: StepStatus;
   due_date: string | null;
   note: string | null;
   activated_at: string | null;
   completed_by: string | null;
   completed_at: string | null;
+  /** Files / links on this step (migration 0041); absent on older databases. */
+  attachments?: StepAttachment[];
 }
+export interface StepAttachment {
+  id: string;
+  step_id: string;
+  run_id: string;
+  kind: "file" | "link";
+  name: string;
+  path: string | null;
+  url: string | null;
+  mime: string | null;
+  size: number | null;
+  document_id: string | null;
+  uploaded_by: string | null;
+  created_at: string;
+}
+export type RepeatEvery = "week" | "month";
 export interface Run {
   id: string;
   template_id: string | null;
@@ -48,6 +67,10 @@ export interface Run {
   started_by: string | null;
   started_at: string;
   completed_at: string | null;
+  /** Repeating runs (migration 0041): next round starts when this one finishes. */
+  repeat_every?: RepeatEvery | null;
+  repeated_from?: string | null;
+  iteration?: number;
   steps: RunStep[];
 }
 export interface StaffOption {
@@ -83,4 +106,20 @@ export function resolveDefaultAssignee(step: Pick<TemplateStep, "default_assigne
   const role = step.default_assignee_role?.trim().toLowerCase();
   if (!role) return null;
   return staff.find((s) => (s.title ?? "").trim().toLowerCase() === role)?.id ?? null;
+}
+
+/** YYYY-MM-DD + one week / one month (calendar arithmetic in UTC). */
+export function addInterval(date: string, every: "week" | "month"): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const dt = new Date(Date.UTC(y!, m! - 1, d!));
+  if (every === "week") dt.setUTCDate(dt.getUTCDate() + 7);
+  else {
+    // Keep the day of month, clamped to the target month's length (31 Jan → 28/29 Feb).
+    const day = dt.getUTCDate();
+    dt.setUTCDate(1);
+    dt.setUTCMonth(dt.getUTCMonth() + 1);
+    const last = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth() + 1, 0)).getUTCDate();
+    dt.setUTCDate(Math.min(day, last));
+  }
+  return dt.toISOString().slice(0, 10);
 }

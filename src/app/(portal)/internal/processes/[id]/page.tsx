@@ -34,7 +34,7 @@ export default async function RunPage({ params }: { params: { id: string } }) {
           partner={client?.company ?? "—"}
           partnerHref={client ? `/internal/clients/${client.slug ?? run.client_id}` : undefined}
         />
-        <RunSteps run={run} staff={staff} />
+        <RunSteps run={run} staff={staff} partner={client?.company ?? "—"} />
       </Card>
     </div>
   );

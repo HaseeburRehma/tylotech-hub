@@ -1,6 +1,6 @@
 "use client";
 
-import { Pause, Play, Trash2 } from "lucide-react";
+import { Pause, Play, Repeat, RotateCw, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -42,10 +42,13 @@ export function RunHeader({ run, partner, partnerHref }: { run: Run; partner: st
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function call(method: "PATCH" | "DELETE", body?: unknown) {
+  const isAdmin = user.role === "admin";
+  const [repeatEvery, setRepeatEvery] = useState(run.repeat_every ?? "");
+
+  async function call(method: "PATCH" | "DELETE" | "POST", body?: unknown, suffix = "") {
     setBusy(true);
     setError(null);
-    const res = await fetch(`/api/workflows/runs/${run.id}`, {
+    const res = await fetch(`/api/workflows/runs/${run.id}${suffix}`, {
       method,
       headers: body ? { "Content-Type": "application/json" } : undefined,
       body: body ? JSON.stringify(body) : undefined,
@@ -56,7 +59,7 @@ export function RunHeader({ run, partner, partnerHref }: { run: Run; partner: st
       setError((d as { error?: string }).error ?? t("ait.actionFailed"));
       return false;
     }
-    return true;
+    return (await res.json().catch(() => ({}))) as { id?: string };
   }
 
   return (
@@ -66,6 +69,13 @@ export function RunHeader({ run, partner, partnerHref }: { run: Run; partner: st
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-semibold text-foreground">{run.name}</h2>
             <RunStatusBadge status={run.status} />
+            {(run.iteration ?? 1) > 1 && <Badge variant="neutral">{t("wf.round", { n: run.iteration ?? 1 })}</Badge>}
+            {run.repeat_every && (
+              <Badge variant="neutral">
+                <Repeat className="mr-1 h-3 w-3" />
+                {t(`wf.repeat.${run.repeat_every}`)}
+              </Badge>
+            )}
           </div>
           <p className="mt-0.5 text-sm text-muted">
             {t("wf.for")}{" "}
@@ -77,9 +87,52 @@ export function RunHeader({ run, partner, partnerHref }: { run: Run; partner: st
               partner
             )}{" "}
             · {t("wf.startedOn")} {new Date(run.started_at).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "2-digit", month: "2-digit", year: "numeric" })}
+            {run.repeated_from && (
+              <>
+                {" "}
+                ·{" "}
+                <Link href={`/internal/processes/${run.repeated_from}`} className="hover:text-foreground hover:underline">
+                  {t("wf.prevRound")}
+                </Link>
+              </>
+            )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {isAdmin && (
+            <select
+              value={repeatEvery}
+              disabled={busy}
+              onChange={async (e) => {
+                const v = e.target.value;
+                const prev = repeatEvery;
+                setRepeatEvery(v);
+                if (await call("PATCH", { repeatEvery: v || null })) router.refresh();
+                else setRepeatEvery(prev);
+              }}
+              className="input-base h-8 w-auto appearance-none py-0 pr-7 text-xs"
+              aria-label={t("wf.repeat.label")}
+              title={t("wf.repeat.hint")}
+            >
+              <option value="">{t("wf.repeat.off")}</option>
+              <option value="week">{t("wf.repeat.week")}</option>
+              <option value="month">{t("wf.repeat.month")}</option>
+            </select>
+          )}
+          {isAdmin && (
+            <Button
+              size="sm"
+              variant="secondary"
+              loading={busy}
+              title={t("wf.runAgainHint")}
+              onClick={async () => {
+                const r = await call("POST", undefined, "/repeat");
+                if (r && r.id) router.push(`/internal/processes/${r.id}`);
+              }}
+            >
+              <RotateCw className="h-4 w-4" /> {t("wf.runAgain")}
+            </Button>
+          )}
           {run.status === "active" && (
             <Button size="sm" variant="secondary" loading={busy} onClick={async () => (await call("PATCH", { status: "paused" })) && router.refresh()}>
               <Pause className="h-4 w-4" /> {t("wf.pause")}
@@ -90,7 +143,7 @@ export function RunHeader({ run, partner, partnerHref }: { run: Run; partner: st
               <Play className="h-4 w-4" /> {t("wf.resume")}
             </Button>
           )}
-          {user.role === "admin" && (
+          {isAdmin && (
             <Button
               size="sm"
               variant={confirm ? "danger" : "ghost"}

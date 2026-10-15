@@ -1,11 +1,13 @@
 "use client";
 
-import { Check, ChevronDown, Lock, RotateCcw, SkipForward, StickyNote } from "lucide-react";
+import { Check, ChevronDown, Lock, Paperclip, RotateCcw, Share2, SkipForward, StickyNote } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label, Textarea } from "@/components/ui/input";
 import { useUser } from "@/components/providers/user-provider";
+import { ShareStepModal } from "@/components/workflows/share-step-modal";
+import { StepAttachments } from "@/components/workflows/step-attachments";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { isOverdue, type Run, type RunStep, type StaffOption } from "@/lib/workflows-shared";
@@ -27,15 +29,17 @@ async function patchStep(id: string, body: Record<string, unknown>) {
 /**
  * A run as a vertical rail of steps (dev brief p.4): done → who + when,
  * active → responsible + deadline + "Abhaken", locked → who's next.
- * Expanding a step lets anyone reassign, set a deadline or add a note.
+ * Expanding a step lets anyone reassign, set a deadline, add a note, attach
+ * files / links (e.g. the weekly report) or share the step to the team chat.
  */
-export function RunSteps({ run, staff }: { run: Run; staff: StaffOption[] }) {
+export function RunSteps({ run, staff, partner = "—" }: { run: Run; staff: StaffOption[]; partner?: string }) {
   const t = useT();
   const user = useUser();
   const router = useRouter();
   const [open, setOpen] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sharing, setSharing] = useState<RunStep | null>(null);
   const nameOf = (id: string | null) => (id ? staff.find((s) => s.id === id)?.name ?? t("wf.formerMember") : null);
   const isAdmin = user.role === "admin";
   const firstLocked = run.steps.find((s) => s.status === "locked")?.id;
@@ -138,6 +142,12 @@ export function RunSteps({ run, staff }: { run: Run; staff: StaffOption[] }) {
                         <StickyNote className="mt-0.5 h-3 w-3 shrink-0" /> <span className="line-clamp-2">{s.note}</span>
                       </p>
                     )}
+                    {!expanded && (s.attachments?.length ?? 0) > 0 && (
+                      <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
+                        <Paperclip className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{s.attachments!.map((a) => a.name).join(", ")}</span>
+                      </p>
+                    )}
                   </div>
                   <ChevronDown className={cn("mt-5 h-4 w-4 shrink-0 text-muted transition-transform", expanded && "rotate-180")} />
                 </button>
@@ -158,6 +168,9 @@ export function RunSteps({ run, staff }: { run: Run; staff: StaffOption[] }) {
                         {t("wf.takeIt")}
                       </Button>
                     )}
+                    <Button size="sm" variant="ghost" onClick={() => setSharing(s)}>
+                      <Share2 className="h-4 w-4" /> {t("wf.share.button")}
+                    </Button>
                   </div>
                 )}
 
@@ -168,7 +181,9 @@ export function RunSteps({ run, staff }: { run: Run; staff: StaffOption[] }) {
                     busy={busy === s.id}
                     isAdmin={isAdmin}
                     runActive={run.status === "active"}
+                    hasPartner={!!run.client_id}
                     onSave={(body) => act(s, body)}
+                    onShare={() => setSharing(s)}
                   />
                 )}
               </div>
@@ -176,6 +191,16 @@ export function RunSteps({ run, staff }: { run: Run; staff: StaffOption[] }) {
           );
         })}
       </ol>
+      {sharing && (
+        <ShareStepModal
+          open
+          onClose={() => setSharing(null)}
+          run={run}
+          step={run.steps.find((x) => x.id === sharing.id) ?? sharing}
+          partner={partner}
+          staff={staff}
+        />
+      )}
     </div>
   );
 }
@@ -186,14 +211,18 @@ function StepEditor({
   busy,
   isAdmin,
   runActive,
+  hasPartner,
   onSave,
+  onShare,
 }: {
   step: RunStep;
   staff: StaffOption[];
   busy: boolean;
   isAdmin: boolean;
   runActive: boolean;
+  hasPartner: boolean;
   onSave: (body: Record<string, unknown>) => void;
+  onShare: () => void;
 }) {
   const t = useT();
   const [assignee, setAssignee] = useState(step.assignee_user_id ?? "");
@@ -226,6 +255,7 @@ function StepEditor({
         <Label htmlFor={`note-${step.id}`}>{t("wf.note")}</Label>
         <Textarea id={`note-${step.id}`} value={note} maxLength={2000} onChange={(e) => setNote(e.target.value)} className="min-h-[70px] text-sm" />
       </div>
+      <StepAttachments key={(step.attachments ?? []).map((a) => a.id).join(",")} step={step} staff={staff} hasPartner={hasPartner} />
       <div className="flex flex-wrap items-center gap-2">
         <Button
           size="sm"
@@ -252,6 +282,9 @@ function StepEditor({
             <RotateCcw className="h-4 w-4" /> {t("wf.reopen")}
           </Button>
         )}
+        <Button size="sm" variant="ghost" className="ml-auto" onClick={onShare}>
+          <Share2 className="h-4 w-4" /> {t("wf.share.button")}
+        </Button>
       </div>
     </div>
   );
