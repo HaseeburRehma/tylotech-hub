@@ -6,7 +6,7 @@
  * chat-thread.tsx so the thread component stays readable.
  */
 import { AnimatePresence, motion } from "framer-motion";
-import { Languages, Loader2, MessageCircle, Pencil, Reply, SmilePlus, Trash2 } from "lucide-react";
+import { Check, Copy, Languages, Loader2, MessageCircle, Pencil, Pin, PinOff, Reply, SmilePlus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/provider";
@@ -208,6 +208,9 @@ export function MessageActions({
   onReply,
   onThread,
   onTranslate,
+  onCopy,
+  onPin,
+  pinned,
   onEdit,
   onDelete,
   className,
@@ -223,11 +226,17 @@ export function MessageActions({
   onReply?: () => void;
   onThread?: () => void;
   onTranslate: () => void;
+  /** Copy the message text as shown (original or translation). Hidden for file-only messages. */
+  onCopy?: () => Promise<boolean>;
+  /** Pin / unpin in this conversation (migration 0042). */
+  onPin?: () => void;
+  pinned?: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const { t } = useI18n();
   const [picker, setPicker] = useState(false);
+  const [copied, setCopied] = useState(false);
   const btn = "flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-foreground";
   return (
     <div className={cn("flex h-7 items-center gap-0.5 transition-opacity", visible || picker ? "opacity-100" : "pointer-events-none opacity-0", className)}>
@@ -260,6 +269,26 @@ export function MessageActions({
         {canTranslate && (
           <button type="button" onClick={onTranslate} disabled={translating} aria-label={t("chat.translateMsg")} title={t("chat.translateMsg")} className={btn}>
             {translating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Languages className="h-3.5 w-3.5" />}
+          </button>
+        )}
+        {onCopy && (
+          <button
+            type="button"
+            onClick={async () => {
+              if (!(await onCopy())) return;
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }}
+            aria-label={copied ? t("chat.copied") : t("chat.copy")}
+            title={copied ? t("chat.copied") : t("chat.copy")}
+            className={cn(btn, copied && "text-success hover:text-success")}
+          >
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+          </button>
+        )}
+        {onPin && (
+          <button type="button" onClick={onPin} aria-label={pinned ? t("chat.pin.unpin") : t("chat.pin.pin")} title={pinned ? t("chat.pin.unpin") : t("chat.pin.pin")} className={cn(btn, pinned && "text-brand")}>
+            {pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
           </button>
         )}
         {canEdit && (
@@ -573,4 +602,27 @@ export function SeenLine({
       ✓✓ {label}
     </p>
   );
+}
+
+/** Copy text to the clipboard; falls back to a hidden textarea where the Clipboard API is blocked (http, older Safari). */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      ta.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  }
 }

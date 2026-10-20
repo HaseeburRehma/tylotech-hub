@@ -14,9 +14,20 @@ const sora = Sora({ subsets: ["latin"], variable: "--font-display", display: "sw
 const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
+  // Absolute URLs for link previews (og:image etc.) — the live domain.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://www.tylohq.de"),
   title: "TyloTech Hub",
   description:
     "White-label client portal & internal command center — KPIs, AI tools, chat and reporting.",
+  openGraph: {
+    type: "website",
+    siteName: "TyloHQ",
+    title: "TyloTech Hub",
+    description: "White-label client portal & internal command center — KPIs, leads, AI tools, chat and reporting.",
+    url: "/",
+    locale: "de_DE",
+  },
+  twitter: { card: "summary_large_image", title: "TyloTech Hub", description: "White-label client portal & internal command center — KPIs, leads, AI tools, chat and reporting." },
   // The app has its own DE/EN switch; browser machine translation rewrites the
   // DOM under React and crashes pages, so ask browsers not to offer it.
   other: { google: "notranslate" },

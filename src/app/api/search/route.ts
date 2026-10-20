@@ -5,9 +5,22 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 
 export interface SearchHit {
-  type: "Document" | "Project" | "Update" | "Client";
+  type: "Document" | "Project" | "Update" | "Client" | "Message";
   label: string;
   href: string;
+  /** Extra line, e.g. "Fahrschule X · Anna · 14.10." for messages. */
+  meta?: string;
+}
+
+const slugOf = (row: any): string | null => (Array.isArray(row?.clients) ? row.clients[0]?.slug : row?.clients?.slug) ?? null;
+
+/** ~90 characters of the message around the first match. */
+function snippet(text: string, q: string) {
+  const flat = text.replace(/\s+/g, " ").trim();
+  const i = flat.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0 || flat.length <= 90) return flat.slice(0, 90) + (flat.length > 90 ? "…" : "");
+  const start = Math.max(0, i - 30);
+  return (start > 0 ? "…" : "") + flat.slice(start, start + 90) + (start + 90 < flat.length ? "…" : "");
 }
 
 export async function GET(req: Request) {
@@ -21,25 +34,45 @@ export async function GET(req: Request) {
   if (!sb) return NextResponse.json({ results: [] });
 
   const like = `%${q.replace(/[%_]/g, "")}%`;
+  // Inside .or() commas, parentheses and quotes are syntax — neutralise them.
+  const orLike = like.replace(/[,()"\\]/g, " ");
   const staff = user.role !== "client";
 
   // RLS scopes every query to what the user is allowed to see.
-  const [docs, projs, ups, clis] = await Promise.all([
-    sb.from("documents").select("id,name,client_id").ilike("name", like).limit(5),
+  const [docs, projs, ups, clis, msgs] = await Promise.all([
+    sb.from("documents").select("id,name,client_id,clients(slug)").ilike("name", like).limit(5),
     sb.from("projects").select("id,name,client_id").ilike("name", like).limit(5),
-    sb.from("updates").select("id,title,client_id").ilike("title", like).limit(5),
+    sb.from("updates").select("id,title,client_id,clients(slug)").ilike("title", like).limit(5),
     staff
       ? sb.from("clients").select("*").ilike("company", like).limit(8)
       : Promise.resolve({ data: [] as any[] }),
+    // Chat messages (text or translation) the user can read — every partner for staff.
+    sb
+      .from("messages")
+      .select("id,client_id,sender_name,content,content_translated,created_at,clients(company,slug)")
+      .or(`content.ilike."${orLike}",content_translated.ilike."${orLike}"`)
+      .order("created_at", { ascending: false })
+      .limit(8),
   ]);
 
   const results: SearchHit[] = [];
   for (const d of docs.data ?? [])
-    results.push({ type: "Document", label: d.name, href: staff ? `/internal/clients/${d.client_id}` : "/documents" });
+    results.push({ type: "Document", label: d.name, href: staff ? `/internal/clients/${slugOf(d) ?? d.client_id}` : "/documents" });
   for (const p of projs.data ?? [])
     results.push({ type: "Project", label: p.name, href: staff ? "/internal/projects" : "/dashboard" });
   for (const u of ups.data ?? [])
-    results.push({ type: "Update", label: u.title, href: staff ? `/internal/clients/${u.client_id}` : "/chat" });
+    results.push({ type: "Update", label: u.title, href: staff ? `/internal/clients/${slugOf(u) ?? u.client_id}` : "/chat" });
+  for (const m of (msgs.data ?? []) as any[]) {
+    const cl = Array.isArray(m.clients) ? m.clients[0] : m.clients;
+    const text = (m.content ?? "").toLowerCase().includes(q.toLowerCase()) ? m.content : m.content_translated ?? m.content ?? "";
+    const when = new Date(m.created_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "Europe/Berlin" });
+    results.push({
+      type: "Message",
+      label: snippet(text, q),
+      meta: [m.client_id ? cl?.company ?? "—" : "TyloTech Team", m.sender_name, when].filter(Boolean).join(" · "),
+      href: !staff ? `/chat?msg=${m.id}` : m.client_id ? `/internal/clients/${cl?.slug ?? m.client_id}?tab=chat&msg=${m.id}` : `/internal/team?msg=${m.id}`,
+    });
+  }
   for (const c of (clis.data ?? []).filter((c: any) => !c.archived_at))
     results.push({ type: "Client", label: c.company, href: `/internal/clients/${c.slug ?? c.id}` });
 

@@ -96,11 +96,28 @@ export async function POST(
         if (clean && !/^[\w:/.\-?=&%#@+ ]+$/.test(clean)) {
           return NextResponse.json({ error: "Invalid identifier." }, { status: 400 });
         }
+        // Per-provider shapes — catches pasted emails, autofill and typos early.
+        const shape: Record<string, RegExp> = {
+          "meta_ads:accountId": /^(act_)?\d{5,20}$/,
+          "google_ads:accountId": /^\d{3}-?\d{3}-?\d{4}$/,
+          "ga4:propertyId": /^(properties\/)?\d{5,15}$/,
+          "search_console:siteUrl": /^(https?:\/\/\S+|sc-domain:\S+)$/,
+        };
+        const re = shape[`${provider.id}:${key}`];
+        if (clean && re && !re.test(clean)) {
+          return NextResponse.json({ error: `Invalid ${key} for ${provider.id}.` }, { status: 400 });
+        }
         meta[key] = clean;
       }
     }
     if (body.accessToken !== undefined) {
-      update.access_token = body.accessToken.trim() || null;
+      const tok = body.accessToken.trim();
+      // Real API tokens are long and have no spaces or "@" — refuse anything that
+      // looks like a password or email (e.g. browser autofill).
+      if (tok && (tok.length < 40 || /[\s@]/.test(tok))) {
+        return NextResponse.json({ error: "That doesn't look like an API access token." }, { status: 400 });
+      }
+      update.access_token = tok || null;
       meta.tokenOwner = "staff";
     }
     if (!Object.keys(update).length && !changesTarget) {

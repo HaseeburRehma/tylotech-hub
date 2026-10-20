@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingApprovalsBanner } from "@/components/approvals/approvals-list";
 import { Progress } from "@/components/ui/progress";
 import { PerfArea } from "@/components/charts/perf-area";
 import { PROJECT_STATUS, UPDATE_META } from "@/lib/status";
@@ -196,6 +197,8 @@ export function ClientDashboardView({
           </Button>
         </div>
       </div>
+
+      <PendingApprovalsBanner />
 
       {/* KPI Cards */}
       {kpis.length > 0 ? (

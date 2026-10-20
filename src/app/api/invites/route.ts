@@ -11,8 +11,10 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const MAX_INVITES = 10;
 
 /**
- * Invite colleagues. Staff invite TyloTech team members; a client user invites
- * people into their own tenant only. Invitees get a link to set their password.
+ * Invite colleagues. Staff invite TyloTech team members — or, with
+ * { clientId }, people into that partner (e.g. its sales people for Leads);
+ * a client user invites people into their own tenant only. Invitees get a
+ * link to set their password.
  */
 export async function POST(req: Request) {
   // Links point at the site the invite was sent from (www.tylohq.de in production).
@@ -31,7 +33,7 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
 
-  const body = (await req.json().catch(() => null)) as { invites?: { email?: string; name?: string; title?: string }[] } | null;
+  const body = (await req.json().catch(() => null)) as { invites?: { email?: string; name?: string; title?: string }[]; clientId?: string } | null;
   const rows = (body?.invites ?? [])
     .map((i) => ({
       email: (i.email ?? "").trim().toLowerCase(),
@@ -45,11 +47,18 @@ export async function POST(req: Request) {
   const bad = rows.find((r) => !EMAIL_RE.test(r.email));
   if (bad) return NextResponse.json({ error: `Invalid email: ${bad.email}` }, { status: 400 });
 
-  const staff = staffInviter;
-  if (!staff && !user.client_id) return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  // Staff inviting into a partner act like that partner's own users.
+  let target: { id: string; company: string } | null = null;
+  if (staffInviter && body?.clientId) {
+    const { data: c } = await admin.from("clients").select("id,company,archived_at").eq("id", String(body.clientId)).maybeSingle();
+    if (!c || c.archived_at) return NextResponse.json({ error: "Partner not found." }, { status: 404 });
+    target = { id: c.id, company: c.company };
+  }
+  const staff = staffInviter && !target;
+  if (!staffInviter && !user.client_id) return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   const role = staff ? "team" : "client";
-  const clientId = staff ? null : user.client_id;
-  const workspace = staff ? "TyloTech" : user.company ?? "TyloTech";
+  const clientId = staff ? null : target?.id ?? user.client_id;
+  const workspace = staff ? "TyloTech" : target?.company ?? user.company ?? "TyloTech";
 
   const results: { email: string; status: "invited" | "exists" | "error"; emailed?: boolean; error?: string }[] = [];
   const unique = Array.from(new Map(rows.map((r) => [r.email, r])).values());

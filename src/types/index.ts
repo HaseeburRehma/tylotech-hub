@@ -72,6 +72,9 @@ export interface Message {
   attachment_mime?: string | null;
   attachment_size?: number | null;
   edited_at?: string | null;
+  /** Pinned in its conversation (migration 0042). */
+  pinned_at?: string | null;
+  pinned_by?: string | null;
   created_at: string;
   /** Client-side only: reactions grouped by emoji. */
   reactions?: { emoji: string; count: number; users: string[]; reacted: boolean }[];

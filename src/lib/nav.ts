@@ -12,6 +12,8 @@ import {
   Contact,
   History,
   ListChecks,
+  ShieldCheck,
+  Target,
   type LucideIcon,
 } from "lucide-react";
 
@@ -24,11 +26,13 @@ export interface NavItem {
 export const CLIENT_NAV: NavItem[] = [
   { href: "/dashboard", label: "nav.dashboard", icon: LayoutDashboard },
   { href: "/performance", label: "nav.performance", icon: LineChart },
+  { href: "/leads", label: "nav.leads", icon: Target },
   { href: "/projects", label: "nav.clientProjects", icon: FolderKanban },
   { href: "/integrations", label: "nav.integrations", icon: Plug },
   { href: "/ai-tools", label: "nav.aiTools", icon: Bot },
   { href: "/chat", label: "nav.chat", icon: MessagesSquare },
   { href: "/documents", label: "nav.documents", icon: FileText },
+  { href: "/approvals", label: "nav.approvals", icon: ShieldCheck },
 ];
 
 export const INTERNAL_NAV: NavItem[] = [

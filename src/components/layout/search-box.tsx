@@ -1,16 +1,17 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { FileText, FolderKanban, Loader2, Newspaper, Building2, Search, type LucideIcon } from "lucide-react";
+import { FileText, FolderKanban, Loader2, MessageSquare, Newspaper, Building2, Search, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
 
 interface Hit {
-  type: "Document" | "Project" | "Update" | "Client";
+  type: "Document" | "Project" | "Update" | "Client" | "Message";
   label: string;
   href: string;
+  meta?: string;
 }
 
 const ICON: Record<Hit["type"], LucideIcon> = {
@@ -18,6 +19,7 @@ const ICON: Record<Hit["type"], LucideIcon> = {
   Project: FolderKanban,
   Update: Newspaper,
   Client: Building2,
+  Message: MessageSquare,
 };
 
 export function SearchBox() {
@@ -97,7 +99,7 @@ export function SearchBox() {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm text-foreground">{h.label}</span>
-                      <span className={cn("text-[11px] text-muted")}>{h.type}</span>
+                      <span className={cn("block truncate text-[11px] text-muted")}>{h.meta ?? h.type}</span>
                     </span>
                   </button>
                 );

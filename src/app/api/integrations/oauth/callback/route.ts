@@ -4,6 +4,7 @@ import { getAuthUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { META_GRAPH_VERSION } from "@/lib/integrations/fetchers";
 import { oauthConfig } from "@/lib/integrations/oauth";
+import { connectMetaPages } from "@/lib/leads-meta";
 
 export const runtime = "nodejs";
 
@@ -42,6 +43,20 @@ export async function GET(req: Request) {
 
   // Clients can only complete OAuth for their own tenant.
   if (user.role === "client" && clientId !== user.client_id) return done("error=forbidden");
+
+  // Meta Lead Ads (Leads page) shares this registered redirect URI.
+  if (provider === "meta_leads") {
+    const admin = createAdminClient();
+    const back = (q: string) => NextResponse.redirect(`${origin}/leads?${q}`);
+    if (!admin) return back("meta=not_configured");
+    try {
+      const n = await connectMetaPages(admin, { code, redirectUri: `${origin}/api/integrations/oauth/callback`, clientId, userId: user.id });
+      return back(n ? `meta=connected&pages=${n}` : "meta=no_pages");
+    } catch (e) {
+      const m = (e as Error).message;
+      return back(`meta=${m === "missing_scope" || m === "token_exchange" || m === "not_configured" ? m : "failed"}`);
+    }
+  }
 
   const cfg = oauthConfig(provider);
   const admin = createAdminClient();

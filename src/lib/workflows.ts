@@ -77,16 +77,18 @@ export async function loadRuns(
     if (filter.status?.length) q = q.in("status", filter.status);
     return q;
   };
-  // With attachments (migration 0041); fall back to plain steps on older databases.
-  let { data, error } = await build("*, workflow_run_steps(*, workflow_step_attachments(*))");
+  // With attachments (0041) and client approvals (0042); fall back on older databases.
+  let { data, error } = await build("*, workflow_run_steps(*, workflow_step_attachments(*), workflow_approvals(*))");
+  if (error) ({ data, error } = await build("*, workflow_run_steps(*, workflow_step_attachments(*))"));
   if (error) ({ data, error } = await build("*, workflow_run_steps(*)"));
   if (error) return [];
   return ((data ?? []) as any[]).map(({ workflow_run_steps, ...r }) => ({
     ...r,
     steps: ((workflow_run_steps ?? []) as any[])
-      .map(({ workflow_step_attachments, ...s }) => ({
+      .map(({ workflow_step_attachments, workflow_approvals, ...s }) => ({
         ...s,
         attachments: ((workflow_step_attachments ?? []) as any[]).sort((a, b) => a.created_at.localeCompare(b.created_at)),
+        approvals: ((workflow_approvals ?? []) as any[]).sort((a, b) => b.requested_at.localeCompare(a.requested_at)),
       }))
       .sort((a, b) => a.order_index - b.order_index) as RunStep[],
   }));

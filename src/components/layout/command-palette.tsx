@@ -14,6 +14,7 @@ import {
   Plug,
   Search,
   Sparkles,
+  MessageSquare,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -44,7 +45,7 @@ export function CommandPalette() {
   const staff = user.role !== "client";
   const { clients: roster } = useActiveClient();
   const clients = roster.map((c) => ({ id: `/internal/clients/${c.slug ?? c.id}`, name: c.name, desc: "" }));
-  const [hits, setHits] = useState<{ type: string; label: string; href: string }[]>([]);
+  const [hits, setHits] = useState<{ type: string; label: string; href: string; meta?: string }[]>([]);
 
   // Live full-text hits (documents, projects, updates) once the query is long enough.
   useEffect(() => {
@@ -57,7 +58,7 @@ export function CommandPalette() {
     const timer = setTimeout(async () => {
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal }).catch(() => null);
       const data = res?.ok ? await res.json().catch(() => null) : null;
-      setHits(((data?.results ?? []) as { type: string; label: string; href: string }[]).filter((r) => r.type !== "Client").slice(0, 6));
+      setHits(((data?.results ?? []) as { type: string; label: string; href: string; meta?: string }[]).filter((r) => r.type !== "Client").slice(0, 10));
     }, 200);
     return () => {
       clearTimeout(timer);
@@ -86,8 +87,8 @@ export function CommandPalette() {
       id: `hit-${h.type}-${h.label}-${h.href}`,
       group: "results",
       label: h.label,
-      desc: h.type === "Document" ? t("cmd.typeDocument") : h.type === "Project" ? t("cmd.typeProject") : t("cmd.typeUpdate"),
-      icon: h.type === "Document" ? FileUp : h.type === "Project" ? LineChart : Sparkles,
+      desc: h.type === "Message" ? h.meta ?? t("cmd.typeMessage") : h.type === "Document" ? t("cmd.typeDocument") : h.type === "Project" ? t("cmd.typeProject") : t("cmd.typeUpdate"),
+      icon: h.type === "Message" ? MessageSquare : h.type === "Document" ? FileUp : h.type === "Project" ? LineChart : Sparkles,
       href: h.href,
     });
   }

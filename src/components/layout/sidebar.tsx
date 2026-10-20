@@ -13,6 +13,7 @@ import { hexToRgb, isLight } from "@/lib/theme/themes";
 import {
   Check,
   ChevronDown,
+  Clock,
   Globe,
   KeyRound,
   LogOut,
@@ -25,6 +26,7 @@ import {
 import { useT, useI18n } from "@/lib/i18n/provider";
 import { useUser } from "@/components/providers/user-provider";
 import { useActiveClient } from "@/components/providers/active-client-provider";
+import { WAITING_ALERT_HOURS, useInbox, waitedFor } from "@/components/chat/inbox-provider";
 import { createClient } from "@/lib/supabase/client";
 import { BrandPreview } from "./brand-preview";
 import { NotificationsBell } from "./notifications-bell";
@@ -76,8 +78,33 @@ export function ClientLogo({ client, size }: { client: SidebarClient; size: numb
   );
 }
 
+/** Unread count pill (99+), or nothing. */
+function UnreadPill({ n, className }: { n: number; className?: string }) {
+  if (!n) return null;
+  return (
+    <span className={cn("min-w-[20px] rounded-full bg-brand px-1.5 py-px text-center text-[10px] font-bold leading-4 text-brand-foreground", className)}>
+      {n > 99 ? "99+" : n}
+    </span>
+  );
+}
+
+/** Clock shown when a partner has been waiting for a reply longer than the alert threshold. */
+function WaitingClock({ since }: { since: string | null }) {
+  const { locale } = useI18n();
+  const t = useT();
+  if (!since || Date.now() - new Date(since).getTime() < WAITING_ALERT_HOURS * 3_600_000) return null;
+  const label = t("inbox.waiting", { time: waitedFor(since, locale) });
+  return (
+    <span title={label} aria-label={label} className="flex items-center gap-0.5 text-[10px] font-semibold text-danger">
+      <Clock className="h-3 w-3" />
+      {waitedFor(since, locale)}
+    </span>
+  );
+}
+
 function ClientSwitcher({ onNavigate }: { onNavigate?: () => void }) {
   const { clients, active, setActive } = useActiveClient();
+  const inbox = useInbox();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -106,7 +133,17 @@ function ClientSwitcher({ onNavigate }: { onNavigate?: () => void }) {
   if (!active) return null;
 
   const q = query.trim().toLowerCase();
-  const visible = q ? clients.filter((c) => c.name.toLowerCase().includes(q)) : clients;
+  // Partners with unread messages or waiting for a reply first, then the usual order.
+  const score = (c: SidebarClient) => {
+    const e = inbox.byClient[c.id];
+    return e ? (e.unread ? 2 : 0) + (inbox.overdue.some((o) => o.clientId === c.id) ? 1 : 0) : 0;
+  };
+  const visible = (q ? clients.filter((c) => c.name.toLowerCase().includes(q)) : clients)
+    .map((c, i) => ({ c, i, s: score(c) }))
+    .sort((a, b) => b.s - a.s || a.i - b.i)
+    .map((x) => x.c);
+  const otherUnread = clients.reduce((n, c) => n + (c.id === active.id ? 0 : inbox.byClient[c.id]?.unread ?? 0), 0);
+  const otherWaiting = inbox.overdue.filter((o) => o.clientId !== active.id).length;
 
   function pick(c: SidebarClient) {
     setOpen(false);
@@ -128,6 +165,12 @@ function ClientSwitcher({ onNavigate }: { onNavigate?: () => void }) {
       >
         <ClientLogo client={active} size={28} />
         <span className="flex-1 truncate text-left font-medium text-foreground">{active.name}</span>
+        {otherWaiting > 0 && (
+          <span title={t("inbox.othersWaiting", { n: otherWaiting })} className="flex items-center text-danger">
+            <Clock className="h-3.5 w-3.5" />
+          </span>
+        )}
+        <UnreadPill n={otherUnread} />
         <ChevronDown className={cn("h-4 w-4 text-muted transition-transform", open && "rotate-180")} />
       </button>
 
@@ -164,7 +207,9 @@ function ClientSwitcher({ onNavigate }: { onNavigate?: () => void }) {
                     )}
                   >
                     <ClientLogo client={c} size={24} />
-                    <span className="flex-1 truncate text-left">{c.name}</span>
+                    <span className={cn("flex-1 truncate text-left", inbox.byClient[c.id]?.unread && "font-semibold text-foreground")}>{c.name}</span>
+                    <WaitingClock since={inbox.byClient[c.id]?.waitingSince ?? null} />
+                    <UnreadPill n={inbox.byClient[c.id]?.unread ?? 0} />
                     {selected && <Check className="h-4 w-4 shrink-0 text-brand" />}
                   </button>
                 </li>
@@ -191,6 +236,9 @@ function NavList({
 }) {
   const pathname = usePathname();
   const t = useT();
+  const inbox = useInbox();
+  const { active } = useActiveClient();
+  const activeUnread = active ? inbox.byClient[active.id]?.unread ?? 0 : 0;
 
   const allHrefs = [
     ...CLIENT_NAV.map((i) => i.href),
@@ -223,6 +271,13 @@ function NavList({
           )}
           <Icon className={cn("h-[18px] w-[18px]", active && "text-brand")} />
           <span className="flex-1">{t(item.label)}</span>
+          {item.href === "/chat" && <UnreadPill n={activeUnread} />}
+          {item.href === "/internal" && inbox.overdue.length > 0 && (
+            <span title={t("inbox.waitingCount", { n: inbox.overdue.length })} className="flex items-center gap-0.5 text-[10px] font-semibold text-danger">
+              <Clock className="h-3 w-3" />
+              {inbox.overdue.length}
+            </span>
+          )}
         </Link>
       );
     });

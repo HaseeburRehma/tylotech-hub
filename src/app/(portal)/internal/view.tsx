@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Progress } from "@/components/ui/progress";
 import { MrrBars } from "@/components/charts/mrr-bars";
 import { HealthBadge } from "@/components/health/health";
+import { InboxCard } from "@/components/chat/inbox-card";
 import type { ClientHealth } from "@/lib/health";
 import { useT } from "@/lib/i18n/provider";
 import { useUser } from "@/components/providers/user-provider";
@@ -230,6 +231,9 @@ export function InternalView({
           </div>
         </Card>
       </div>
+
+      {/* Partners waiting for a reply (chat inbox, migration 0042) */}
+      <InboxCard clients={clients} />
 
       {/* Clients needing attention (health score) */}
       <Card>

@@ -12,6 +12,8 @@ const PORTAL_PREFIXES = [
   "/ai-tools",
   "/chat",
   "/documents",
+  "/approvals",
+  "/leads",
   "/projects",
   "/internal",
   "/settings",

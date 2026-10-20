@@ -21,11 +21,13 @@ import {
   X,
   Smile,
   Languages,
+  Pin,
 } from "lucide-react";
 import { Menu, MenuItem, MenuLabel } from "@/components/ui/menu";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback, type ComponentProps } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { AttachmentViewer, type ViewerItem } from "@/components/chat/attachment-viewer";
+import { PinnedBar, QuickRepliesModal, QuickReplyPopup, VoiceRecorder, fillQuickReply, setPinned, useQuickReplies, type QuickReply } from "@/components/chat/chat-tools";
 import {
   EmojiPicker,
   MessageActions,
@@ -33,6 +35,7 @@ import {
   SeenLine,
   TypingLine,
   convKeyOf,
+  copyText,
   useChatReads,
   useOnDemandTranslation,
   useReactions,
@@ -416,6 +419,21 @@ function ChatThreadInner({
     [visible, currentUserId],
   );
   const [emojiOpen, setEmojiOpen] = useState(false);
+  // Quick replies ("/" in the composer) — staff only (migration 0042).
+  const isStaffUser = currentRole !== "client";
+  const qr = useQuickReplies(isStaffUser);
+  const [qrIndex, setQrIndex] = useState(0);
+  const [qrManage, setQrManage] = useState(false);
+  const slash = isStaffUser ? /^\/([a-z0-9_-]*)$/i.exec(val) : null;
+  const qrMatches = useMemo(() => {
+    if (!slash) return [] as QuickReply[];
+    const term = slash[1]!.toLowerCase();
+    return qr.items
+      .filter((r) => !term || r.shortcut.startsWith(term) || r.body.toLowerCase().includes(term))
+      .sort((a, b) => Number(b.shortcut.startsWith(term)) - Number(a.shortcut.startsWith(term)))
+      .slice(0, 8);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slash?.[1], qr.items]);
 
   /** Message text in the reader's language: stored or on-demand translation, with a toggle back to the original. */
   const renderText = (m: Message) => {
@@ -429,6 +447,7 @@ function ChatThreadInner({
       <>
         <span dangerouslySetInnerHTML={{ __html: renderRich(text) }} />
         {m.edited_at && <span className="ml-1 text-[10px] text-muted/40">({t("chat.edited")})</span>}
+        {m.pinned_at && <Pin className="ml-1 inline h-3 w-3 -rotate-45 align-baseline text-brand" aria-label={t("chat.pin.pinned")} />}
         {translated && (
           <button
             type="button"
@@ -506,6 +525,22 @@ function ChatThreadInner({
     setFlashId(id);
     window.setTimeout(() => setFlashId((f) => (f === id ? null : f)), 1600);
   };
+  // Deep link from message search: ?msg=<id> opens its conversation (or thread) and jumps to it.
+  const deepLinked = useRef(false);
+  useEffect(() => {
+    if (deepLinked.current) return;
+    const id = new URLSearchParams(window.location.search).get("msg");
+    if (!id) return;
+    const m = messages.find((x) => x.id === id);
+    if (!m) return;
+    deepLinked.current = true;
+    const parent = m.parent_id ? messages.find((x) => x.id === m.parent_id) : null;
+    const target = parent ?? m;
+    setSelected(threadKeyOf(target));
+    if (parent) setThreadParentId(parent.id);
+    window.setTimeout(() => jumpTo(target.id), 350);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
   const renderQuote = (replyToId: string) => {
     const q = messages.find((x) => x.id === replyToId);
     return (
@@ -541,6 +576,9 @@ function ChatThreadInner({
           onReply={!m.parent_id ? () => replyTo(m) : undefined}
           onThread={!m.parent_id ? () => setThreadParentId(m.id) : undefined}
           onTranslate={() => translateMsg(m)}
+          onCopy={hasTextMsg ? () => copyText(shownText(m)) : undefined}
+          pinned={!!m.pinned_at}
+          onPin={!m.parent_id && !isTempMsg ? () => void togglePin(m) : undefined}
           onEdit={() => startEdit(m)}
           onDelete={() => deleteMsg(m.id)}
         />
@@ -656,6 +694,7 @@ function ChatThreadInner({
       content: m.content ?? "", content_translated: m.content_translated ?? null, translated_to: m.translated_to ?? null,
       attachment_name: m.attachment_name ?? null, attachment_mime: m.attachment_mime ?? null,
       attachment_size: m.attachment_size ?? null, edited_at: m.edited_at ?? null, created_at: m.created_at,
+      pinned_at: m.pinned_at ?? null, pinned_by: m.pinned_by ?? null,
     });
     const channel = supabase
       .channel(internal ? "messages:internal" : `messages:${clientId}`)
@@ -883,6 +922,32 @@ function ChatThreadInner({
     setMessages((ms) => ms.filter((x) => x.id !== id));
     const res = await fetch(`/api/messages?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null);
     if (!res?.ok) { setMessages(snapshot); }
+  }
+
+  function pickQuickReply(r: QuickReply) {
+    // DM → that person; group chat → the client's contact when there is exactly one.
+    const clientPeers = peers.filter((p) => p.role === "client");
+    const peer = selected === GROUP ? (clientPeers.length === 1 ? clientPeers[0] : null) : peers.find((p) => p.id === selected);
+    setVal(fillQuickReply(r.body, { company: title, name: peer?.name.split(" ")[0] ?? "", me: currentName.split(" ")[0] }));
+    setQrIndex(0);
+    requestAnimationFrame(() => {
+      const el = composerRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    });
+  }
+
+  async function togglePin(m: Message) {
+    const next = !m.pinned_at;
+    const prev = { pinned_at: m.pinned_at ?? null, pinned_by: m.pinned_by ?? null };
+    setMessages((ms) => ms.map((x) => (x.id === m.id ? { ...x, pinned_at: next ? new Date().toISOString() : null, pinned_by: next ? currentUserId : null } : x)));
+    const err = await setPinned(m.id, next);
+    if (err) {
+      setMessages((ms) => ms.map((x) => (x.id === m.id ? { ...x, ...prev } : x)));
+      setUploadError(err);
+      setTimeout(() => setUploadError(null), 4000);
+    }
   }
 
   function onComposerInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -1278,6 +1343,12 @@ function ChatThreadInner({
         {/* Messages + thread panel */}
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className="flex min-h-0 flex-1 flex-col">
+            <PinnedBar
+              pinned={visible.filter((m) => m.pinned_at)}
+              snippetOf={(m) => snippetOf(m)}
+              onJump={jumpTo}
+              onUnpin={(m) => void togglePin(m)}
+            />
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
               {shown.length === 0 && (
                 <div className="flex h-full flex-col items-center justify-center text-center">
@@ -1449,8 +1520,21 @@ function ChatThreadInner({
                   <MentionPopup peers={peers} query={mentionQuery} onSelect={insertMention} position={mentionPos} />
                 )}
               </AnimatePresence>
+              {slash && qr.ready && (
+                <QuickReplyPopup
+                  items={qrMatches}
+                  query={slash[1] ?? ""}
+                  active={Math.min(qrIndex, Math.max(0, qrMatches.length - 1))}
+                  onHover={setQrIndex}
+                  onPick={pickQuickReply}
+                  onManage={() => setQrManage(true)}
+                />
+              )}
+              {isStaffUser && (
+                <QuickRepliesModal open={qrManage} onClose={() => setQrManage(false)} items={qr.items} ready={qr.ready} onChanged={() => void qr.reload()} />
+              )}
 
-              <div className={cn("rounded-2xl border bg-bg transition-colors", dragOver ? "border-brand bg-brand/[0.04]" : "border-border focus-within:border-brand/40")}>
+              <div className={cn("relative rounded-2xl border bg-bg transition-colors", dragOver ? "border-brand bg-brand/[0.04]" : "border-border focus-within:border-brand/40")}>
                 {quoting && (
                   <div className="flex items-start gap-2 border-b border-border/60 px-3 py-2">
                     <div className="min-w-0 flex-1 rounded-lg border-l-[3px] border-brand bg-surface-2/70 px-2.5 py-1.5">
@@ -1493,6 +1577,23 @@ function ChatThreadInner({
                   value={val}
                   onChange={onComposerInput}
                   onKeyDown={(e) => {
+                    if (slash && qrMatches.length) {
+                      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                        e.preventDefault();
+                        setQrIndex((i) => (i + (e.key === "ArrowDown" ? 1 : qrMatches.length - 1)) % qrMatches.length);
+                        return;
+                      }
+                      if (e.key === "Enter" || e.key === "Tab") {
+                        e.preventDefault();
+                        pickQuickReply(qrMatches[Math.min(qrIndex, qrMatches.length - 1)]!);
+                        return;
+                      }
+                    }
+                    if (e.key === "Escape" && slash) {
+                      e.preventDefault();
+                      setVal("");
+                      return;
+                    }
                     if (e.key === "Escape" && quoting) {
                       e.preventDefault();
                       setQuoting(null);
@@ -1534,6 +1635,7 @@ function ChatThreadInner({
                       onPick={(e) => insertAtCaret(e)}
                       className="bottom-14 left-3"
                     />
+                    <VoiceRecorder onRecorded={(f) => void uploadFile(f)} disabled={uploading} />
                     <Menu
                       width={220}
                       trigger={({ toggle, open }) => (

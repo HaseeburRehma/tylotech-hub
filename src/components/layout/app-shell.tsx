@@ -9,6 +9,7 @@ import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { CommandPalette } from "./command-palette";
 import { ChatWidget } from "@/components/chat/chat-widget";
+import { InboxProvider } from "@/components/chat/inbox-provider";
 import type { AuthUser } from "@/lib/auth";
 
 export interface SidebarClient {
@@ -44,6 +45,7 @@ export function AppShell({
   }, [open]);
 
   return (
+    <InboxProvider enabled={canSeeInternal} userId={user.id}>
     <div className="flex h-screen overflow-hidden bg-bg">
       {/* Desktop sidebar */}
       <div className="sticky top-0 hidden h-screen lg:block">
@@ -94,5 +96,6 @@ export function AppShell({
       <ChatWidget />
       <CommandPalette />
     </div>
+    </InboxProvider>
   );
 }

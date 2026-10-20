@@ -40,6 +40,8 @@ export interface RunStep {
   completed_at: string | null;
   /** Files / links on this step (migration 0041); absent on older databases. */
   attachments?: StepAttachment[];
+  /** Client approvals requested on this step (migration 0042). */
+  approvals?: Approval[];
 }
 export interface StepAttachment {
   id: string;
@@ -56,6 +58,30 @@ export interface StepAttachment {
   created_at: string;
 }
 export type RepeatEvery = "week" | "month";
+
+export type ApprovalStatus = "pending" | "approved" | "changes_requested" | "cancelled";
+/** Client approval on a step (migration 0042): a draft the client approves or sends back. */
+export interface Approval {
+  id: string;
+  run_id: string;
+  step_id: string;
+  client_id: string;
+  title: string;
+  message: string | null;
+  attachment_ids: string[];
+  status: ApprovalStatus;
+  requested_by: string | null;
+  requested_at: string;
+  decided_by: string | null;
+  decided_at: string | null;
+  decision_comment: string | null;
+  /** Filled by the API: what the client sees (files open via /api/approvals/:id/files/:attId). */
+  files?: { id: string; name: string; kind: "file" | "link"; mime: string | null; url: string | null }[];
+  requested_by_name?: string | null;
+  decided_by_name?: string | null;
+  step_title?: string | null;
+  run_name?: string | null;
+}
 export interface Run {
   id: string;
   template_id: string | null;

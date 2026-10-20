@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncClient } from "@/lib/integrations/sync";
 import { isCronAuthorized } from "@/lib/cron-auth";
+import { syncMetaLeads } from "@/lib/leads-meta";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -49,5 +50,8 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, clients: clientIds.length, totalSynced, perClient });
+  // Meta lead forms: catch anything the real-time webhook missed (last 2 days).
+  const metaLeads = provider ? 0 : await syncMetaLeads(admin, { days: 2, notify: true }).catch(() => 0);
+
+  return NextResponse.json({ ok: true, clients: clientIds.length, totalSynced, perClient, metaLeads });
 }

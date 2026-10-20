@@ -449,6 +449,8 @@ function mapMsg(m: any): Message {
     attachment_mime: m.attachment_mime ?? null,
     attachment_size: m.attachment_size ?? null,
     edited_at: m.edited_at ?? null,
+    pinned_at: m.pinned_at ?? null,
+    pinned_by: m.pinned_by ?? null,
     created_at: m.created_at,
   };
 }

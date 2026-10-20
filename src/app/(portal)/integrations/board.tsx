@@ -273,6 +273,9 @@ export function IntegrationsBoard({
                         <input
                           defaultValue={row?.meta?.accountId ?? ""}
                           readOnly={!canEditTarget}
+                          autoComplete="off"
+                          data-1p-ignore
+                          data-lpignore="true"
                           onBlur={(e) => canEditTarget && e.target.value !== (row?.meta?.accountId ?? "") && configure(p.id, "accountId", e.target.value)}
                           placeholder="act_1234567890"
                           className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50 read-only:opacity-70"
@@ -285,6 +288,9 @@ export function IntegrationsBoard({
                         <input
                           defaultValue={row?.meta?.accountId ?? ""}
                           readOnly={!canEditTarget}
+                          autoComplete="off"
+                          data-1p-ignore
+                          data-lpignore="true"
                           onBlur={(e) => canEditTarget && e.target.value !== (row?.meta?.accountId ?? "") && configure(p.id, "accountId", e.target.value)}
                           placeholder="123-456-7890"
                           className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50 read-only:opacity-70"
@@ -297,6 +303,9 @@ export function IntegrationsBoard({
                         <input
                           defaultValue={row?.meta?.propertyId ?? ""}
                           readOnly={!canEditTarget}
+                          autoComplete="off"
+                          data-1p-ignore
+                          data-lpignore="true"
                           onBlur={(e) => canEditTarget && e.target.value !== (row?.meta?.propertyId ?? "") && configure(p.id, "propertyId", e.target.value)}
                           placeholder="123456789"
                           className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50 read-only:opacity-70"
@@ -309,6 +318,9 @@ export function IntegrationsBoard({
                         <input
                           defaultValue={row?.meta?.siteUrl ?? ""}
                           readOnly={!canEditTarget}
+                          autoComplete="off"
+                          data-1p-ignore
+                          data-lpignore="true"
                           onBlur={(e) => canEditTarget && e.target.value !== (row?.meta?.siteUrl ?? "") && configure(p.id, "siteUrl", e.target.value)}
                           placeholder="https://example.com/"
                           className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50"
@@ -318,13 +330,28 @@ export function IntegrationsBoard({
                     {isStaff && (
                       <label className="mt-2 block text-[11px] text-muted">
                         {t("integ.apiToken")} {row?.has_token ? <span className="text-success">· {t("integ.tokenSet")}</span> : null}
+                        {/* Saved only on Enter — never on blur: browsers autofill password-type
+                            fields with the user's login, which must never become an API token. */}
                         <input
                           type="password"
+                          name={`api-token-${p.id}`}
+                          autoComplete="new-password"
+                          data-1p-ignore
+                          data-lpignore="true"
                           defaultValue=""
-                          onBlur={(e) => e.target.value && configure(p.id, "accessToken", e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key !== "Enter") return;
+                            e.preventDefault();
+                            const v = e.currentTarget.value.trim();
+                            if (v) {
+                              configure(p.id, "accessToken", v);
+                              e.currentTarget.value = "";
+                            }
+                          }}
                           placeholder={row?.has_token ? t("integ.tokenReplacePh") : t("integ.tokenPh")}
                           className="mt-1 h-9 w-full rounded-lg border border-border bg-bg/60 px-2.5 text-xs text-foreground outline-none focus:border-brand/50"
                         />
+                        <span className="mt-1 block text-[10px] text-muted/70">{t("integ.tokenEnterHint")}</span>
                       </label>
                     )}
                   </div>

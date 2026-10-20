@@ -8,6 +8,7 @@ import { Label, Textarea } from "@/components/ui/input";
 import { useUser } from "@/components/providers/user-provider";
 import { ShareStepModal } from "@/components/workflows/share-step-modal";
 import { StepAttachments } from "@/components/workflows/step-attachments";
+import { ApprovalBadge, StepApprovals } from "@/components/workflows/step-approvals";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { isOverdue, type Run, type RunStep, type StaffOption } from "@/lib/workflows-shared";
@@ -142,6 +143,11 @@ export function RunSteps({ run, staff, partner = "—" }: { run: Run; staff: Sta
                         <StickyNote className="mt-0.5 h-3 w-3 shrink-0" /> <span className="line-clamp-2">{s.note}</span>
                       </p>
                     )}
+                    {s.approvals?.[0] && s.approvals[0].status !== "cancelled" && (
+                      <p className="mt-1.5">
+                        <ApprovalBadge status={s.approvals[0].status} />
+                      </p>
+                    )}
                     {!expanded && (s.attachments?.length ?? 0) > 0 && (
                       <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
                         <Paperclip className="h-3 w-3 shrink-0" />
@@ -182,6 +188,7 @@ export function RunSteps({ run, staff, partner = "—" }: { run: Run; staff: Sta
                     isAdmin={isAdmin}
                     runActive={run.status === "active"}
                     hasPartner={!!run.client_id}
+                    partner={partner}
                     onSave={(body) => act(s, body)}
                     onShare={() => setSharing(s)}
                   />
@@ -212,6 +219,7 @@ function StepEditor({
   isAdmin,
   runActive,
   hasPartner,
+  partner,
   onSave,
   onShare,
 }: {
@@ -221,6 +229,7 @@ function StepEditor({
   isAdmin: boolean;
   runActive: boolean;
   hasPartner: boolean;
+  partner: string;
   onSave: (body: Record<string, unknown>) => void;
   onShare: () => void;
 }) {
@@ -256,6 +265,7 @@ function StepEditor({
         <Textarea id={`note-${step.id}`} value={note} maxLength={2000} onChange={(e) => setNote(e.target.value)} className="min-h-[70px] text-sm" />
       </div>
       <StepAttachments key={(step.attachments ?? []).map((a) => a.id).join(",")} step={step} staff={staff} hasPartner={hasPartner} />
+      {hasPartner && <StepApprovals step={step} staff={staff} partner={partner} />}
       <div className="flex flex-wrap items-center gap-2">
         <Button
           size="sm"
