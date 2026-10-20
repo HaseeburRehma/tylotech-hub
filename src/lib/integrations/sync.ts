@@ -104,7 +104,17 @@ export async function syncClient(
       continue;
     }
     if (!data) {
-      results.push({ provider: row.provider, synced: false, reason: "no data (connect API / set account, or empty result)" });
+      // Token + target present → the account simply had no activity in the window
+      // (e.g. a new ad account without spend) — that's not a failure. Mark the source
+      // as checked so the card shows when it was last looked at.
+      const target = row.provider === "ga4" ? cfg.propertyId : row.provider === "search_console" ? cfg.siteUrl : cfg.accountId;
+      if (accessToken && target) {
+        const { lastError: _e, lastErrorAt: _a, lastErrorDetail: _d, ...clean } = cfg as Record<string, unknown>;
+        await admin.from("integrations").update({ last_synced_at: nowIso, meta: clean }).eq("id", row.id);
+        results.push({ provider: row.provider, synced: false, reason: "empty: no activity in the period" });
+      } else {
+        results.push({ provider: row.provider, synced: false, reason: "no data (connect API / set account)" });
+      }
       continue;
     }
 

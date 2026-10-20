@@ -76,7 +76,12 @@ export function IntegrationsBoard({
     setNotice(
       connected
         ? { ok: true, text: t("integ.connectedOk", { name: providerName(connected) }) }
-        : { ok: false, text: t(`integ.err.${error}`) === `integ.err.${error}` ? t("integ.err.generic") : t(`integ.err.${error}`) },
+        : {
+            ok: false,
+            // Known codes get a clear message; anything else names the provider's
+            // own code so it can be looked up instead of a bare "didn't work".
+            text: t(`integ.err.${error}`) === `integ.err.${error}` ? t("integ.err.unknown", { code: String(error).slice(0, 40) }) : t(`integ.err.${error}`),
+          },
     );
     const keep = new URLSearchParams(params.toString());
     keep.delete("connected");
@@ -127,7 +132,12 @@ export function IntegrationsBoard({
         ok: failed.length === 0,
         text: [
           t("integ.syncedCount", { n: results.length - failed.length, total: results.length }),
-          ...failed.map((r) => `${providerName(r.provider)}: ${r.reason?.startsWith("token") ? t("integ.needsReconnect") : t("integ.noNewData")}`),
+          ...failed.map(
+            (r) =>
+              `${providerName(r.provider)}: ${
+                r.reason?.startsWith("token") ? t("integ.needsReconnect") : r.reason?.startsWith("empty") ? t("integ.noActivity") : r.reason?.startsWith("provider") ? t("integ.providerError") : t("integ.noNewData")
+              }`,
+          ),
         ].join(" · "),
       });
     }

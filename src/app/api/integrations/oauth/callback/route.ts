@@ -13,7 +13,22 @@ const NONCE_COOKIE = "oauth_nonce";
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const origin = url.origin;
-  const done = (params: string) => NextResponse.redirect(`${origin}/integrations?${params}`);
+  // Land back on the partner that was being connected (by slug), never on
+  // whichever partner happened to be active — otherwise a successful connect
+  // shows another partner's card and looks like it failed. The id from `state`
+  // is only used to pick the page here; every access check below still applies.
+  let backTo = "";
+  try {
+    const peek = JSON.parse(Buffer.from(url.searchParams.get("state") ?? "", "base64url").toString()) as { clientId?: string };
+    if (peek.clientId && /^[0-9a-f-]{36}$/i.test(peek.clientId)) {
+      const admin0 = createAdminClient();
+      const { data: c } = admin0 ? await admin0.from("clients").select("slug").eq("id", peek.clientId).maybeSingle() : { data: null };
+      if (c?.slug) backTo = `client=${encodeURIComponent(c.slug)}&`;
+    }
+  } catch {
+    /* no/invalid state — fall back to the plain page */
+  }
+  const done = (params: string) => NextResponse.redirect(`${origin}/integrations?${backTo}${params}`);
 
   const user = await getAuthUser();
   if (!user) return NextResponse.redirect(`${origin}/login`);
@@ -47,7 +62,7 @@ export async function GET(req: Request) {
   // Meta Lead Ads (Leads page) shares this registered redirect URI.
   if (provider === "meta_leads") {
     const admin = createAdminClient();
-    const back = (q: string) => NextResponse.redirect(`${origin}/leads?${q}`);
+    const back = (q: string) => NextResponse.redirect(`${origin}/leads?${backTo}${q}`);
     if (!admin) return back("meta=not_configured");
     try {
       const n = await connectMetaPages(admin, { code, redirectUri: `${origin}/api/integrations/oauth/callback`, clientId, userId: user.id });
