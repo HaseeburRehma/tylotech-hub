@@ -1,4 +1,6 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
+import { STAFF_TAG } from "@/lib/workflows";
 import { logAudit } from "@/lib/audit";
 import { getAuthUser } from "@/lib/auth";
 import { config } from "@/lib/config";
@@ -65,5 +67,6 @@ export async function POST(req: Request) {
   }
 
   await logAudit(user, { action: "team.create", targetType: "user", targetId: created.user.id, summary: `${name} (${role})` }, admin);
+  revalidateTag(STAFF_TAG);
   return NextResponse.json({ ok: true, email });
 }

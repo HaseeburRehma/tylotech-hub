@@ -525,6 +525,25 @@ function ChatThreadInner({
     setFlashId(id);
     window.setTimeout(() => setFlashId((f) => (f === id ? null : f)), 1600);
   };
+  // History is paged: the server sends the newest CHAT_PAGE messages; older
+  // ones load on demand (same RLS — the browser session reads them).
+  const [hasOlder, setHasOlder] = useState(initialMessages.length >= 500);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  async function loadOlder() {
+    const sb = createClient();
+    const oldest = messagesRef.current.find((m) => !m.id.startsWith("temp-"))?.created_at;
+    if (!sb || !oldest || loadingOlder) return;
+    setLoadingOlder(true);
+    let q = sb.from("messages").select("*").lt("created_at", oldest).order("created_at", { ascending: false }).limit(500);
+    q = internal ? q.is("client_id", null) : q.eq("client_id", clientId!);
+    const { data } = await q;
+    setLoadingOlder(false);
+    const rows = ((data ?? []) as any[]).filter((m) => !seen.current.has(m.id)).reverse();
+    rows.forEach((m) => seen.current.add(m.id));
+    setHasOlder((data ?? []).length >= 500);
+    if (rows.length) setMessages((prev) => [...rows.map(rowToMessage), ...prev]);
+  }
+
   // Deep link from message search: ?msg=<id> opens its conversation (or thread) and jumps to it.
   const deepLinked = useRef(false);
   useEffect(() => {
@@ -687,15 +706,7 @@ function ChatThreadInner({
     const participant = (m: any) => !m.recipient_id || m.sender_id === currentUserId || m.recipient_id === currentUserId;
     // "*" so new columns (reply_to_id, migration 0040) arrive without breaking older databases.
     const SELECT = "*";
-    const toMsg = (m: any): Message => ({
-      id: m.id, client_id: m.client_id, sender_id: m.sender_id, sender_name: m.sender_name ?? "TyloTech",
-      sender_role: (m.sender_role ?? "team") as Role, recipient_id: m.recipient_id ?? null,
-      parent_id: m.parent_id ?? null, reply_to_id: m.reply_to_id ?? null, reply_count: m.reply_count ?? 0, last_reply_at: m.last_reply_at ?? null,
-      content: m.content ?? "", content_translated: m.content_translated ?? null, translated_to: m.translated_to ?? null,
-      attachment_name: m.attachment_name ?? null, attachment_mime: m.attachment_mime ?? null,
-      attachment_size: m.attachment_size ?? null, edited_at: m.edited_at ?? null, created_at: m.created_at,
-      pinned_at: m.pinned_at ?? null, pinned_by: m.pinned_by ?? null,
-    });
+    const toMsg = rowToMessage;
     const channel = supabase
       .channel(internal ? "messages:internal" : `messages:${clientId}`)
       .on("postgres_changes", { event: "INSERT", ...base }, (payload) => {
@@ -1350,6 +1361,19 @@ function ChatThreadInner({
               onUnpin={(m) => void togglePin(m)}
             />
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
+              {hasOlder && !q && (
+                <div className="mb-3 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => void loadOlder()}
+                    disabled={loadingOlder}
+                    className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs text-muted transition-colors hover:text-foreground disabled:opacity-50"
+                  >
+                    {loadingOlder && <Loader2 className="h-3 w-3 animate-spin" />}
+                    {t("chat.loadOlder")}
+                  </button>
+                </div>
+              )}
               {shown.length === 0 && (
                 <div className="flex h-full flex-col items-center justify-center text-center">
                   {q ? (
@@ -1709,6 +1733,19 @@ function ChatThreadInner({
       </div>
     </div>
   );
+}
+
+/** A messages row (Realtime payload or query) → Message. */
+function rowToMessage(m: any): Message {
+  return {
+    id: m.id, client_id: m.client_id, sender_id: m.sender_id, sender_name: m.sender_name ?? "TyloTech",
+    sender_role: (m.sender_role ?? "team") as Role, recipient_id: m.recipient_id ?? null,
+    parent_id: m.parent_id ?? null, reply_to_id: m.reply_to_id ?? null, reply_count: m.reply_count ?? 0, last_reply_at: m.last_reply_at ?? null,
+    content: m.content ?? "", content_translated: m.content_translated ?? null, translated_to: m.translated_to ?? null,
+    attachment_name: m.attachment_name ?? null, attachment_mime: m.attachment_mime ?? null,
+    attachment_size: m.attachment_size ?? null, edited_at: m.edited_at ?? null, created_at: m.created_at,
+    pinned_at: m.pinned_at ?? null, pinned_by: m.pinned_by ?? null,
+  };
 }
 
 function renderAttachment(m: Message, isTemp: boolean, attUrl: string, onOpen: () => void) {

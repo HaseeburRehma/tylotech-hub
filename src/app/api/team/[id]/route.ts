@@ -1,4 +1,6 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
+import { STAFF_TAG } from "@/lib/workflows";
 import { logAudit } from "@/lib/audit";
 import { getAuthUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -65,5 +67,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     targetId: params.id,
     summary: Object.entries(row).map(([k, v]) => (k === "deactivated_at" ? "" : `${k}=${v ?? "—"}`)).filter(Boolean).join(", ") || undefined,
   }, admin);
+  revalidateTag(STAFF_TAG);
   return NextResponse.json({ ok: true });
 }

@@ -1,3 +1,4 @@
+import { fetchWithRetry } from "@/lib/http";
 /**
  * Real provider data fetchers. Given the OAuth access token stored on an integration
  * row plus its account config (ad-account id / GSC site url / GA4 property), these
@@ -142,7 +143,7 @@ export async function fetchMetaAds(accessToken: string, accountId: string): Prom
   const rows: any[] = [];
   let next: string | null = `https://graph.facebook.com/${META_GRAPH_VERSION}/${acct}/insights?${params}`;
   for (let page = 0; next && page < 10; page++) {
-    const res: Response | null = await fetch(next, { cache: "no-store" }).catch(() => null);
+    const res: Response | null = await fetchWithRetry(next, { cache: "no-store" });
     if (!res?.ok) return await errorFor(res);
     const json: any = await res.json().catch(() => null);
     if (!json) return { error: "api" };
@@ -183,7 +184,7 @@ export async function fetchMetaAds(accessToken: string, accountId: string): Prom
 }
 
 async function ga4Report(accessToken: string, propertyId: string, body: unknown): Promise<{ res: Response | null; json: any }> {
-  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`, {
+  const res = await fetchWithRetry(`https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`, {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -287,7 +288,7 @@ export async function fetchGoogleAds(accessToken: string, customerId: string): P
   if (loginCid) headers["login-customer-id"] = loginCid;
 
   const query = `SELECT segments.date, metrics.cost_micros, metrics.conversions, metrics.conversions_value FROM customer WHERE segments.date BETWEEN '${w.start}' AND '${w.end}'`;
-  const res = await fetch(`https://googleads.googleapis.com/${GOOGLE_ADS_VERSION}/customers/${cid}/googleAds:searchStream`, {
+  const res = await fetchWithRetry(`https://googleads.googleapis.com/${GOOGLE_ADS_VERSION}/customers/${cid}/googleAds:searchStream`, {
     method: "POST",
     headers,
     body: JSON.stringify({ query }),
@@ -346,7 +347,7 @@ export async function fetchGoogleAds(accessToken: string, customerId: string): P
  * daily numbers still land; the table just keeps its previous rows.
  */
 async function fetchSearchPages(accessToken: string, property: string, start: string, end: string): Promise<SearchPage[] | null> {
-  const res = await fetch(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(property)}/searchAnalytics/query`, {
+  const res = await fetchWithRetry(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(property)}/searchAnalytics/query`, {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({ startDate: start, endDate: end, dimensions: ["page"], rowLimit: 50 }),
@@ -381,7 +382,7 @@ export async function fetchSearchConsole(accessToken: string, siteUrl: string): 
   let lastRes: Response | null = null;
   let usedProp: string | null = null;
   for (const prop of candidates) {
-    const res = await fetch(
+    const res = await fetchWithRetry(
       `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(prop)}/searchAnalytics/query`,
       {
         method: "POST",

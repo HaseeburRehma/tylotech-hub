@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { unstable_cache } from "next/cache";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { sendStepAssignedEmail } from "@/lib/email";
 import { notifyUser } from "@/lib/notify";
+import { inBackground } from "@/lib/background";
 
 /**
  * Workflows ("Prozesse") — generic, template-driven process engine.
@@ -13,9 +16,26 @@ export * from "@/lib/workflows-shared";
 import type { RunStatus, RunStep, Run, StaffOption, Template, TemplateStep } from "@/lib/workflows-shared";
 import { addInterval, berlinToday } from "@/lib/workflows-shared";
 
-export async function listStaff(admin: SupabaseClient): Promise<StaffOption[]> {
-  const { data } = await admin.from("users").select("*").in("role", ["admin", "team"]).order("name");
-  return ((data ?? []) as any[]).filter((u) => !u.deactivated_at).map((u) => ({ id: u.id, name: u.name, title: u.title ?? null, role: u.role }));
+/**
+ * Active TyloTech staff. Same for every staff member and read on most internal
+ * pages, so it's cached (cache-aside, 5 min) and invalidated with
+ * revalidateTag(STAFF_TAG) whenever someone joins, leaves or changes name/title.
+ */
+export const STAFF_TAG = "staff-list";
+const cachedStaff = unstable_cache(
+  async (): Promise<StaffOption[]> => {
+    const admin = createAdminClient();
+    if (!admin) return [];
+    const { data } = await admin.from("users").select("*").in("role", ["admin", "team"]).order("name");
+    return ((data ?? []) as any[]).filter((u) => !u.deactivated_at).map((u) => ({ id: u.id, name: u.name, title: u.title ?? null, role: u.role }));
+  },
+  ["staff-list-v1"],
+  { revalidate: 300, tags: [STAFF_TAG] },
+);
+
+/** The argument is kept for existing callers; the cached read uses the service role. */
+export async function listStaff(_admin?: SupabaseClient): Promise<StaffOption[]> {
+  return cachedStaff();
 }
 
 const ddmm = (d: string | null) =>
@@ -39,9 +59,13 @@ export async function notifyStepActive(admin: SupabaseClient, stepId: string, ac
     href: path,
     type: "workflow",
   });
-  const { data: u } = await admin.from("users").select("email").eq("id", step.assignee_user_id).maybeSingle();
-  const { data: au } = await admin.auth.admin.getUserById(step.assignee_user_id);
-  if (opts.email !== false && u?.email && au?.user?.user_metadata?.notify_email !== false) {
+  if (opts.email === false) return;
+  const assignee = step.assignee_user_id;
+  // The email (Resend round trip) goes out after the response.
+  inBackground("step-email", async () => {
+    const { data: u } = await admin.from("users").select("email").eq("id", assignee).maybeSingle();
+    const { data: au } = await admin.auth.admin.getUserById(assignee);
+    if (!u?.email || au?.user?.user_metadata?.notify_email === false) return;
     await sendStepAssignedEmail(u.email, {
       step: step.title,
       process: run?.name ?? "Prozess",
@@ -50,7 +74,7 @@ export async function notifyStepActive(admin: SupabaseClient, stepId: string, ac
       path,
       instructions: step.instructions,
     }).catch(() => false);
-  }
+  });
 }
 
 /** Tell whoever started the run that it's finished (skipped if they finished it themselves). */

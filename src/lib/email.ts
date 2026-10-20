@@ -1,3 +1,4 @@
+import { fetchWithRetry } from "@/lib/http";
 /**
  * Transactional email via Resend. No-ops safely when RESEND_API_KEY is absent,
  * so the app never breaks — it just skips the email until a key is configured.
@@ -23,11 +24,13 @@ async function send(
   attachments?: { filename: string; content: string }[],
 ): Promise<boolean> {
   if (!RESEND_API_KEY || !to) return false;
-  const res = await fetch("https://api.resend.com/emails", {
+  // Retried on 429/5xx/network errors; the idempotency key makes a retry after
+  // a lost response a no-op at Resend instead of a second email.
+  const res = await fetchWithRetry("https://api.resend.com/emails", {
     method: "POST",
-    headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
     body: JSON.stringify({ from: EMAIL_FROM, to, subject, html, reply_to: EMAIL_REPLY_TO, ...(attachments ? { attachments } : {}) }),
-  }).catch(() => null);
+  });
   if (!res?.ok) {
     // Surface the reason (e.g. "domain is not verified") in the server logs —
     // otherwise a misconfigured sender fails silently.

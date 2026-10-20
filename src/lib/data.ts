@@ -455,6 +455,9 @@ function mapMsg(m: any): Message {
   };
 }
 
+/** Newest messages first loaded per chat; older ones on demand ("Load earlier"). */
+export const CHAT_PAGE = 500;
+
 export async function listMessages(clientId: string | null): Promise<Message[]> {
   const sb = createClient();
   if (!sb || !clientId) return [];
@@ -462,8 +465,9 @@ export async function listMessages(clientId: string | null): Promise<Message[]> 
     .from("messages")
     .select("*")
     .eq("client_id", clientId)
-    .order("created_at", { ascending: true });
-  return (data ?? []).map(mapMsg);
+    .order("created_at", { ascending: false })
+    .limit(CHAT_PAGE);
+  return (data ?? []).reverse().map(mapMsg);
 }
 
 /**
@@ -477,8 +481,9 @@ export async function listInternalMessages(): Promise<Message[]> {
     .from("messages")
     .select("*")
     .is("client_id", null)
-    .order("created_at", { ascending: true });
-  return (data ?? []).map(mapMsg);
+    .order("created_at", { ascending: false })
+    .limit(CHAT_PAGE);
+  return (data ?? []).reverse().map(mapMsg);
 }
 
 /** Client-side users of a tenant — the staff-facing DM peer list. */

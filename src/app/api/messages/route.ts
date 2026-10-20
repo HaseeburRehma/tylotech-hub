@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { inBackground } from "@/lib/background";
 import { staffClientPath } from "@/lib/client-paths";
 import { getAuthUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -20,6 +21,16 @@ async function translateCapped(userId: string, content: string, target: "en" | "
   const out = await translateMessage(content, target);
   // Already in the target language → nothing to translate (no "Übersetzt" tag).
   return out && out.trim() !== content.trim() ? out : null;
+}
+
+/** Translate after the response and store it — only if the text is still the same (not edited meanwhile). */
+function translateLater(userId: string, messageId: string, content: string, target: "en" | "de") {
+  inBackground("translate-message", async () => {
+    const translated = await translateCapped(userId, content, target);
+    const admin = createAdminClient();
+    if (!translated || !admin) return;
+    await admin.from("messages").update({ content_translated: translated, translated_to: target }).eq("id", messageId).eq("content", content);
+  });
 }
 
 export async function POST(req: Request) {
@@ -85,7 +96,8 @@ export async function POST(req: Request) {
   // Team writes English → translate to German for the client.
   // Internal staff↔staff needs no translation.
   const target = isClient ? "en" : "de";
-  const contentTranslated = internal ? null : await translateCapped(user.id, content, target);
+  // Translated after the response (see below) — sending never waits on the
+  // translation service; the result arrives via Realtime a moment later.
 
   // Thread support: validate parentId if provided.
   let parentId: string | null = body.parentId ?? null;
@@ -117,7 +129,7 @@ export async function POST(req: Request) {
     recipient_id: recipientId,
     parent_id: parentId,
     content,
-    content_translated: contentTranslated,
+    content_translated: null,
     translated_to: internal ? null : target,
   };
   let { data, error } = await sb
@@ -137,6 +149,7 @@ export async function POST(req: Request) {
     console.error("message insert failed:", error.message);
     return NextResponse.json({ error: "Could not send the message." }, { status: 400 });
   }
+  if (!internal && data?.id) translateLater(user.id, data.id, content, target);
 
   // Update parent's reply count + last_reply_at.
   if (parentId) {
@@ -234,12 +247,10 @@ export async function PATCH(req: Request) {
 
   const internal = user.role !== "client" && existing.client_id == null;
   const target = user.role === "client" ? "en" : "de";
-  const contentTranslated = internal ? null : await translateCapped(user.id, content, target);
-
   // RLS update policy also enforces sender-only; select back only safe columns.
   const { data, error } = await sb
     .from("messages")
-    .update({ content, content_translated: contentTranslated, translated_to: internal ? null : target, edited_at: new Date().toISOString() })
+    .update({ content, content_translated: null, translated_to: internal ? null : target, edited_at: new Date().toISOString() })
     .eq("id", body.id)
     .select("id,client_id,sender_id,sender_name,sender_role,recipient_id,content,content_translated,translated_to,attachment_name,attachment_mime,attachment_size,edited_at,created_at")
     .single();
@@ -247,6 +258,7 @@ export async function PATCH(req: Request) {
     console.error("message edit failed:", error.message);
     return NextResponse.json({ error: "Could not save the message." }, { status: 400 });
   }
+  if (!internal && data?.id) translateLater(user.id, data.id, content, target);
   return NextResponse.json({ ok: true, message: data });
 }
 

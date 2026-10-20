@@ -58,6 +58,24 @@ Add a real client theme in `src/lib/theme/themes.ts`.
 - `supabase/seed.sql` — demo clients, AI tools, KPIs.
 - `src/lib/supabase/{client,server}.ts` — SSR-safe clients, no-op when env is absent.
 
+## Scaling & reliability
+
+How the app stays fast and correct as partners, users and data grow (Vercel = many
+short-lived, stateless instances in `fra1`; Supabase Postgres = the one source of truth).
+
+| Concern | Where | What |
+|---|---|---|
+| Stateless servers | `src/lib/rate-limit.ts`, migration 0044 | Rate limits live in a shared store — Upstash Redis if `UPSTASH_REDIS_REST_*` is set, otherwise Postgres (`rate_limit_hit()`, unlogged table). In-memory only as a fail-open fallback. |
+| Asynchronism | `src/lib/background.ts` | Slow side effects run after the response (`waitUntil`): push + email delivery, message translation, step-assignment emails. The durable write (message, in-app notification) happens first. |
+| Caching | `listStaff()` in `src/lib/workflows.ts` | Cache-aside with `unstable_cache` (5 min) + `revalidateTag(STAFF_TAG)` on team changes. Only data that is identical for every staff member is cached across requests — never anything tenant-specific. Translations are stored on the message (computed once). |
+| Database | migrations 0042–0044 | Indexes for the hot paths (chat inbox, unread counts, search incl. translated text, leads per owner). Aggregation runs in SQL (`chat_inbox()`), not in the app. |
+| Pagination | `CHAT_PAGE` in `src/lib/data.ts` | Chats load the newest 500 messages; older ones on demand. Mobile loads 100. |
+| Retries | `src/lib/http.ts` | Calls to Meta, Google and Resend retry 429/5xx/network errors with exponential backoff + jitter; emails carry an idempotency key so a retry never sends twice. |
+| Degradation | `src/lib/ai/translate.ts` | Translation falls through Google Cloud → free Google routes → Claude, with a cool-down for a provider that is throttled or out of credit. |
+| Background jobs | `vercel.json`, pg_cron | Daily sync + monthly reports (Vercel Cron); response-time alerts every 15 min (pg_cron in Postgres). |
+| Health | `GET /api/health` | 200 when the database answers within 3 s, else 503 — point an uptime monitor at it. |
+| Security | RLS, `next.config.mjs` | Tenant isolation in Postgres (RLS); writes to sensitive tables only through API routes; security headers (frame, nosniff, permissions incl. microphone only for our own pages, COOP). |
+
 ## AI tools
 
 `POST /api/ai/generate { tool, inputs, brand }` — server-only Claude calls (key never

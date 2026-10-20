@@ -1,4 +1,6 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
+import { STAFF_TAG } from "@/lib/workflows";
 import { getAuthUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -50,5 +52,6 @@ export async function PATCH(req: Request) {
     await admin.auth.admin.updateUserById(user.id, { user_metadata: { ...(data.user?.user_metadata ?? {}), ...meta } });
   }
 
+  revalidateTag(STAFF_TAG);
   return NextResponse.json({ ok: true });
 }

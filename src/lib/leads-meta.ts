@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchWithRetry } from "@/lib/http";
 import { META_GRAPH_VERSION } from "@/lib/integrations/fetchers";
 import { ingestLead, type LeadField } from "@/lib/leads";
 
@@ -47,13 +48,13 @@ export function verifyMetaSignature(raw: string, header: string | null) {
 
 async function graph<T>(path: string, token: string, params: Record<string, string> = {}, method: "GET" | "POST" = "GET"): Promise<T> {
   const qs = new URLSearchParams({ ...params, access_token: token });
-  const res = await fetch(`${G}/${path}${method === "GET" ? `?${qs}` : ""}`, {
-    method,
-    headers: method === "POST" ? { "Content-Type": "application/x-www-form-urlencoded" } : undefined,
-    body: method === "POST" ? qs : undefined,
-    cache: "no-store",
-    signal: AbortSignal.timeout(15000),
-  });
+  // Retried on 429/5xx; the one POST (subscribe a page) is idempotent at Meta.
+  const res = await fetchWithRetry(
+    `${G}/${path}${method === "GET" ? `?${qs}` : ""}`,
+    { method, headers: method === "POST" ? { "Content-Type": "application/x-www-form-urlencoded" } : undefined, body: method === "POST" ? qs : undefined, cache: "no-store" },
+    { timeoutMs: 15000 },
+  );
+  if (!res) throw new Error("Meta not reachable");
   const json = (await res.json().catch(() => ({}))) as T & { error?: { message?: string; code?: number } };
   if (!res.ok || json.error) throw new Error(json.error?.message ?? `Graph ${res.status}`);
   return json;

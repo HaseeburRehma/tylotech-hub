@@ -1,4 +1,6 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
+import { STAFF_TAG } from "@/lib/workflows";
 import { logAudit } from "@/lib/audit";
 import { getAuthUser, isStaff } from "@/lib/auth";
 import { sendInviteEmail } from "@/lib/email";
@@ -113,5 +115,6 @@ export async function POST(req: Request) {
       summary: `${invited.length} invite(s) as ${role}`,
     }, admin);
   }
+  revalidateTag(STAFF_TAG);
   return NextResponse.json({ ok: true, results });
 }
