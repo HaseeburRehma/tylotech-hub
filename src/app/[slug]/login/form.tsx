@@ -1,5 +1,6 @@
 "use client";
 
+import { setRememberPreference } from "@/lib/supabase/remember";
 import { safeRedirect } from "@/lib/safe-redirect";
 import { rememberLoginBrand } from "@/lib/login-brand";
 import { AlertCircle, ArrowRight, Mail } from "lucide-react";
@@ -21,6 +22,7 @@ export function ClientLoginForm({ slug }: { slug: string }) {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,6 +37,7 @@ export function ClientLoginForm({ slug }: { slug: string }) {
     }
 
     const supabase = createClient();
+    setRememberPreference(remember);
     const { data, error } = await supabase!.auth.signInWithPassword({ email, password });
     if (error) {
       setError(error.message);
@@ -87,6 +90,11 @@ export function ClientLoginForm({ slug }: { slug: string }) {
           </div>
           <PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
         </div>
+
+        <label className="mt-1 flex cursor-pointer select-none items-center gap-2 text-sm text-muted">
+          <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="h-4 w-4 rounded border-border accent-brand" />
+          {t("auth.rememberMe")}
+        </label>
 
         <Button type="submit" loading={loading} className="mt-2 w-full" size="lg">
           {t("auth.signIn")}

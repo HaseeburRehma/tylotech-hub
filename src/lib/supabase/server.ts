@@ -2,6 +2,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies, headers } from "next/headers";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from "./config";
+import { REMEMBER_COOKIE, rememberFromValue, withRemember } from "./remember";
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
@@ -42,8 +43,9 @@ export function createClient() {
       },
       setAll(cookiesToSet: CookieToSet[]) {
         try {
+          const remember = rememberFromValue(cookieStore.get(REMEMBER_COOKIE)?.value);
           cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options),
+            cookieStore.set(name, value, withRemember(options, remember)),
           );
         } catch {
           // Called from a Server Component — safe to ignore, middleware refreshes.
