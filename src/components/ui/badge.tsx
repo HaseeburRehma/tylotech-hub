@@ -3,13 +3,16 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const badge = cva(
-  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+  // Figma status chip: small tinted pill, 11px.
+  "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium leading-4",
   {
     variants: {
       variant: {
-        brand: "bg-brand/15 text-brand",
+        // Text stays dark: light brand colours (gold, neon green) are unreadable as text.
+        brand: "bg-brand/15 text-foreground",
         neutral: "bg-surface-2 text-muted",
         success: "bg-success/15 text-success",
+        positive: "bg-positive/10 text-positive",
         warning: "bg-warning/15 text-warning",
         danger: "bg-danger/15 text-danger",
         info: "bg-info/15 text-info",

@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { useT } from "@/lib/i18n/provider";
 import { formatCurrency } from "@/lib/utils";
+import { getProvider } from "@/lib/integrations/providers";
 import type { Kpi } from "@/types";
 
 type Row = { metric_name: string; label: string; value: string; unit: Kpi["unit"]; delta: string; period: string };
@@ -75,13 +76,13 @@ export function MetricsEditor({ clientId, initialKpis }: { clientId: string; ini
 
       {synced.length > 0 && (
         <div className="mb-5">
-          <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted">
+          <p className="mb-2 flex items-center gap-1.5 eyebrow">
             <RefreshCw className="h-3 w-3" /> {t("kpiEd.syncedTitle")}
           </p>
           <div className="flex flex-wrap gap-2">
             {synced.map((k) => (
               <span key={k.id} className="rounded-lg border border-border bg-surface-2/60 px-2.5 py-1.5 text-xs">
-                <span className="text-muted">{k.source} · </span>
+                <span className="text-muted">{getProvider(k.source)?.name ?? k.source} · </span>
                 <span className="font-medium text-foreground">{k.label}</span>{" "}
                 <span className="tabular-nums text-muted">{fmt(k)}</span>
               </span>
@@ -93,7 +94,7 @@ export function MetricsEditor({ clientId, initialKpis }: { clientId: string; ini
 
       {error && <div className="mb-3 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</div>}
 
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-muted">{t("kpiEd.manualTitle")}</p>
+      <p className="mb-2 eyebrow">{t("kpiEd.manualTitle")}</p>
       {rows.length === 0 && <p className="mb-3 text-sm text-muted">{t("kpiEd.empty")}</p>}
       <div className="space-y-3">
         {rows.map((r, i) => (

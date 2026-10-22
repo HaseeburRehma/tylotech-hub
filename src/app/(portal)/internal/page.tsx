@@ -22,6 +22,7 @@ export default async function InternalPage() {
 
   const companyById = Object.fromEntries(clients.map((c) => [c.id, c.company]));
   const colorById = Object.fromEntries(clients.map((c) => [c.id, c.primary_color]));
+  const logoById = Object.fromEntries(clients.map((c) => [c.id, c.logo_url]));
 
   // "Blocked" only gets a column when something is actually blocked.
   const stages = STAGES.filter((s) => s.key !== "blocked" || projects.some((p) => p.status === "blocked"));
@@ -34,6 +35,7 @@ export default async function InternalPage() {
         name: p.name,
         client: companyById[p.client_id] ?? "—",
         clientColor: colorById[p.client_id] ?? "#888888",
+        clientLogo: logoById[p.client_id] ?? null,
         assignee: p.assigned_to ?? "",
         due: p.due ?? "",
       })),

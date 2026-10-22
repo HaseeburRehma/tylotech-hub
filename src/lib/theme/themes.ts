@@ -38,7 +38,7 @@ export const TYLOTECH_THEME: BrandTheme = {
   name: "TyloTech",
   company: "TyloTech",
   logo: { type: "mark", value: "tylotech" },
-  primary: [201, 168, 76], // #C9A84C gold
+  primary: [209, 170, 113], // #D1AA71 gold (Figma surface/accent)
   secondary: [24, 22, 18],
   onPrimaryDark: true,
   tagline: "Growth, engineered.",

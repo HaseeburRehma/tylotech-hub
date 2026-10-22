@@ -25,7 +25,7 @@ export function TeamChatView({
 }) {
   const t = useT();
   return (
-    <div className="flex h-[calc(100vh-7rem)] flex-col">
+    <div className="flex h-[calc(100dvh-7rem)] flex-col">
       <div className="shrink-0 pb-4">
         <PageHeader title={t("team.title")} subtitle={t("team.subtitle")}>
           <Link href="/internal/team/members">

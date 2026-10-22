@@ -14,6 +14,7 @@ import { useMemo, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Panel, PanelHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ChatThread } from "@/components/chat/chat-thread";
 import { UpdatesManager } from "@/components/updates/updates-manager";
@@ -111,7 +112,6 @@ export function ClientDetail({
     else url.searchParams.set("tab", next);
     window.history.replaceState(window.history.state, "", url);
   };
-  const [showKpiEditor, setShowKpiEditor] = useState(false);
   const [editing, setEditing] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -177,14 +177,14 @@ export function ClientDetail({
   });
 
   return (
-    <div className={cn(isChat ? "flex h-[calc(100vh-7rem)] flex-col" : "space-y-6")}>
-      <div className={cn(isChat && "shrink-0 space-y-6 pb-4")}>
+    <div className={cn(isChat ? "flex h-[calc(100dvh-7rem)] flex-col" : "space-y-5")}>
+      <div className={cn("space-y-4", isChat && "shrink-0 pb-4")}>
         {/* Back link */}
         <Link
           href="/internal/clients"
-          className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-[13px] text-soft hover:text-foreground"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-3.5 w-3.5" />
           {t("cd.allClients")}
         </Link>
 
@@ -195,37 +195,31 @@ export function ClientDetail({
         )}
 
         {/* Header */}
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Avatar name={client.company} src={client.logo_url} logo size={52} />
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-display text-2xl font-semibold tracking-tight">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+            <Avatar name={client.company} src={client.logo_url} logo size={46} className="rounded-xl" />
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="truncate font-display text-[22px] font-semibold tracking-[-0.02em] md:text-2xl">
                   {client.company}
                 </h1>
-                <Badge variant={client.plan === "Scale" ? "brand" : "success"} className="text-[10px]">
-                  <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current opacity-60" />
+                <Badge variant={client.plan === "Scale" ? "brand" : "positive"}>
+                  <span className="h-1.5 w-1.5 rounded-full bg-current" />
                   {client.plan}
                 </Badge>
                 <HealthBadge health={health} />
               </div>
-              <p className="text-sm text-muted">
+              <p className="mt-0.5 text-[13px] text-muted">
                 {formatCurrency(client.mrr)} {t("cd.perMonth", { amount: "" }).trim()} · {t("cd.clientSince", { date: clientSince })}
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="hidden h-9 items-center gap-2 rounded-xl bg-line/70 px-3 sm:flex">
               <span className="text-xs text-muted">{t("cd.brandColors")}</span>
-              <span
-                className="h-6 w-6 rounded-full ring-1 ring-border"
-                style={{ background: client.primary_color }}
-              />
-              <span
-                className="h-6 w-6 rounded-full ring-1 ring-border"
-                style={{ background: client.secondary_color }}
-              />
+              <span className="h-5 w-5 rounded-full ring-1 ring-border" style={{ background: client.primary_color }} />
+              <span className="-ml-1 h-5 w-5 rounded-full ring-1 ring-border" style={{ background: client.secondary_color }} />
             </div>
 
             <Button variant="outline" size="sm" onClick={viewAsClient}>
@@ -255,16 +249,16 @@ export function ClientDetail({
         <EditClientModal open={editing} onClose={() => setEditing(false)} client={client} />
 
         {/* Tabs */}
-        <div className="flex gap-6 overflow-x-auto border-b border-border">
+        <div className="-mx-4 flex overflow-x-auto border-b border-border px-4 sm:mx-0 sm:px-0">
           {TABS.map((tb) => (
             <button
               key={tb.key}
               onClick={() => setTab(tb.key)}
               className={cn(
-                "relative pb-3 text-sm font-medium transition-colors",
+                "relative shrink-0 whitespace-nowrap px-3 pb-3 text-sm transition-colors first:pl-1",
                 tab === tb.key
-                  ? "text-foreground after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-full after:bg-foreground"
-                  : "text-muted hover:text-foreground",
+                  ? "font-medium text-foreground after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-full after:bg-brand"
+                  : "text-soft hover:text-foreground",
               )}
             >
               {t(tb.labelKey)}
@@ -275,264 +269,160 @@ export function ClientDetail({
 
       {/* ───────── Overview ───────── */}
       {tab === "overview" && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Stats row */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">
-                {t("cd.mrr")}
-              </p>
-              <p className="mt-2 font-display text-2xl font-semibold tracking-tight">
-                {formatCurrency(client.mrr)}
-              </p>
-              <p className="mt-1 text-xs text-muted">{t("cd.planName", { plan: client.plan })}</p>
-            </div>
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">
-                {t("cd.adBudget")}
-              </p>
-              <p className="mt-2 font-display text-2xl font-semibold tracking-tight">
-                {formatCurrency(spend30d)}
-              </p>
-              <p className="mt-1 text-xs text-muted">
-                {portfolioSpend30d > 0 && spend30d > 0
-                  ? t("cd.shareOfBudget", {
-                      pct: new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 }).format((spend30d / portfolioSpend30d) * 100),
-                    })
-                  : ""}
-              </p>
-            </div>
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">
-                {t("cd.leads30")}
-              </p>
-              <p className="mt-2 font-display text-2xl font-semibold tracking-tight">
-                {leads30d}
-              </p>
-              <p className="mt-1 text-xs text-muted">
-                {costPerLead > 0 ? t("cd.costPerLead", { amount: formatCurrency(costPerLead) }) : ""}
-              </p>
-            </div>
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">
-                {t("cd.activeProjects")}
-              </p>
-              <p className="mt-2 font-display text-2xl font-semibold tracking-tight">
-                {activeProjects.length}
-              </p>
-              <p className="mt-1 text-xs text-muted">
-                {activeProjects[0]?.name ?? ""}
-              </p>
-            </div>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            {[
+              { label: t("cd.mrr"), value: formatCurrency(client.mrr), sub: t("cd.planName", { plan: client.plan }) },
+              {
+                label: t("cd.adBudget"),
+                value: formatCurrency(spend30d),
+                sub:
+                  portfolioSpend30d > 0 && spend30d > 0
+                    ? t("cd.shareOfBudget", {
+                        pct: new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 }).format((spend30d / portfolioSpend30d) * 100),
+                      })
+                    : "",
+              },
+              { label: t("cd.leads30"), value: String(leads30d), sub: costPerLead > 0 ? t("cd.costPerLead", { amount: formatCurrency(costPerLead) }) : "" },
+              { label: t("cd.activeProjects"), value: String(activeProjects.length), sub: activeProjects[0]?.name ?? "" },
+            ].map((st) => (
+              <div key={st.label} className="card min-w-0 px-4 py-4 sm:px-5">
+                <p className="eyebrow truncate">{st.label}</p>
+                <p className="mt-2 truncate font-display text-[22px] font-semibold leading-8 tracking-[-0.03em] sm:text-[27px]">{st.value}</p>
+                <p className="mt-1 truncate text-xs text-muted">{st.sub || "\u00a0"}</p>
+              </div>
+            ))}
           </div>
 
           {/* Main content + sidebar */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_390px]">
             {/* Projects */}
-            <div className="lg:col-span-2 rounded-xl border border-border bg-surface p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-foreground">{t("cd.projects")}</h3>
-                  <p className="text-xs text-muted">
-                    {t("cd.projectsActive", {
-                      active: activeProjects.length,
-                      done: doneProjects.length,
-                    })}
-                  </p>
-                </div>
-                <Link
-                  href="/internal/projects"
-                  className="text-sm font-medium text-brand hover:underline"
-                >
-                  {t("cd.manage")}
-                </Link>
-              </div>
-              <div className="space-y-4">
-                {projects.length === 0 && (
-                  <p className="text-sm text-muted">{t("proj.noProjects")}</p>
-                )}
+            <Panel className="min-w-0 self-start">
+              <PanelHeader
+                title={t("cd.projects")}
+                subtitle={t("cd.projectsActive", { active: activeProjects.length, done: doneProjects.length })}
+                action={<Link href="/internal/projects" className="hover:text-foreground">{t("cd.manage")}</Link>}
+              />
+              {projects.length === 0 && <p className="px-5 py-8 text-center text-sm text-muted">{t("proj.noProjects")}</p>}
+              <ul className="divide-y divide-line">
                 {projects.map((p) => {
                   const s = PROJECT_STATUS[p.status];
                   return (
-                    <div key={p.id}>
-                      <div className="mb-1.5 flex items-center justify-between gap-2">
-                        <p className="truncate text-sm font-medium text-foreground">
-                          {p.name}
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={s.variant} className="text-[10px]">
-                            <span
-                              className={cn(
-                                "mr-1 inline-block h-1.5 w-1.5 rounded-full",
-                                {
-                                  "bg-muted": p.status === "planning",
-                                  "bg-brand": p.status === "in_progress",
-                                  "bg-warning": p.status === "review",
-                                  "bg-success": p.status === "done",
-                                  "bg-danger": p.status === "blocked",
-                                },
-                              )}
-                            />
-                            {t(s.label)}
-                          </Badge>
-                          {p.assigned_to && (
-                            <Avatar
-                              name={p.assigned_to}
-                              size={24}
-                              className="ring-2 ring-surface"
-                            />
-                          )}
+                    <li key={p.id} className="flex items-center gap-3 px-5 py-3.5">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-display text-[13.5px] font-medium text-foreground">{p.name}</p>
+                        <div className="mt-2 flex items-center gap-2.5">
+                          <Progress value={p.progress} tone={s.tone} className="w-24 sm:w-36" />
+                          <span className="font-mono text-[10.5px] text-soft">{p.progress}%</span>
+                          <span className="truncate text-[11.5px] text-muted">
+                            {p.due
+                              ? t("cd.due", {
+                                  date: new Date(p.due).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" }),
+                                })
+                              : t("cd.dueOpen")}
+                          </span>
                         </div>
                       </div>
-                      <Progress value={p.progress} tone={s.tone} />
-                      <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted">
-                        <span>{p.progress} %</span>
-                        <span>
-                          {p.due
-                            ? t("cd.due", {
-                                date: new Date(p.due).toLocaleDateString(
-                                  "de-DE",
-                                  { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" },
-                                ),
-                              })
-                            : t("cd.dueOpen")}
-                        </span>
-                      </div>
-                    </div>
+                      <Badge variant={s.variant} className="shrink-0">
+                        {t(s.label)}
+                      </Badge>
+                      {p.assigned_to && <Avatar name={p.assigned_to} size={26} className="hidden sm:flex" />}
+                    </li>
                   );
                 })}
-              </div>
-            </div>
+              </ul>
+            </Panel>
 
             {/* Right sidebar */}
-            <div className="space-y-4">
+            <div className="min-w-0 space-y-4">
               <HealthCard health={health} />
-              {/* Team */}
-              <div className="rounded-xl border border-border bg-surface p-5">
-                <div className="mb-4 flex items-center justify-between">
-                  <h3 className="font-semibold text-foreground">{t("cd.team")}</h3>
-                  <Link href="/internal/projects" className="text-sm font-medium text-brand hover:underline">
-                    {t("cd.change")}
-                  </Link>
-                </div>
-                <div className="space-y-3">
-                  {clientTeam.length === 0 && <p className="text-sm text-muted">{t("cd.noTeam")}</p>}
+
+              <Panel>
+                <PanelHeader
+                  title={t("cd.team")}
+                  action={<Link href="/internal/projects" className="hover:text-foreground">{t("cd.change")}</Link>}
+                />
+                {clientTeam.length === 0 && <p className="px-5 py-6 text-sm text-muted">{t("cd.noTeam")}</p>}
+                <ul className="divide-y divide-line">
                   {clientTeam.map((m) => (
-                    <div
-                      key={m.id}
-                      className="flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Avatar name={m.name} size={36} />
-                        <div>
-                          <p className="text-sm font-medium text-foreground">
-                            {m.name}
-                          </p>
-                          <p className="text-xs text-muted">{m.role}</p>
-                        </div>
+                    <li key={m.id} className="flex items-center gap-3 px-5 py-2.5">
+                      <Avatar name={m.name} size={30} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-display text-[13px] font-medium text-foreground">{m.name}</p>
+                        <p className="truncate text-[11.5px] text-muted">{m.role}</p>
                       </div>
                       <Link
                         href={`/internal/team?dm=${m.id}`}
                         aria-label={t("cd.messageMember", { name: m.name })}
-                        className="text-muted transition-colors hover:text-foreground"
+                        className="rounded-lg p-1.5 text-muted transition-colors hover:bg-bg hover:text-foreground"
                       >
                         <MessageCircle className="h-4 w-4" />
                       </Link>
-                    </div>
+                    </li>
                   ))}
-                </div>
-              </div>
+                </ul>
+              </Panel>
 
-              {/* Data sources */}
-              <div className="rounded-xl border border-border bg-surface p-5">
-                <div className="mb-4 flex items-center justify-between">
-                  <h3 className="font-semibold text-foreground">
-                    {t("cd.dataSources")}
-                  </h3>
-                  <button
-                    onClick={() => setTab("metrics")}
-                    className="text-sm font-medium text-brand hover:underline"
-                  >
-                    {t("cd.manage")}
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  {PROVIDERS.map((prov) => prov.name).map(
-                    (source) => {
-                      const id = PROVIDERS.find((p) => p.name === source)?.id;
-                      const isConnected = integrations.some(
-                        (i: any) => i.provider === id && i.status === "connected",
-                      );
-                      return (
-                        <div
-                          key={source}
-                          className="flex items-center justify-between"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={cn(
-                                "inline-block h-2 w-2 rounded-full",
-                                isConnected ? "bg-brand" : "bg-muted/40",
-                              )}
-                            />
-                            <span className="text-sm text-foreground">
-                              {source}
-                            </span>
-                          </div>
-                          <span className="text-xs text-muted">
-                            {isConnected ? t("cd.connected") : t("cd.open")}
-                          </span>
-                        </div>
-                      );
-                    },
-                  )}
-                </div>
-              </div>
+              <Panel>
+                <PanelHeader
+                  title={t("cd.dataSources")}
+                  action={
+                    <button type="button" onClick={() => setTab("metrics")} className="hover:text-foreground">
+                      {t("cd.manage")}
+                    </button>
+                  }
+                />
+                <ul className="divide-y divide-line">
+                  {PROVIDERS.map((prov) => {
+                    const isConnected = integrations.some((i: any) => i.provider === prov.id && i.status === "connected");
+                    return (
+                      <li key={prov.id} className="flex items-center gap-2.5 px-5 py-2.5">
+                        <span className={cn("h-1.5 w-1.5 rounded-full", isConnected ? "bg-positive" : "bg-muted/40")} />
+                        <span className="flex-1 text-[13px] text-foreground">{prov.name}</span>
+                        <span className={cn("text-xs", isConnected ? "text-positive" : "text-muted")}>
+                          {isConnected ? t("cd.connected") : t("cd.open")}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Panel>
             </div>
           </div>
 
           {/* Activity */}
-          <div className="rounded-xl border border-border bg-surface p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-foreground">{t("cd.activity")}</h3>
-                <p className="text-xs text-muted">
-                  {t("cd.activitySub", { name: client.company })}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setTab("updates")}
-                className="text-sm font-medium text-brand hover:underline"
-              >
-                {t("cd.fullHistory")}
-              </button>
-            </div>
-            <div className="space-y-4">
-              {updates.slice(0, 4).map((u) => (
-                <div key={u.id} className="flex items-start gap-3">
-                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-2">
-                    <ChevronRight className="h-4 w-4 text-muted" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground">
-                      {u.title}
-                    </p>
-                    <p className="text-xs text-muted">{u.description}</p>
-                  </div>
-                  <span className="shrink-0 text-xs text-muted">
-                    {new Date(u.created_at).toLocaleDateString("de-DE", { timeZone: APP_TZ,
-                      day: "numeric",
-                      month: "short",
-                    })}
+          <Panel>
+            <PanelHeader
+              title={t("cd.activity")}
+              subtitle={t("cd.activitySub", { name: client.company })}
+              action={
+                <button type="button" onClick={() => setTab("updates")} className="hover:text-foreground">
+                  {t("cd.fullHistory")}
+                </button>
+              }
+            />
+            {updates.length === 0 && <p className="px-5 py-8 text-center text-sm text-muted">{t("cd.noActivity")}</p>}
+            <ol className="px-5 py-2">
+              {updates.slice(0, 4).map((u, i, arr) => (
+                <li key={u.id} className="relative flex gap-3 py-3">
+                  {i < arr.length - 1 && <span className="absolute bottom-0 left-[15px] top-12 w-px bg-line" />}
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
+                    <ChevronRight className="h-4 w-4" />
                   </span>
-                </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                      <p className="font-display text-sm font-medium text-foreground">{u.title}</p>
+                      <span className="text-[11.5px] text-muted">
+                        {new Date(u.created_at).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short" })}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-[12.5px] text-soft">{u.description}</p>
+                  </div>
+                </li>
               ))}
-              {updates.length === 0 && (
-                <p className="text-sm text-muted">{t("cd.noActivity")}</p>
-              )}
-            </div>
-          </div>
+            </ol>
+          </Panel>
         </div>
       )}
 
@@ -540,216 +430,132 @@ export function ClientDetail({
 
       {/* ───────── Invoices & KPIs ───────── */}
       {tab === "metrics" && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.6fr]">
-            {/* Left: Stammblatt + Team */}
-            <div className="space-y-4">
-              {/* Master data */}
-              <div className="rounded-xl border border-border bg-surface p-5">
-                <h3 className="mb-4 font-semibold text-foreground">{t("cd.masterData")}</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between border-b border-border pb-2.5">
-                    <span className="text-xs text-muted">{t("cd.company")}</span>
-                    <span className="text-sm font-medium text-foreground">{client.company}</span>
-                  </div>
-                  <div className="flex items-center justify-between border-b border-border pb-2.5">
-                    <span className="text-xs text-muted">{t("cd.contact")}</span>
-                    <span className="text-sm font-medium text-foreground">{peers[0]?.name ?? "—"}</span>
-                  </div>
-                  <div className="flex items-center justify-between border-b border-border pb-2.5">
-                    <span className="text-xs text-muted">{t("cd.industry")}</span>
-                    <span className="text-sm text-muted">—</span>
-                  </div>
-                  <div className="flex items-center justify-between border-b border-border pb-2.5">
-                    <span className="text-xs text-muted">{t("cd.planLabel")}</span>
-                    <Badge variant={client.plan === "Scale" ? "brand" : "success"} className="text-[10px]">
-                      {client.plan}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between border-b border-border pb-2.5">
-                    <span className="text-xs text-muted">{t("cd.mrr")}</span>
-                    <span className="text-sm font-medium text-foreground">{formatCurrency(client.mrr)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted">{t("cd.since")}</span>
-                    <span className="text-sm font-medium text-foreground">{clientSince}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Live feed on the marketing website (LIVE_FEED.md) */}
-              <LiveFeedPanel clientId={client.id} />
-
-              {/* Team */}
-              <div className="rounded-xl border border-border bg-surface p-5">
-                <div className="mb-4 flex items-center justify-between">
-                  <h3 className="font-semibold text-foreground">{t("cd.team")}</h3>
-                  <Link href="/internal/projects" className="text-sm font-medium text-brand hover:underline">
-                    {t("cd.change")}
-                  </Link>
-                </div>
-                <div className="space-y-3">
-                  {clientTeam.length === 0 && <p className="text-sm text-muted">{t("cd.noTeam")}</p>}
-                  {clientTeam.map((m) => (
-                    <div key={m.id} className="flex items-center gap-3">
-                      <Avatar name={m.name} size={36} />
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{m.name}</p>
-                        <p className="text-xs text-muted">{m.role}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Data sources */}
-              <div className="rounded-xl border border-border bg-surface p-5">
-                <div className="mb-4 flex items-center justify-between">
-                  <h3 className="font-semibold text-foreground">{t("cd.dataSources")}</h3>
-                  <span className="text-xs text-muted">
-                    {integrations.filter((i: any) => i.status === "connected").length}/{["Search Console", "Meta Ads", "Google Ads", "GA4"].length} {t("cd.connected")}
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  {["Search Console", "Meta Ads", "Google Ads", "GA4"].map((source) => {
-                    const isConnected = integrations.some(
-                      (i: any) =>
-                        i.provider?.replace(/_/g, " ").toLowerCase() ===
-                          source.toLowerCase().replace(/ /g, "_") && i.status === "connected",
-                    );
-                    return (
-                      <div key={source} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className={cn("inline-block h-2 w-2 rounded-full", isConnected ? "bg-brand" : "bg-muted/40")} />
-                          <span className="text-sm text-foreground">{source}</span>
-                        </div>
-                        <span className="text-xs text-muted">{isConnected ? t("cd.connected") : t("cd.open")}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Right: Dashboard KPIs table */}
-            <div className="space-y-4">
-              <div className="rounded-xl border border-border bg-surface p-5">
-                <div className="mb-4 flex items-center justify-between">
-                  <h3 className="font-semibold text-foreground">{t("cd.dashKpis")}</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowKpiEditor(!showKpiEditor)}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                    {t("cd.editKpis")}
-                  </Button>
-                </div>
-
-                {kpis.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border text-left">
-                          <th className="pb-2.5 text-xs font-medium text-muted">{t("cd.metric")}</th>
-                          <th className="pb-2.5 text-xs font-medium text-muted text-right">{t("cd.value")}</th>
-                          <th className="pb-2.5 text-xs font-medium text-muted text-right">{t("cd.unit")}</th>
-                          <th className="pb-2.5 text-xs font-medium text-muted text-right">Δ %</th>
-                          <th className="pb-2.5 text-xs font-medium text-muted text-right">{t("cd.source")}</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {kpis.map((k) => (
-                          <tr key={k.id} className="group">
-                            <td className="py-3 font-medium text-foreground">{k.label}</td>
-                            <td className="py-3 text-right tabular-nums">
-                              {k.unit === "currency" ? formatCurrency(k.value) : k.value}
-                            </td>
-                            <td className="py-3 text-right text-muted">{k.unit}</td>
-                            <td className="py-3 text-right">
-                              {k.delta == null ? (
-                                <span className="text-xs text-muted">—</span>
-                              ) : (
-                                <span
-                                  className={cn(
-                                    "inline-flex items-center gap-0.5 text-xs font-medium",
-                                    k.delta === 0
-                                      ? "text-muted"
-                                      : (k.delta > 0) !== LOWER_IS_BETTER.has(k.metric_name)
-                                        ? "text-success"
-                                        : "text-danger",
-                                  )}
-                                >
-                                  {k.delta > 0 ? "+" : ""}
-                                  {k.delta}%
-                                </span>
+        <div className="space-y-4">
+          {/* What the client's dashboard shows right now */}
+          <Panel>
+            <PanelHeader title={t("cd.liveKpisTitle", { name: client.company })} subtitle={t("cd.liveKpisSub", { n: kpis.length })} />
+            {kpis.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-line">
+                      <th className="th">{t("cd.metric")}</th>
+                      <th className="th text-right">{t("cd.value")}</th>
+                      <th className="th hidden text-right sm:table-cell">{t("cd.unit")}</th>
+                      <th className="th text-right">Δ %</th>
+                      <th className="th hidden text-right sm:table-cell">{t("cd.source")}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {kpis.map((k) => (
+                      <tr key={k.id}>
+                        <td className="px-4 py-3 font-medium text-foreground">{k.label}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-[13px]">
+                          {k.unit === "currency" ? formatCurrency(k.value) : k.value}
+                        </td>
+                        <td className="hidden px-4 py-3 text-right text-muted sm:table-cell">{k.unit}</td>
+                        <td className="px-4 py-3 text-right">
+                          {k.delta == null ? (
+                            <span className="text-xs text-muted">—</span>
+                          ) : (
+                            <span
+                              className={cn(
+                                "font-mono text-xs",
+                                k.delta === 0
+                                  ? "text-muted"
+                                  : (k.delta > 0) !== LOWER_IS_BETTER.has(k.metric_name)
+                                    ? "text-positive"
+                                    : "text-negative",
                               )}
-                            </td>
-                            <td className="py-3 text-right text-muted">{k.source}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted">{t("cd.noKpis")}</p>
-                )}
+                            >
+                              {k.delta > 0 ? "+" : ""}
+                              {k.delta}%
+                            </span>
+                          )}
+                        </td>
+                        <td className="hidden px-4 py-3 text-right text-muted sm:table-cell">{PROVIDERS.find((p) => p.id === k.source)?.name ?? k.source}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+            ) : (
+              <p className="px-5 py-8 text-center text-sm text-muted">{t("cd.noKpis")}</p>
+            )}
+          </Panel>
 
-              <MonthlyReportPanel
-                clientId={client.id}
-                enabled={!!client.monthly_report_enabled}
-                recipientCount={peers.filter((p) => p.role === "client").length}
-                runs={reportRuns}
-                locale={locale}
-              />
+          {/* Manual entry — always open on this staff-only tab (Figma) */}
+          <MetricsEditor clientId={client.id} initialKpis={kpis} />
 
-              {/* KPI Editor (collapsible) */}
-              {showKpiEditor && (
-                <MetricsEditor clientId={client.id} initialKpis={kpis} />
-              )}
-
-              {/* Integrations board (collapsible behind editor) */}
-              {showKpiEditor && (
-                <div>
-                  <h3 className="mb-1 text-sm font-semibold">{t("cd.dataSources")}</h3>
-                  <IntegrationsBoard
-                    providers={PROVIDERS}
-                    rows={integrations}
-                    clientId={client.id}
-                    clients={[]}
-                    isStaff
-                    liveProviders={liveProviders}
-                  />
-                </div>
-              )}
-            </div>
+          {/* This client's data sources: connect, configure, sync */}
+          <div>
+            <h3 className="mb-1 font-display text-[15px] font-semibold">{t("cd.dataSources")}</h3>
+            <IntegrationsBoard
+              providers={PROVIDERS}
+              rows={integrations}
+              clientId={client.id}
+              clients={[]}
+              isStaff
+              liveProviders={liveProviders}
+            />
           </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {/* Master data */}
+            <Panel className="self-start">
+              <PanelHeader title={t("cd.masterData")} />
+              <dl className="divide-y divide-line">
+                {[
+                  [t("cd.company"), client.company],
+                  [t("cd.contact"), peers[0]?.name ?? "—"],
+                  [t("cd.planLabel"), client.plan],
+                  [t("cd.mrr"), formatCurrency(client.mrr)],
+                  [t("cd.since"), clientSince],
+                ].map(([k, v]) => (
+                  <div key={k} className="flex items-center justify-between gap-4 px-5 py-2.5">
+                    <dt className="text-xs text-muted">{k}</dt>
+                    <dd className="truncate text-sm font-medium text-foreground">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </Panel>
+
+            <MonthlyReportPanel
+              clientId={client.id}
+              enabled={!!client.monthly_report_enabled}
+              recipientCount={peers.filter((p) => p.role === "client").length}
+              runs={reportRuns}
+              locale={locale}
+            />
+          </div>
+
+          {/* Live feed on the marketing website (LIVE_FEED.md) */}
+          <LiveFeedPanel clientId={client.id} />
 
           {/* Client contacts */}
           {peers.length > 0 && (
-            <div className="rounded-xl border border-border bg-surface p-5">
-              <h3 className="mb-4 font-semibold text-foreground">{t("cd.clientContacts")}</h3>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Panel>
+              <PanelHeader title={t("cd.clientContacts")} />
+              <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
                 {peers.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
-                    <Avatar name={p.name} size={40} />
+                  <div key={p.id} className="flex items-center gap-3 rounded-xl border border-line p-3">
+                    <Avatar name={p.name} size={36} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-foreground">{p.name}</p>
-                      <p className="text-xs text-muted">{p.title ?? p.role}</p>
+                      <p className="truncate text-xs text-muted">{p.title ?? p.role}</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => openClientChat(p.id)}
                       aria-label={t("cd.messageMember", { name: p.name })}
-                      className="text-muted transition-colors hover:text-foreground"
+                      className="rounded-lg p-1.5 text-muted transition-colors hover:bg-bg hover:text-foreground"
                     >
                       <MessageCircle className="h-4 w-4" />
                     </button>
                   </div>
                 ))}
               </div>
-            </div>
+            </Panel>
           )}
         </div>
       )}

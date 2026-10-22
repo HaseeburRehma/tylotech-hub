@@ -10,13 +10,14 @@ const button = cva(
   {
     variants: {
       variant: {
+        // Brand fill with the Figma top-light / bottom-shade sheen (works for any white-label color).
         primary:
-          "bg-brand text-brand-foreground shadow-glow hover:brightness-110",
+          "bg-brand bg-gradient-to-b from-white/20 to-black/10 font-display font-semibold text-brand-foreground shadow-card hover:brightness-105",
         secondary:
-          "border border-border bg-surface-2 text-foreground hover:border-brand/40 hover:bg-surface-2/70",
+          "border border-border bg-surface text-foreground shadow-card hover:border-brand/40 hover:bg-surface-2/60",
         ghost: "text-muted hover:bg-surface-2 hover:text-foreground",
         outline:
-          "border border-brand/40 text-brand hover:bg-brand/10",
+          "border border-border bg-surface text-foreground shadow-card hover:border-brand/50 hover:text-foreground",
         danger: "bg-danger/15 text-danger hover:bg-danger/25",
       },
       size: {

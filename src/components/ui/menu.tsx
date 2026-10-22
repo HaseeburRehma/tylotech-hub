@@ -70,7 +70,7 @@ export function Menu({
 
   return (
     <>
-      <span ref={anchorRef} className="inline-flex">
+      <span ref={anchorRef} className="inline-flex min-w-0 max-w-full">
         {trigger({ open, toggle })}
       </span>
       {open &&

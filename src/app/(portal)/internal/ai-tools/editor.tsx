@@ -99,7 +99,7 @@ export function AiToolsEditor({
                   <p className="truncate text-sm font-medium">
                     {SLUG_I18N[tool.slug] ? t(SLUG_I18N[tool.slug].name) : tool.name}
                   </p>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">
+                  <p className="eyebrow">
                     {cat}
                   </p>
                 </div>
@@ -219,7 +219,7 @@ function PromptPanel({
       {/* Prompt body */}
       <div className="p-6">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted">
+          <span className="eyebrow">
             {t("prompts.systemPrompt")}
           </span>
           <span className="text-xs tabular-nums text-muted">

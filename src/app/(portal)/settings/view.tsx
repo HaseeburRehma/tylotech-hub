@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Panel, PanelHeader } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { MfaSetup } from "@/components/settings/mfa-setup";
 import { DarkModeToggle } from "@/components/layout/sidebar";
@@ -181,8 +182,8 @@ export function SettingsView({
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold tracking-tight">{t("settings.title")}</h1>
-          <p className="mt-1 text-sm text-muted">{t("settings.subtitle")}</p>
+          <h1 className="font-display text-[22px] font-semibold tracking-[-0.02em] md:text-2xl">{t("settings.title")}</h1>
+          <p className="mt-1 text-[13px] text-muted">{t("settings.subtitle")}</p>
         </div>
         {tab === "profile" && (
           <Button onClick={saveProfile} loading={saving} disabled={!dirty} className="w-full sm:w-auto">
@@ -192,7 +193,7 @@ export function SettingsView({
       </div>
 
       <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
-        <nav className="flex gap-2 overflow-x-auto lg:w-52 lg:shrink-0 lg:flex-col lg:gap-0 lg:space-y-1 lg:overflow-visible">
+        <nav className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0 lg:sticky lg:top-0 lg:w-52 lg:shrink-0 lg:flex-col lg:gap-0 lg:space-y-1 lg:self-start lg:overflow-visible lg:pb-0">
           {TABS.map((key) => {
             const Icon = TAB_ICONS[key];
             const active = tab === key;
@@ -202,11 +203,13 @@ export function SettingsView({
                 type="button"
                 onClick={() => setTab(key)}
                 className={cn(
-                  "flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors lg:w-full lg:gap-2.5",
-                  active ? "bg-brand/10 text-brand" : "text-muted hover:bg-surface hover:text-foreground",
+                  "flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors lg:w-full lg:gap-2.5 lg:border-transparent lg:py-2.5",
+                  active
+                    ? "border-brand/30 bg-brand/10 text-foreground"
+                    : "border-border bg-surface text-soft hover:text-foreground lg:bg-transparent lg:hover:bg-surface",
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className={cn("h-4 w-4", active ? "text-brand" : "text-muted")} />
                 {t(`settings.${key}`)}
               </button>
             );
@@ -214,7 +217,7 @@ export function SettingsView({
           <button
             type="button"
             onClick={signOut}
-            className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-danger transition-colors hover:bg-danger/10 lg:!mt-4 lg:w-full lg:gap-2.5 lg:border-t lg:border-border lg:pt-4"
+            className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-negative transition-colors hover:bg-negative/10 lg:!mt-6 lg:w-full lg:gap-2.5 lg:py-2.5"
           >
             <LogOut className="h-4 w-4" />
             {t("settings.signOut")}
@@ -223,11 +226,9 @@ export function SettingsView({
 
         <div className="min-w-0 flex-1 space-y-6">
           {tab === "profile" && (
-            <section className="space-y-6 rounded-2xl border border-border bg-bg p-6">
-              <div>
-                <h2 className="text-lg font-semibold">{t("settings.profile")}</h2>
-                <p className="text-sm text-muted">{t("settings.profileDesc")}</p>
-              </div>
+            <Panel>
+              <PanelHeader title={t("settings.profile")} subtitle={t("settings.profileDesc")} />
+              <div className="space-y-6 p-5 sm:p-6">
 
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
                 <div className="relative w-fit shrink-0">
@@ -300,16 +301,15 @@ export function SettingsView({
               </div>
 
               {feedback(saveMsg)}
-            </section>
+              </div>
+            </Panel>
           )}
 
           {tab === "security" && (
             <>
-              <section className="space-y-5 rounded-2xl border border-border bg-bg p-6">
-                <div>
-                  <h2 className="text-lg font-semibold">{t("settings.password")}</h2>
-                  <p className="text-sm text-muted">{t("settings.passwordDesc")}</p>
-                </div>
+              <Panel>
+              <PanelHeader title={t("settings.password")} subtitle={t("settings.passwordDesc")} />
+              <div className="space-y-5 p-5 sm:p-6">
                 <form onSubmit={changePassword} className="space-y-4">
                   <input type="text" name="username" autoComplete="username" value={email} readOnly hidden />
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -343,42 +343,40 @@ export function SettingsView({
                     {feedback(pwMsg)}
                   </div>
                 </form>
-              </section>
+                </div>
+            </Panel>
 
               <MfaSetup />
             </>
           )}
 
           {tab === "notifications" && (
-            <section className="space-y-5 rounded-2xl border border-border bg-bg p-6">
-              <div>
-                <h2 className="text-lg font-semibold">{t("settings.notifications")}</h2>
-                <p className="text-sm text-muted">{t("settings.notificationsDesc")}</p>
-              </div>
-              <div className="flex items-center gap-4 rounded-xl border border-border bg-surface/50 px-4 py-3.5">
+            <Panel>
+              <PanelHeader title={t("settings.notifications")} subtitle={t("settings.notificationsDesc")} />
+              <div className="space-y-5 p-5 sm:p-6">
+              <div className="flex items-center gap-4 rounded-xl border border-line bg-bg px-4 py-3.5">
                 <div className="flex-1">
                   <p className="text-sm font-semibold">{t("settings.emailNotif")}</p>
                   <p className="text-xs text-muted">{t("settings.emailNotifDesc", { email })}</p>
                 </div>
                 <Switch checked={emailNotif} onChange={toggleEmailNotif} disabled={notifSaving} label={t("settings.emailNotif")} />
               </div>
-              <div className="flex items-center gap-4 rounded-xl border border-border bg-surface/50 px-4 py-3.5">
+              <div className="flex items-center gap-4 rounded-xl border border-line bg-bg px-4 py-3.5">
                 <div className="flex-1">
                   <p className="text-sm font-semibold">{t("settings.inAppNotif")}</p>
                   <p className="text-xs text-muted">{t("settings.inAppNotifDesc")}</p>
                 </div>
                 <span className="text-xs font-medium text-success">{t("settings.alwaysOn")}</span>
               </div>
-            </section>
+              </div>
+            </Panel>
           )}
 
           {tab === "appearance" && (
-            <section className="space-y-5 rounded-2xl border border-border bg-bg p-6">
-              <div>
-                <h2 className="text-lg font-semibold">{t("settings.appearance")}</h2>
-                <p className="text-sm text-muted">{t("settings.appearanceDesc")}</p>
-              </div>
-              <div className="flex items-center gap-4 rounded-xl border border-border bg-surface/50 px-4 py-3.5">
+            <Panel>
+              <PanelHeader title={t("settings.appearance")} subtitle={t("settings.appearanceDesc")} />
+              <div className="space-y-5 p-5 sm:p-6">
+              <div className="flex items-center gap-4 rounded-xl border border-line bg-bg px-4 py-3.5">
                 <Moon className="h-5 w-5 text-muted" />
                 <div className="flex-1">
                   <p className="text-sm font-semibold">{t("sidebar.darkMode")}</p>
@@ -386,7 +384,7 @@ export function SettingsView({
                 </div>
                 <DarkModeToggle />
               </div>
-              <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface/50 px-4 py-3.5 sm:flex-row sm:items-center sm:gap-4">
+              <div className="flex flex-col gap-3 rounded-xl border border-line bg-bg px-4 py-3.5 sm:flex-row sm:items-center sm:gap-4">
                 <Globe className="hidden h-5 w-5 text-muted sm:block" />
                 <div className="flex-1">
                   <p className="text-sm font-semibold">{t("account.language")}</p>
@@ -409,7 +407,8 @@ export function SettingsView({
                   ))}
                 </div>
               </div>
-            </section>
+              </div>
+            </Panel>
           )}
         </div>
       </div>

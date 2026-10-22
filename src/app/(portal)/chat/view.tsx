@@ -74,7 +74,7 @@ export function ChatView({
   }
 
   return (
-    <div className="flex h-[calc(100vh-7rem)] flex-col">
+    <div className="flex h-[calc(100dvh-7rem)] flex-col">
       <div className="mb-3 shrink-0">
         <PageHeader title={t("chat.title")} subtitle={t("chat.subtitle")}>
           <Button size="sm" variant="outline" className="lg:hidden" onClick={() => setShowUpdates(true)}>

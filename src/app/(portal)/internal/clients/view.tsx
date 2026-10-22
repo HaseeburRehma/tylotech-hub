@@ -17,6 +17,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
+import { Segmented } from "@/components/ui/segmented";
 import { NewClientModal } from "@/components/modals/new-client-modal";
 import { HealthBadge } from "@/components/health/health";
 import type { ClientHealth } from "@/lib/health";
@@ -37,8 +38,8 @@ const SORTS: Record<SortKey, { label: string; cmp: (a: ClientListRow, b: ClientL
   health: { label: "health.sort", cmp: () => 0 },
 };
 
-const PLAN_VARIANT: Record<string, "success" | "brand" | "neutral"> = {
-  Growth: "success",
+const PLAN_VARIANT: Record<string, "positive" | "brand" | "neutral"> = {
+  Growth: "positive",
   Scale: "brand",
 };
 
@@ -65,7 +66,7 @@ function Sparkline({ data }: { data: { date: string; spend: number }[] }) {
       <polyline
         points={points}
         fill="none"
-        stroke={trend ? "rgb(var(--brand))" : "rgb(180,80,60)"}
+        stroke={trend ? "rgb(var(--brand))" : "rgb(var(--negative))"}
         strokeWidth={1.5}
         strokeLinejoin="round"
         strokeLinecap="round"
@@ -174,34 +175,19 @@ export function ClientsView({
       <NewClientModal open={showNewClient} onClose={() => setShowNewClient(false)} />
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-border bg-surface p-1">
-          {(
-            [
-              { key: "all" as const, label: t("clients.all"), count: active.length },
-              { key: "Growth" as const, label: "Growth", count: planCounts.Growth },
-              { key: "Scale" as const, label: "Scale", count: planCounts.Scale },
-              { key: "new" as const, label: t("clients.newMonth"), count: newCount },
-              ...(riskCount ? [{ key: "risk" as const, label: t("health.filterRisk"), count: riskCount }] : []),
-              ...(archivedCount ? [{ key: "archived" as const, label: t("clients.archived"), count: archivedCount }] : []),
-            ]
-          ).map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              onClick={() => setFilter(p.key)}
-              className={cn(
-                "shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors",
-                filter === p.key
-                  ? "bg-brand/10 font-medium text-foreground"
-                  : "text-muted hover:text-foreground",
-              )}
-            >
-              {p.label}
-              <span className="ml-1.5 text-xs text-muted">{p.count}</span>
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Segmented
+          value={filter}
+          onChange={setFilter}
+          options={[
+            { key: "all" as const, label: t("clients.all"), count: active.length },
+            { key: "Growth" as const, label: "Growth", count: planCounts.Growth },
+            { key: "Scale" as const, label: "Scale", count: planCounts.Scale },
+            { key: "new" as const, label: t("clients.newMonth"), count: newCount },
+            ...(riskCount ? [{ key: "risk" as const, label: t("health.filterRisk"), count: riskCount }] : []),
+            ...(archivedCount ? [{ key: "archived" as const, label: t("clients.archived"), count: archivedCount }] : []),
+          ]}
+        />
 
         <div className="flex items-center gap-2">
           <Menu
@@ -212,10 +198,7 @@ export function ClientsView({
                 type="button"
                 onClick={toggle}
                 aria-expanded={open}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-lg border bg-surface px-3 py-1.5 text-sm transition-colors hover:text-foreground",
-                  extraFilters ? "border-brand/40 text-foreground" : "border-border text-muted",
-                )}
+                className={cn("tool-btn", extraFilters > 0 && "border-brand/50 text-foreground")}
               >
                 <SlidersHorizontal className="h-3.5 w-3.5" />
                 {t("clients.filter")}
@@ -266,7 +249,7 @@ export function ClientsView({
                 type="button"
                 onClick={toggle}
                 aria-expanded={open}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted transition-colors hover:text-foreground"
+                className="tool-btn"
               >
                 <ArrowDownUp className="h-3.5 w-3.5" />
                 {t("clients.sortPrefix")} {t(SORTS[sort].label)}
@@ -285,35 +268,36 @@ export function ClientsView({
       </div>
 
       {/* Table */}
-      <div className="relative overflow-x-auto rounded-xl border border-border bg-surface">
+      <div className="card relative overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border">
-              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted">
+            <tr className="border-b border-line">
+              <th className="th">
                 {t("clients.col.client")}
               </th>
-              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted">
+              <th className="th hidden sm:table-cell">
                 {t("clients.col.plan")}
               </th>
-              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted">
+              <th className="th hidden sm:table-cell">
                 {t("health.column")}
               </th>
-              <th className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-muted">
+              <th className="th text-right">
                 MRR
               </th>
-              <th className="hidden px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-muted lg:table-cell">
+              <th className="th text-right hidden lg:table-cell">
                 {t("clients.col.adBudget")}
               </th>
-              <th className="hidden px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-muted md:table-cell">
+              <th className="th text-right hidden md:table-cell">
                 {t("clients.col.leads")}
               </th>
-              <th className="hidden px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-muted xl:table-cell">
+              <th className="th hidden xl:table-cell">
                 {t("clients.col.trend")}
               </th>
-              <th className="hidden px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-muted lg:table-cell">
+              <th className="th hidden lg:table-cell">
                 {t("clients.col.team")}
               </th>
-              <th className="hidden px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-muted md:table-cell">
+              <th className="th text-right hidden md:table-cell">
                 {t("clients.col.since")}
               </th>
               <th className="w-10 px-4 py-3">
@@ -328,7 +312,7 @@ export function ClientsView({
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.03 }}
-                className="group border-b border-border/50 last:border-0 hover:bg-surface-2/50"
+                className="group border-b border-line last:border-0 hover:bg-bg/60"
               >
                 {/* Client name + subtitle */}
                 <td className="px-4 py-3">
@@ -338,48 +322,50 @@ export function ClientsView({
                   >
                     <Avatar name={client.company} src={client.logo_url} logo size={36} />
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-foreground">
+                      <p className="truncate font-display text-[13.5px] font-medium text-foreground">
                         {client.company}
                       </p>
                       <p className="truncate text-xs text-muted">
                         {client.name}
                       </p>
+                      {/* Plan + health move under the name on phones. */}
+                      <span className="mt-1 flex items-center gap-1.5 sm:hidden">
+                        <Badge variant={PLAN_VARIANT[client.plan] ?? "neutral"} className="px-1.5 py-0 text-[10px]">{client.plan}</Badge>
+                        <HealthBadge health={health[client.id]} />
+                      </span>
                     </div>
                   </Link>
                 </td>
 
                 {/* Plan */}
-                <td className="px-4 py-3">
+                <td className="hidden px-4 py-3 sm:table-cell">
                   <Badge
                     variant={PLAN_VARIANT[client.plan] ?? "neutral"}
-                    className="text-[10px]"
                   >
-                    <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current opacity-60" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
                     {client.plan}
                   </Badge>
                 </td>
 
                 {/* Health */}
-                <td className="px-4 py-3">
+                <td className="hidden px-4 py-3 sm:table-cell">
                   <HealthBadge health={health[client.id]} />
                 </td>
 
                 {/* MRR */}
-                <td className="px-4 py-3 text-right font-medium tabular-nums">
+                <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-[13px] text-foreground">
                   {client.mrr > 0
                     ? formatCurrency(client.mrr)
                     : t("clients.na")}
                 </td>
 
                 {/* Ad budget 30d */}
-                <td className="hidden px-4 py-3 text-right tabular-nums lg:table-cell">
-                  {client.spend30d > 0
-                    ? formatCurrency(client.spend30d)
-                    : `0 €`}
+                <td className="hidden whitespace-nowrap px-4 py-3 text-right font-mono text-[13px] text-soft lg:table-cell">
+                  {formatCurrency(client.spend30d)}
                 </td>
 
                 {/* Leads */}
-                <td className="hidden px-4 py-3 text-right tabular-nums md:table-cell">
+                <td className="hidden px-4 py-3 text-right font-mono text-[13px] text-soft md:table-cell">
                   {client.leads30d}
                 </td>
 
@@ -403,7 +389,7 @@ export function ClientsView({
                 </td>
 
                 {/* Since */}
-                <td className="hidden px-4 py-3 text-right text-xs text-muted md:table-cell">
+                <td className="hidden whitespace-nowrap px-4 py-3 text-right text-xs text-muted md:table-cell">
                   {new Date(client.created_at).toLocaleDateString("de-DE", { timeZone: APP_TZ,
                     month: "long",
                     year: "numeric",
@@ -432,6 +418,7 @@ export function ClientsView({
             ))}
           </tbody>
         </table>
+        </div>
 
         {filtered.length === 0 && (
           <div className="flex h-32 items-center justify-center text-sm text-muted">
@@ -439,7 +426,7 @@ export function ClientsView({
           </div>
         )}
 
-        <div className="flex items-center justify-between border-t border-border px-4 py-3">
+        <div className="flex items-center justify-between border-t border-line px-4 py-3">
           <span className="text-xs text-muted">
             {t("clients.total", { n: filtered.length })}
           </span>

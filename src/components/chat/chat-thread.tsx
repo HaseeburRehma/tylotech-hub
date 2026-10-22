@@ -1,5 +1,6 @@
 "use client";
 
+import { renderRich } from "@/lib/rich-text";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AtSign,
@@ -88,23 +89,6 @@ function formatDate(iso: string, t: (k: string) => string): string {
   } catch {
     return "";
   }
-}
-
-function renderRich(text: string): string {
-  const esc = text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
-  // Links first (only http/https; already escaped, so safe inside href), parked
-  // as placeholders so the bold/mention rules below can't reach into a URL.
-  const links: string[] = [];
-  const parked = esc.replace(/\bhttps?:\/\/[^\s<]*[^\s<.,;:!?)\]'"*]/g, (url) => `\u0000${links.push(url) - 1}\u0000`);
-  return parked
-    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/==([^=\n]+)==/g, '<mark style="background:rgba(201,168,76,.38);color:inherit;border-radius:3px;padding:0 2px">$1</mark>')
-    .replace(/@([A-Za-zÀ-ÿ][\w\s]{0,30}[\w])/g, '<span class="text-brand font-semibold">@$1</span>')
-    .replace(/\u0000(\d+)\u0000/g, (_, i: string) => {
-      const url = links[Number(i)]!;
-      const label = url.length > 60 ? `${url.slice(0, 57)}…` : url;
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="break-all underline decoration-current/40 underline-offset-2 hover:decoration-current">${label}</a>`;
-    });
 }
 
 function MentionPopup({
@@ -1031,13 +1015,13 @@ function ChatThreadInner({
   const groupLogo = !internal && currentRole !== "client" ? clientLogo : null;
 
   return (
-    <div className={cn("flex h-full min-h-0 overflow-hidden rounded-2xl border border-border bg-bg", className)}>
+    <div className={cn("flex h-full min-h-0 overflow-hidden rounded-2xl border border-line bg-bg shadow-card", className)}>
       <AttachmentViewer items={viewerItems} index={viewerIndex} onIndex={setViewerIndex} onClose={() => setViewerIndex(null)} />
       {/* ── Chat sidebar ─────────────────────────────────────────── */}
       {peers.length > 0 && (
-        <div className="hidden w-[260px] shrink-0 flex-col border-r border-border bg-surface/50 md:flex">
+        <div className="hidden w-[260px] shrink-0 flex-col border-r border-line bg-surface md:flex lg:w-[290px]">
           {/* Tabs: Chats · Threads · Erwähnungen */}
-          <div className="flex items-center gap-1 border-b border-border px-3 py-2.5">
+          <div className="m-3 flex items-center gap-0.5 rounded-xl bg-line/70 p-1">
             {([
               { key: "channels" as const, label: t("chat.conversations") },
               { key: "threads" as const, label: t("chat.thread") },
@@ -1047,10 +1031,10 @@ function ChatThreadInner({
                 key={tab.key}
                 onClick={() => setSidebarTab(tab.key)}
                 className={cn(
-                  "rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors",
+                  "flex-1 rounded-lg px-2 py-1.5 text-[12.5px] transition-colors",
                   sidebarTab === tab.key
-                    ? "bg-bg text-foreground shadow-sm border border-border"
-                    : "text-muted hover:text-foreground",
+                    ? "bg-surface font-medium text-foreground shadow-card"
+                    : "text-soft hover:text-foreground",
                 )}
               >
                 {tab.label}
@@ -1070,10 +1054,10 @@ function ChatThreadInner({
                   key={ch.key}
                   onClick={() => { setSelected(ch.key); setThreadParentId(null); }}
                   className={cn(
-                    "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors border-l-2",
+                    "flex w-full items-center gap-3 border-l-2 px-4 py-3 text-left transition-colors",
                     isActive
-                      ? "bg-brand/[0.06] border-l-brand"
-                      : "border-l-transparent hover:bg-surface-2",
+                      ? "border-l-brand bg-brand/10"
+                      : "border-l-transparent hover:bg-bg",
                   )}
                 >
                   {ch.isGroup ? (
@@ -1178,7 +1162,7 @@ function ChatThreadInner({
       {/* ── Main chat area ───────────────────────────────────────── */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-line bg-surface px-4 py-3 sm:px-5">
           {(() => {
             const identity = (
               <div className="flex min-w-0 items-center gap-3">
@@ -1196,7 +1180,7 @@ function ChatThreadInner({
                   <SenderAvatar name={headerTitle} role={peers.find((p) => p.id === selected)?.role} size={36} />
                 )}
                 <div className="min-w-0 text-left">
-                  <p className="truncate text-sm font-semibold text-foreground">{headerTitle}</p>
+                  <p className="truncate font-display text-[15px] font-semibold text-foreground">{headerTitle}</p>
                   <p className="truncate text-[11px] text-muted">{headerSubtitle}</p>
                 </div>
               </div>
@@ -1558,7 +1542,7 @@ function ChatThreadInner({
                 <QuickRepliesModal open={qrManage} onClose={() => setQrManage(false)} items={qr.items} ready={qr.ready} onChanged={() => void qr.reload()} />
               )}
 
-              <div className={cn("relative rounded-2xl border bg-bg transition-colors", dragOver ? "border-brand bg-brand/[0.04]" : "border-border focus-within:border-brand/40")}>
+              <div className={cn("relative rounded-2xl border bg-surface shadow-card transition-colors", dragOver ? "border-brand bg-brand/[0.04]" : "border-border focus-within:border-brand/40")}>
                 {quoting && (
                   <div className="flex items-start gap-2 border-b border-border/60 px-3 py-2">
                     <div className="min-w-0 flex-1 rounded-lg border-l-[3px] border-brand bg-surface-2/70 px-2.5 py-1.5">

@@ -8,6 +8,7 @@ import { PROVIDERS, isProviderLive } from "@/lib/integrations/providers";
 import { translate } from "@/lib/i18n/dictionary";
 import { serverLocale } from "@/lib/i18n/server";
 import { IntegrationsBoard } from "./board";
+import { ConnectionsMatrix } from "./matrix";
 
 export default async function IntegrationsPage({
   searchParams,
@@ -45,6 +46,17 @@ export default async function IntegrationsPage({
     }));
   }
 
+  // Staff overview: which source feeds which client (status only — no tokens or
+  // account ids leave the server).
+  let matrix: { client_id: string; provider: string; status: string }[] = [];
+  if (admin && isStaff && clients.length) {
+    const { data } = await admin
+      .from("integrations")
+      .select("client_id,provider,status")
+      .in("client_id", clients.map((c) => c.id));
+    matrix = (data ?? []) as typeof matrix;
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -59,6 +71,14 @@ export default async function IntegrationsPage({
         isStaff={isStaff}
         liveProviders={PROVIDERS.filter(isProviderLive).map((p) => p.id)}
       />
+      {isStaff && clients.length > 0 && (
+        <ConnectionsMatrix
+          clients={clients}
+          providers={PROVIDERS.map((p) => ({ id: p.id, name: p.name }))}
+          rows={matrix}
+          activeClientId={clientId}
+        />
+      )}
     </div>
   );
 }
