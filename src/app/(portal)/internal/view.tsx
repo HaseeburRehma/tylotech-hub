@@ -126,7 +126,7 @@ export function InternalView({
       live: true,
       extra:
         newClientsThisMonth > 0 ? (
-          <DeltaChip up>+{newClientsThisMonth}</DeltaChip>
+          <DeltaChip up>+{newClientsThisMonth} {tr("hub.thisMonth")}</DeltaChip>
         ) : (
           <span className="text-[11.5px] text-muted">{tr("hub.noNewClients")}</span>
         ),
