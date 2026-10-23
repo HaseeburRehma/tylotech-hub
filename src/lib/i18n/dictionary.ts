@@ -1163,6 +1163,13 @@ const en: Dict = {
   "hub.allProjects": "All Projects",
   "hub.addProject": "Project",
   "hub.accounts": "Accounts",
+  "hub.processPipelineTitle": "Process pipeline",
+  "hub.processPipelineSub": "{n} active processes across {m} accounts",
+  "hub.allProcesses": "All Processes",
+  "hub.addProcess": "Process",
+  "hub.activeProcesses": "Active Processes",
+  "hub.processesTotal": "{n} processes in total",
+  "hub.activeSteps": "{n} steps",
 
   // integrations
   "integ.title": "Integrations",
@@ -2690,6 +2697,13 @@ const de: Dict = {
   "hub.allProjects": "Alle Projekte",
   "hub.addProject": "Projekt",
   "hub.accounts": "Konten",
+  "hub.processPipelineTitle": "Prozess-Pipeline",
+  "hub.processPipelineSub": "{n} aktive Prozesse über {m} Konten",
+  "hub.allProcesses": "Alle Prozesse",
+  "hub.addProcess": "Prozess",
+  "hub.activeProcesses": "Aktive Prozesse",
+  "hub.processesTotal": "{n} Prozesse insgesamt",
+  "hub.activeSteps": "{n} Schritte",
 
   "integ.title": "Integrationen",
   "integ.subtitle": "Verbinde Werbe- & Analysequellen, um Live-KPIs ins Portal zu holen.",

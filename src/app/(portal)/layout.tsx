@@ -5,6 +5,7 @@ import { AppShell, type SidebarClient } from "@/components/layout/app-shell";
 import { UserProvider } from "@/components/providers/user-provider";
 import { getAuthUser, isStaff } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { ActiveClientProvider } from "@/components/providers/active-client-provider";
 import { activeClientRef } from "@/lib/active-client-server";
 
@@ -24,13 +25,29 @@ export default async function PortalLayout({ children }: { children: React.React
     }
   }
 
+  // Lightweight counts for sidebar badges (staff only, best-effort)
+  let navBadges: Record<string, number> = {};
+  if (isStaff(user)) {
+    const sb = createClient();
+    if (sb) {
+      const [{ count: projCount }, { count: procCount }] = await Promise.all([
+        sb.from("projects").select("*", { count: "exact", head: true }).neq("status", "done"),
+        sb.from("workflow_runs").select("*", { count: "exact", head: true }).eq("status", "active"),
+      ]);
+      navBadges = {
+        "/internal/projects": projCount ?? 0,
+        "/internal/processes": procCount ?? 0,
+      };
+    }
+  }
+
   const ref = activeClientRef();
   const initialActiveId = (ref && clients.find((c) => c.id === ref || c.slug === ref)?.id) ?? clients[0]?.id ?? null;
 
   return (
     <UserProvider user={user}>
       <ActiveClientProvider clients={clients} initialActiveId={initialActiveId}>
-        <AppShell user={user} canSeeInternal={isStaff(user)} clients={clients}>
+        <AppShell user={user} canSeeInternal={isStaff(user)} clients={clients} navBadges={navBadges}>
           {children}
         </AppShell>
       </ActiveClientProvider>

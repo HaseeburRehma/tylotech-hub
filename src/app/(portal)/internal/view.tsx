@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { ArrowDownRight, ArrowUpRight, ChevronRight, Clock, KeyRound, Plus, UserPlus } from "lucide-react";
+import { Activity, ArrowDownRight, ArrowUpRight, ChevronRight, Clock, KeyRound, Plus, UserPlus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, Panel, PanelHeader } from "@/components/ui/card";
@@ -16,6 +16,8 @@ import { useUser } from "@/components/providers/user-provider";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { Client } from "@/types";
 import type { TeamLoad } from "@/lib/data";
+
+type TeamLoadWithProcesses = TeamLoad & { activeSteps: number };
 import { APP_TZ } from "@/lib/utils";
 
 export interface PipelineProject {
@@ -31,6 +33,20 @@ export interface PipelineColumn {
   stage: string;
   stageKey: string;
   projects: PipelineProject[];
+}
+
+export interface ProcessPipelineRun {
+  id: string;
+  name: string;
+  status: "active" | "completed" | "paused";
+  client: string;
+  clientColor: string;
+  clientLogo?: string | null;
+  assignee: string;
+  currentStep: string | null;
+  progress: number;
+  totalSteps: number;
+  finishedSteps: number;
 }
 
 const STAGE_DOT: Record<string, string> = {
@@ -78,15 +94,19 @@ export function InternalView({
   clients,
   team,
   pipeline,
+  processPipeline = [],
   mrrSeries,
   projectCount,
+  processCount = 0,
   health = {},
 }: {
   clients: Client[];
-  team: TeamLoad[];
+  team: TeamLoadWithProcesses[];
   pipeline: PipelineColumn[];
+  processPipeline?: ProcessPipelineRun[];
   mrrSeries: { month: string; mrr: number }[];
   projectCount: number;
+  processCount?: number;
   health?: Record<string, ClientHealth>;
 }) {
   const tr = useT();
@@ -99,6 +119,8 @@ export function InternalView({
     .reduce((a, c) => a + c.projects.length, 0);
   const managedClients = new Set(pipeline.flatMap((c) => (c.stageKey === "done" ? [] : c.projects.map((p) => p.client)))).size;
   const uniqueClients = new Set(pipeline.flatMap((c) => c.projects.map((p) => p.client)));
+  const activeProcesses = processPipeline.filter((r) => r.status === "active").length;
+  const processClients = new Set(processPipeline.map((r) => r.client));
 
   const mrrNow = mrrSeries[mrrSeries.length - 1]?.mrr ?? totalMrr;
   const mrrPrev = mrrSeries[mrrSeries.length - 2]?.mrr ?? 0;
@@ -138,10 +160,10 @@ export function InternalView({
       extra: <span className="text-[11.5px] text-muted">{tr("hub.projectsTotal", { n: projectCount })}</span>,
     },
     {
-      label: tr("hub.teamUtil"),
-      value: new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 }).format(avgActive),
+      label: tr("hub.activeProcesses"),
+      value: String(activeProcesses),
       live: false,
-      extra: <span className="text-[11.5px] text-muted">{tr("hub.perPerson", { n: team.length })}</span>,
+      extra: <span className="text-[11.5px] text-muted">{tr("hub.processesTotal", { n: processCount })}</span>,
     },
   ];
 
@@ -244,8 +266,11 @@ export function InternalView({
                   <div className="hidden h-1.5 w-[86px] shrink-0 overflow-hidden rounded-full bg-line min-[400px]:block" title={`${share}%`}>
                     <div className="h-full rounded-full bg-brand" style={{ width: `${share}%` }} />
                   </div>
-                  <span className="w-16 shrink-0 text-right font-mono text-xs text-soft">
+                  <span className="w-20 shrink-0 text-right font-mono text-xs text-soft">
                     {tr("hub.activeCount", { n: t.activeProjects })}
+                    {t.activeSteps > 0 && (
+                      <span className="block text-brand-ink">{tr("hub.activeSteps", { n: t.activeSteps })}</span>
+                    )}
                   </span>
                 </li>
               );
@@ -315,6 +340,79 @@ export function InternalView({
           ))}
         </div>
       </Panel>
+
+      {/* Process pipeline — active runs as cards */}
+      {processPipeline.length > 0 && (
+        <Panel>
+          <PanelHeader
+            title={tr("hub.processPipelineTitle")}
+            subtitle={tr("hub.processPipelineSub", { n: activeProcesses, m: processClients.size })}
+            action={
+              <Link href="/internal/processes" className="inline-flex items-center gap-0.5 hover:text-foreground">
+                {tr("hub.allProcesses")} <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
+            }
+          />
+          <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+            {processPipeline.map((r) => (
+              <Link
+                key={r.id}
+                href={`/internal/processes/${r.id}`}
+                className="rounded-xl border border-line bg-surface px-3 pb-2.5 pt-3 shadow-card transition-colors hover:border-brand/40"
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 shrink-0 rounded-full",
+                      r.status === "active" ? "bg-brand" : r.status === "paused" ? "bg-warning" : "bg-positive",
+                    )}
+                  />
+                  <p className="min-w-0 flex-1 truncate font-display text-[13px] font-medium leading-[18px] text-foreground">
+                    {r.name}
+                  </p>
+                </div>
+                {r.currentStep && (
+                  <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted">
+                    <Activity className="h-3 w-3 shrink-0 text-brand-ink" />
+                    <span className="truncate">{r.currentStep}</span>
+                  </div>
+                )}
+                <div className="mt-2 flex items-center gap-2">
+                  {r.clientLogo ? (
+                    <Avatar name={r.client} src={r.clientLogo} logo size={20} className="rounded-md" />
+                  ) : (
+                    <span
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[8.5px] font-semibold text-white"
+                      style={{ background: r.clientColor }}
+                    >
+                      {r.client.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-[11px] text-muted">{r.client}</span>
+                  {r.assignee && <Avatar name={r.assignee} size={20} className="text-[8px]" />}
+                </div>
+                <div className="mt-2 border-t border-line pt-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
+                      <div className="h-full rounded-full bg-brand" style={{ width: `${r.progress}%` }} />
+                    </div>
+                    <span className="font-mono text-[10px] text-muted">
+                      {r.finishedSteps}/{r.totalSteps}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+            <Link
+              href="/internal/processes"
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-border py-8 font-display text-xs font-medium text-muted transition-colors hover:border-brand hover:text-foreground"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {tr("hub.addProcess")}
+            </Link>
+          </div>
+        </Panel>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Partners waiting for a reply (chat inbox, migration 0042) */}

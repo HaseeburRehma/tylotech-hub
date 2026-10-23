@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   LayoutGrid,
   List,
+  ListChecks,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -54,10 +55,12 @@ export function ProjectsManager({
   projects,
   clients,
   members,
+  processCountByProject = {},
 }: {
   projects: Project[];
   clients: { id: string; company: string }[];
   members: TeamMember[];
+  processCountByProject?: Record<string, number>;
 }) {
   const t = useT();
   const router = useRouter();
@@ -334,10 +337,18 @@ export function ProjectsManager({
                       {p.description && (
                         <p className="mt-0.5 text-xs text-muted sm:truncate">{p.description}</p>
                       )}
-                      <p className="mt-0.5 text-xs text-muted sm:hidden">
-                        {cName}
-                        {p.due ? ` · ${formatDue(p.due)}` : ""}
-                      </p>
+                      <div className="mt-0.5 flex items-center gap-2">
+                        <p className="text-xs text-muted sm:hidden">
+                          {cName}
+                          {p.due ? ` · ${formatDue(p.due)}` : ""}
+                        </p>
+                        {(processCountByProject[p.id] ?? 0) > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-ink">
+                            <ListChecks className="h-3 w-3" />
+                            {processCountByProject[p.id]} {processCountByProject[p.id] === 1 ? "process" : "processes"}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </td>
 

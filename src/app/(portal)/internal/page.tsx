@@ -1,7 +1,9 @@
 import { listClientHealth, listClients, listProjects, listTeamLoad } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import { serverLocale } from "@/lib/i18n/server";
-import { InternalView, type PipelineColumn } from "./view";
+import { loadRuns, listStaff } from "@/lib/workflows";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { InternalView, type PipelineColumn, type ProcessPipelineRun } from "./view";
 import type { ProjectStatus } from "@/types";
 
 const STAGES: { key: ProjectStatus; label: string }[] = [
@@ -13,11 +15,15 @@ const STAGES: { key: ProjectStatus; label: string }[] = [
 ];
 
 export default async function InternalPage() {
-  const [clients, team, projects, health] = await Promise.all([
+  const sb = createClient();
+  const admin = createAdminClient();
+  const [clients, team, projects, health, runs, staff] = await Promise.all([
     listClients(),
     listTeamLoad(),
     listProjects(),
     listClientHealth(),
+    sb ? loadRuns(sb) : Promise.resolve([]),
+    listStaff(admin ?? undefined),
   ]);
 
   const companyById = Object.fromEntries(clients.map((c) => [c.id, c.company]));
@@ -41,10 +47,45 @@ export default async function InternalPage() {
       })),
   }));
 
+  // Process pipeline: group active runs by status for the board
+  const staffById = Object.fromEntries(staff.map((s) => [s.id, s.name]));
+  const activeRuns = runs.filter((r) => r.status !== "completed");
+  const processPipeline: ProcessPipelineRun[] = activeRuns.map((r) => {
+    const currentStep = r.steps.find((s) => s.status === "active");
+    const assigneeName = currentStep?.assignee_user_id ? staffById[currentStep.assignee_user_id] ?? "" : "";
+    const finished = r.steps.filter((s) => s.status === "done" || s.status === "skipped").length;
+    return {
+      id: r.id,
+      name: r.name,
+      status: r.status,
+      client: companyById[r.client_id ?? ""] ?? "—",
+      clientColor: colorById[r.client_id ?? ""] ?? "#888888",
+      clientLogo: logoById[r.client_id ?? ""] ?? null,
+      assignee: assigneeName,
+      currentStep: currentStep?.title ?? null,
+      progress: r.steps.length ? Math.round((finished / r.steps.length) * 100) : 0,
+      totalSteps: r.steps.length,
+      finishedSteps: finished,
+    };
+  });
+
+  // Active process steps per team member (for workload display)
+  const processStepsByUser = new Map<string, number>();
+  for (const r of activeRuns) {
+    for (const s of r.steps) {
+      if (s.status === "active" && s.assignee_user_id) {
+        processStepsByUser.set(s.assignee_user_id, (processStepsByUser.get(s.assignee_user_id) ?? 0) + 1);
+      }
+    }
+  }
+  const teamWithProcesses = team.map((t) => ({
+    ...t,
+    activeSteps: processStepsByUser.get(t.id) ?? 0,
+  }));
+
   // MRR per month from the recorded history (each client's latest MRR change on
   // or before that month's end). Clients without history rows (pre-0028) fall
   // back to their current MRR from their start date.
-  const sb = createClient();
   const { data: historyRows } = sb
     ? await sb.from("client_mrr_history").select("client_id,mrr,effective_from").order("effective_from")
     : { data: null };
@@ -74,10 +115,12 @@ export default async function InternalPage() {
   return (
     <InternalView
       clients={clients}
-      team={team}
+      team={teamWithProcesses}
       pipeline={pipeline}
+      processPipeline={processPipeline}
       mrrSeries={mrrSeries}
       projectCount={projects.length}
+      processCount={runs.length}
       health={health}
     />
   );

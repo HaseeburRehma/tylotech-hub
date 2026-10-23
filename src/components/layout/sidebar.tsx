@@ -230,10 +230,12 @@ function NavList({
   onNavigate,
   canSeeInternal,
   clients,
+  navBadges = {},
 }: {
   onNavigate?: () => void;
   canSeeInternal: boolean;
   clients: SidebarClient[];
+  navBadges?: Record<string, number>;
 }) {
   const pathname = usePathname();
   const t = useT();
@@ -273,6 +275,11 @@ function NavList({
           <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-brand-ink" : "text-muted group-hover:text-soft")} strokeWidth={1.75} />
           <span className="flex-1 truncate">{t(item.label)}</span>
           {item.href === "/chat" && <UnreadPill n={activeUnread} />}
+          {navBadges[item.href] != null && navBadges[item.href]! > 0 && (
+            <span className="min-w-[20px] rounded-full bg-surface-2 px-1.5 py-px text-center text-[10px] font-bold leading-4 text-muted">
+              {navBadges[item.href]}
+            </span>
+          )}
           {item.href === "/internal" && inbox.overdue.length > 0 && (
             <span title={t("inbox.waitingCount", { n: inbox.overdue.length })} className="flex items-center gap-0.5 text-[10px] font-semibold text-danger">
               <Clock className="h-3 w-3" />
@@ -467,11 +474,13 @@ export function Sidebar({
   canSeeInternal,
   userId,
   clients = [],
+  navBadges = {},
 }: {
   onNavigate?: () => void;
   canSeeInternal: boolean;
   userId: string;
   clients?: SidebarClient[];
+  navBadges?: Record<string, number>;
 }) {
   const t = useT();
   return (
@@ -498,7 +507,7 @@ export function Sidebar({
 
       {canSeeInternal && clients.length > 0 && <ClientSwitcher onNavigate={onNavigate} />}
 
-      <NavList onNavigate={onNavigate} canSeeInternal={canSeeInternal} clients={clients} />
+      <NavList onNavigate={onNavigate} canSeeInternal={canSeeInternal} clients={clients} navBadges={navBadges} />
 
       <div className="pt-3">
         <UserProfileDropdown />

@@ -25,11 +25,13 @@ export function AppShell({
   user,
   canSeeInternal,
   clients = [],
+  navBadges = {},
 }: {
   children: React.ReactNode;
   user: AuthUser;
   canSeeInternal: boolean;
   clients?: SidebarClient[];
+  navBadges?: Record<string, number>;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -49,7 +51,7 @@ export function AppShell({
     <div className="flex h-dvh overflow-hidden bg-bg">
       {/* Desktop sidebar */}
       <div className="sticky top-0 hidden h-dvh lg:block">
-        <Sidebar canSeeInternal={canSeeInternal} userId={user.id} clients={clients} />
+        <Sidebar canSeeInternal={canSeeInternal} userId={user.id} clients={clients} navBadges={navBadges} />
       </div>
 
       {/* Mobile drawer */}
@@ -80,7 +82,7 @@ export function AppShell({
               >
                 <X className="h-5 w-5" />
               </button>
-              <Sidebar canSeeInternal={canSeeInternal} userId={user.id} clients={clients} onNavigate={() => setOpen(false)} />
+              <Sidebar canSeeInternal={canSeeInternal} userId={user.id} clients={clients} navBadges={navBadges} onNavigate={() => setOpen(false)} />
             </motion.div>
           </>
         )}
