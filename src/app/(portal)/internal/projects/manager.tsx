@@ -19,6 +19,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
+import { Segmented } from "@/components/ui/segmented";
 import { Progress } from "@/components/ui/progress";
 import { NewProjectModal } from "@/components/modals/new-project-modal";
 import { EditProjectModal } from "@/components/modals/edit-project-modal";
@@ -159,9 +160,9 @@ export function ProjectsManager({
   return (
     <div className="space-y-6">
       <PageHeader title={t("proj.title")} subtitle={t("proj.subtitle")}>
-        <div className="flex items-center gap-3">
+        <div className="flex w-full items-center justify-between gap-3 sm:w-auto">
           {/* View toggle */}
-          <div className="flex items-center gap-1 rounded-xl border border-border bg-surface p-1">
+          <div className="flex items-center gap-0.5 rounded-xl bg-line/70 p-1">
             {(
               [
                 { key: "list" as const, icon: List, label: t("proj.list") },
@@ -174,8 +175,8 @@ export function ProjectsManager({
                 aria-pressed={view === key}
                 onClick={() => setView(key)}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors",
-                  view === key ? "bg-brand/10 font-medium text-foreground" : "text-muted hover:text-foreground",
+                  "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors",
+                  view === key ? "bg-surface font-medium text-foreground shadow-card" : "text-soft hover:text-foreground",
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -194,34 +195,19 @@ export function ProjectsManager({
       <EditProjectModal project={editing} onClose={() => setEditing(null)} />
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-border bg-surface p-1">
-          {(
-            [
-              { key: "all" as StatusFilter, label: t("proj.all"), count: byAssignee.length },
-              { key: "planning" as StatusFilter, label: t("proj.planning"), count: statusCounts.planning },
-              { key: "in_progress" as StatusFilter, label: t("proj.inProgress"), count: statusCounts.in_progress },
-              { key: "review" as StatusFilter, label: t("proj.review"), count: statusCounts.review },
-              { key: "blocked" as StatusFilter, label: t("proj.blocked"), count: statusCounts.blocked },
-              { key: "done" as StatusFilter, label: t("proj.done"), count: statusCounts.done },
-            ]
-          ).map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              onClick={() => setFilter(p.key)}
-              className={cn(
-                "shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors",
-                filter === p.key
-                  ? "bg-brand/10 font-medium text-foreground"
-                  : "text-muted hover:text-foreground",
-              )}
-            >
-              {p.label}
-              <span className="ml-1.5 text-xs text-muted">{p.count}</span>
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Segmented
+          value={filter}
+          onChange={setFilter}
+          options={[
+            { key: "all" as StatusFilter, label: t("proj.all"), count: byAssignee.length },
+            { key: "planning" as StatusFilter, label: t("proj.planning"), count: statusCounts.planning },
+            { key: "in_progress" as StatusFilter, label: t("proj.inProgress"), count: statusCounts.in_progress },
+            { key: "review" as StatusFilter, label: t("proj.review"), count: statusCounts.review },
+            ...(statusCounts.blocked ? [{ key: "blocked" as StatusFilter, label: t("proj.blocked"), count: statusCounts.blocked }] : []),
+            { key: "done" as StatusFilter, label: t("proj.done"), count: statusCounts.done },
+          ]}
+        />
 
         <div className="flex items-center gap-2">
           <Menu
@@ -232,10 +218,7 @@ export function ProjectsManager({
                 type="button"
                 onClick={toggle}
                 aria-expanded={open}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm transition-colors hover:text-foreground",
-                  assignee === "all" ? "text-muted" : "border-brand/40 text-foreground",
-                )}
+                className={cn("tool-btn", assignee !== "all" && "border-brand/50 text-foreground")}
               >
                 <Users className="h-3.5 w-3.5" />
                 {assignee === "all" ? assigneeLabel : `${t("proj.col.assignee")}: ${assigneeLabel}`}
@@ -272,7 +255,7 @@ export function ProjectsManager({
                 type="button"
                 onClick={toggle}
                 aria-expanded={open}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted transition-colors hover:text-foreground"
+                className="tool-btn"
               >
                 <ArrowDownUp className="h-3.5 w-3.5" />
                 {t(SORT_LABEL[sort])}
@@ -299,26 +282,27 @@ export function ProjectsManager({
           emptyLabel={t("proj.noProjects")}
         />
       ) : (
-      <div className="relative overflow-x-auto rounded-xl border border-border bg-surface">
+      <div className="card relative overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border">
-              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted">
+            <tr className="border-b border-line">
+              <th className="th">
                 {t("proj.col.project")}
               </th>
-              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted">
+              <th className="th hidden sm:table-cell">
                 {t("proj.col.client")}
               </th>
-              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted">
+              <th className="th">
                 {t("proj.col.status")}
               </th>
-              <th className="hidden px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-muted md:table-cell">
+              <th className="th hidden md:table-cell">
                 {t("proj.col.progress")}
               </th>
-              <th className="hidden px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-muted lg:table-cell">
+              <th className="th hidden lg:table-cell">
                 {t("proj.col.assignee")}
               </th>
-              <th className="hidden px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-muted md:table-cell">
+              <th className="th text-right hidden md:table-cell">
                 {t("proj.col.due")}
               </th>
               <th className="w-10 px-4 py-3">
@@ -339,43 +323,44 @@ export function ProjectsManager({
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.03 }}
-                  className="group border-b border-border/50 last:border-0 hover:bg-surface-2/50"
+                  className="group border-b border-line last:border-0 hover:bg-bg/60"
                 >
                   {/* Project name */}
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 sm:max-w-[280px]">
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-foreground">
+                      <p className="line-clamp-2 font-display text-[13.5px] font-medium text-foreground">
                         {p.name}
                       </p>
                       {p.description && (
-                        <p className="mt-0.5 truncate text-xs text-muted">{p.description}</p>
+                        <p className="mt-0.5 text-xs text-muted sm:truncate">{p.description}</p>
                       )}
+                      <p className="mt-0.5 text-xs text-muted sm:hidden">
+                        {cName}
+                        {p.due ? ` · ${formatDue(p.due)}` : ""}
+                      </p>
                     </div>
                   </td>
 
                   {/* Client */}
-                  <td className="px-4 py-3">
+                  <td className="hidden px-4 py-3 sm:table-cell">
                     <div className="flex items-center gap-2">
-                      <Avatar name={cName} size={28} />
-                      <span className="truncate text-muted">{cName}</span>
+                      <Avatar name={cName} size={22} className="rounded-md text-[9px]" />
+                      <span className="truncate text-soft">{cName}</span>
                     </div>
                   </td>
 
                   {/* Status */}
                   <td className="px-4 py-3">
-                    <Badge
-                      variant={s.variant}
-                      className="text-[10px]"
-                    >
+                    <Badge variant={s.variant} className="whitespace-nowrap">
                       <span
                         className={cn(
-                          "mr-1 inline-block h-1.5 w-1.5 rounded-full",
+                          "inline-block h-1.5 w-1.5 rounded-full",
                           {
-                            "bg-muted": p.status === "planning",
+                            "bg-muted/60": p.status === "planning",
                             "bg-brand": p.status === "in_progress",
-                            "bg-warning": p.status === "review",
-                            "bg-success": p.status === "done",
-                            "bg-danger": p.status === "blocked",
+                            "bg-positive/50": p.status === "review",
+                            "bg-positive": p.status === "done",
+                            "bg-negative": p.status === "blocked",
                           },
                         )}
                       />
@@ -389,10 +374,10 @@ export function ProjectsManager({
                       <Progress
                         value={p.progress}
                         tone={s.tone}
-                        className="w-20"
+                        className="w-32 bg-line"
                       />
-                      <span className="text-xs tabular-nums text-muted">
-                        {p.progress} %
+                      <span className="w-9 font-mono text-[11px] text-soft">
+                        {p.progress}%
                       </span>
                     </div>
                   </td>
@@ -416,7 +401,7 @@ export function ProjectsManager({
                   </td>
 
                   {/* Due date */}
-                  <td className="hidden px-4 py-3 text-right text-xs text-muted md:table-cell">
+                  <td className="hidden whitespace-nowrap px-4 py-3 text-right text-xs text-muted md:table-cell">
                     {formatDue(p.due)}
                   </td>
 
@@ -429,6 +414,7 @@ export function ProjectsManager({
             })}
           </tbody>
         </table>
+        </div>
 
         {filtered.length === 0 && (
           <div className="flex h-32 items-center justify-center text-sm text-muted">
@@ -601,26 +587,31 @@ function ProjectBoard({
 }) {
   const t = useT();
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
-      {STATUSES.map((status) => {
+    <div className="card flex snap-x snap-mandatory overflow-x-auto xl:snap-none">
+      {STATUSES.map((status, ci) => {
         const items = projects.filter((p) => p.status === status);
         const s = PROJECT_STATUS[status];
         return (
-          <div key={status} className="flex flex-col rounded-xl border border-border bg-surface-2/40 p-3">
-            <div className="mb-3 flex items-center justify-between px-1">
-              <span className="text-xs font-semibold uppercase tracking-widest text-muted">
-                {t(STATUS_LABEL_KEY[status])}
-              </span>
-              <span className="rounded-full bg-surface px-2 py-0.5 text-xs tabular-nums text-muted">{items.length}</span>
+          <div
+            key={status}
+            className={cn(
+              "flex w-[80%] min-w-[250px] shrink-0 snap-start flex-col px-4 pb-4 pt-3 sm:w-[45%] lg:w-[32%] xl:w-auto xl:min-w-0 xl:flex-1",
+              ci > 0 && "border-l border-line",
+            )}
+          >
+            <div className="mb-2.5 flex items-center gap-2">
+              <span className={cn("h-1.5 w-1.5 rounded-full", { "bg-muted/60": status === "planning", "bg-brand": status === "in_progress", "bg-positive/60": status === "review", "bg-positive": status === "done", "bg-negative": status === "blocked" })} />
+              <span className="eyebrow">{t(STATUS_LABEL_KEY[status])}</span>
+              <span className="ml-auto font-mono text-[10px] text-muted">{items.length}</span>
             </div>
             <div className="space-y-2.5">
               {items.map((p) => {
                 const assignee = p.assigned_to_id ? memberName[p.assigned_to_id] ?? p.assigned_to : p.assigned_to;
                 const cName = clientName[p.client_id] ?? "—";
                 return (
-                  <div key={p.id} className="rounded-xl border border-border bg-surface p-3.5 shadow-card">
+                  <div key={p.id} className="rounded-xl border border-line bg-surface p-3 shadow-card">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium leading-snug text-foreground">{p.name}</p>
+                      <p className="font-display text-[13px] font-medium leading-snug text-foreground">{p.name}</p>
                       {actions(p)}
                     </div>
                     <div className="mt-2 flex items-center gap-1.5 text-xs text-muted">
@@ -628,10 +619,10 @@ function ProjectBoard({
                       <span className="truncate">{cName}</span>
                     </div>
                     <div className="mt-3 flex items-center gap-2">
-                      <Progress value={p.progress} tone={s.tone} className="flex-1" />
-                      <span className="text-[11px] tabular-nums text-muted">{p.progress} %</span>
+                      <Progress value={p.progress} tone={s.tone} className="flex-1 bg-line" />
+                      <span className="font-mono text-[10.5px] text-soft">{p.progress}%</span>
                     </div>
-                    <div className="mt-3 flex items-center justify-between text-[11px] text-muted">
+                    <div className="mt-2.5 flex items-center justify-between border-t border-line pt-2 text-[11px] text-muted">
                       <span>{formatDue(p.due)}</span>
                       {assignee ? <Avatar name={assignee.split(",")[0].trim()} size={22} /> : <span>—</span>}
                     </div>

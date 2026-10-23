@@ -95,12 +95,12 @@ export function NewProjectModal({
   return (
     <ModalShell open={open} onClose={onClose}>
               {/* Header */}
-              <div className="flex items-start gap-4 px-6 pt-6 pb-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/15">
-                  <ClipboardList className="h-5 w-5 text-brand" />
+              <div className="flex items-start gap-4 border-b border-line px-6 py-5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10">
+                  <ClipboardList className="h-5 w-5 text-brand-ink" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-lg font-semibold text-foreground">{t("newProj.title")}</h2>
+                  <h2 className="font-display text-lg font-semibold tracking-[-0.01em] text-foreground">{t("newProj.title")}</h2>
                   <p className="mt-0.5 text-sm text-muted">{t("newProj.desc")}</p>
                 </div>
                 <button type="button" aria-label={t("widget.close")} onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground transition-colors">
@@ -109,29 +109,29 @@ export function NewProjectModal({
               </div>
 
               {/* Form */}
-              <div className="space-y-4 px-6">
+              <div className="space-y-4 px-6 py-5">
                 {error && (
                   <div className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">{error}</div>
                 )}
 
                 {/* Project name */}
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">{t("newProj.name")}</label>
+                  <label className="mb-1.5 block text-[13px] text-soft">{t("newProj.name")}</label>
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="h-11 w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 focus:border-brand/50"
+                    className="h-11 w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 field-focus"
                   />
                 </div>
 
                 {/* Client + Status */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-foreground">{t("newProj.client")}</label>
+                    <label className="mb-1.5 block text-[13px] text-soft">{t("newProj.client")}</label>
                     <select
                       value={clientId}
                       onChange={(e) => setClientId(e.target.value)}
-                      className="h-11 w-full appearance-none rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none focus:border-brand/50"
+                      className="h-11 w-full appearance-none rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none field-focus"
                     >
                       {clients.map((c) => (
                         <option key={c.id} value={c.id} className="bg-surface">{c.company}</option>
@@ -139,11 +139,11 @@ export function NewProjectModal({
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-foreground">{t("newProj.status")}</label>
+                    <label className="mb-1.5 block text-[13px] text-soft">{t("newProj.status")}</label>
                     <select
                       value={status}
                       onChange={(e) => setStatus(e.target.value as ProjectStatus)}
-                      className="h-11 w-full appearance-none rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none focus:border-brand/50"
+                      className="h-11 w-full appearance-none rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none field-focus"
                     >
                       {STATUS_OPTIONS.map((s) => (
                         <option key={s.value} value={s.value} className="bg-surface">{t(s.label)}</option>
@@ -155,16 +155,16 @@ export function NewProjectModal({
                 {/* Due + Assignee */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-foreground">{t("newProj.due")}</label>
+                    <label className="mb-1.5 block text-[13px] text-soft">{t("newProj.due")}</label>
                     <input
                       type="date"
                       value={due}
                       onChange={(e) => setDue(e.target.value)}
-                      className="h-11 w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors focus:border-brand/50"
+                      className="h-11 w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors field-focus"
                     />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-foreground">{t("newProj.assignee")}</label>
+                    <label className="mb-1.5 block text-[13px] text-soft">{t("newProj.assignee")}</label>
                     <div className="flex min-h-[44px] flex-wrap items-center gap-1.5 rounded-xl border border-border bg-bg px-3 py-2">
                       {assignedIds.map((id) => (
                         <span key={id} className="inline-flex items-center gap-1 rounded-full bg-surface-2 pl-1 pr-2 py-0.5">
@@ -183,7 +183,7 @@ export function NewProjectModal({
                               onClick={toggle}
                               aria-expanded={open}
                               aria-label={t("newProj.assignee")}
-                              className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-border text-muted transition-colors hover:border-brand/40 hover:text-brand"
+                              className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-border text-muted transition-colors hover:border-brand/40 hover:text-brand-ink"
                             >
                               <Plus className="h-3 w-3" />
                             </button>
@@ -221,13 +221,13 @@ export function NewProjectModal({
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     rows={3}
-                    className="w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 focus:border-brand/50 resize-none"
+                    className="w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 field-focus resize-none"
                   />
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4 mt-2">
+              <div className="flex items-center justify-end gap-3 border-t border-line bg-bg px-6 py-4">
                 <button
                   onClick={onClose}
                   className="inline-flex h-10 items-center rounded-xl border border-border px-4 text-sm font-medium text-foreground transition-colors hover:bg-surface-2"

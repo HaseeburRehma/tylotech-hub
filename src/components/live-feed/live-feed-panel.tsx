@@ -122,7 +122,7 @@ export function LiveFeedPanel({ clientId }: { clientId: string }) {
   return (
     <div className="rounded-xl border border-border bg-surface p-5">
       <div className="mb-1 flex items-center gap-2">
-        <Radio className="h-4 w-4 text-brand" />
+        <Radio className="h-4 w-4 text-brand-ink" />
         <h3 className="font-semibold text-foreground">{t("lf.title")}</h3>
       </div>
       <p className="mb-4 text-xs text-muted">{t("lf.sub")}</p>
@@ -212,7 +212,7 @@ export function LiveFeedPanel({ clientId }: { clientId: string }) {
                   const old = Date.now() - new Date(e.occurred_at).getTime() > 24 * 3600_000;
                   return (
                     <li key={e.id} className={cn("flex items-center gap-3 rounded-lg border border-border p-2.5", (e.hidden || old) && "opacity-55")}>
-                      <I className="h-4 w-4 shrink-0 text-brand" />
+                      <I className="h-4 w-4 shrink-0 text-brand-ink" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm text-foreground">{e.title}</p>
                         <p className="truncate text-xs text-muted">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildClientTheme, hexToRgb, isLight, themeToCssVars } from "./themes";
+import { buildClientTheme, contrast, DARK_SURFACE, hexToRgb, isLight, readableOn, themeToCssVars, TYLOTECH_THEME } from "./themes";
 
 describe("hexToRgb", () => {
   it("parses 6-digit hex", () => {
@@ -34,5 +34,26 @@ describe("buildClientTheme", () => {
   it("uses an uploaded logo url when provided", () => {
     const t = buildClientTheme({ id: "c1", company: "Acme", primary: "#000", secondary: "#111", logoUrl: "https://x/y.png" });
     expect(t.logo).toEqual({ type: "url", value: "https://x/y.png" });
+  });
+});
+
+describe("brand ink — gold is never text on white", () => {
+  const rgb = (v: string) => v.split(" ").map(Number) as unknown as [number, number, number];
+
+  it("TyloTech uses Figma's text/accent #94713F on light surfaces", () => {
+    expect(themeToCssVars(TYLOTECH_THEME)["--brand-ink-light"]).toBe("148 113 63");
+  });
+
+  it.each(["#D1AA71", "#01FE21", "#FFBF00", "#38BDF8", "#7B2CFF", "#FFFFFF"])(
+    "client colour %s gets a text shade readable on white and on dark petrol",
+    (hex) => {
+      const vars = themeToCssVars(buildClientTheme({ id: "c", company: "C", primary: hex, secondary: "#000" }));
+      expect(contrast(rgb(vars["--brand-ink-light"]), [255, 255, 255])).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(rgb(vars["--brand-ink-dark"]), DARK_SURFACE)).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+
+  it("leaves colours that already read alone", () => {
+    expect(readableOn([123, 44, 255], [255, 255, 255])).toEqual([123, 44, 255]);
   });
 });

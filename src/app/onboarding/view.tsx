@@ -5,22 +5,23 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  CircleCheck,
   Clock,
   BarChart3,
-  Globe,
   LayoutDashboard,
   Loader2,
   MessageCircle,
   Link2,
   Mail,
-  Megaphone,
   Phone,
   Play,
   Plus,
+  Rocket,
   Search,
-  Share2,
   Upload,
   User,
+  UserPlus,
+  UserRound,
   Users,
   X,
 } from "lucide-react";
@@ -38,13 +39,8 @@ import { cn } from "@/lib/utils";
 
 const STEPS = ["ob.stepWelcome", "ob.stepProfile", "ob.stepChannels", "ob.stepTeam", "ob.stepDone"] as const;
 
-const SERVICES = [
-  { id: "website", icon: Globe, label: "Website" },
-  { id: "seo", icon: Search, label: "SEO" },
-  { id: "ads", icon: Megaphone, label: "Ads" },
-  { id: "social", icon: Share2, label: "Social" },
-  { id: "mail", icon: Mail, label: "Mail" },
-];
+// Icons for the step overview on the welcome screen (same order as STEPS).
+const STEP_ICONS = [Rocket, UserRound, Link2, UserPlus, CircleCheck];
 
 const CHANNELS = [
   { id: "search_console", name: "Search Console", category: "SEO", desc: "ob.scDesc", color: "#4285F4" },
@@ -85,7 +81,7 @@ function Stepper({ step, t }: { step: number; t: (k: string) => string }) {
                   done
                     ? "border-brand bg-brand text-white"
                     : current
-                      ? "border-brand bg-transparent text-brand"
+                      ? "border-brand bg-transparent text-brand-ink"
                       : "border-border bg-transparent text-muted",
                 )}
               >
@@ -101,7 +97,7 @@ function Stepper({ step, t }: { step: number; t: (k: string) => string }) {
                 {t(key)}
               </p>
               {current && (
-                <p className="text-xs text-brand">{t("ob.current")}</p>
+                <p className="text-xs text-brand-ink">{t("ob.current")}</p>
               )}
             </div>
           </div>
@@ -149,7 +145,7 @@ function TourModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <ModalShell open={open} onClose={onClose} className="max-w-md">
       <div className="p-8 text-center">
-        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/15 text-brand">
+        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/15 text-brand-ink">
           <Icon className="h-7 w-7" />
         </span>
         <p className="mt-5 text-xs font-semibold uppercase tracking-widest text-muted">
@@ -226,7 +222,6 @@ export function OnboardingView({
     } catch {}
   }, []);
 
-  const [selectedServices, setSelectedServices] = useState<Set<string>>(new Set(["website"]));
   const [profile, setProfile] = useState({ name: fullName, role: title, phone: "" });
   const [avatar, setAvatar] = useState(avatarUrl);
   const [busy, setBusy] = useState(false);
@@ -307,53 +302,46 @@ export function OnboardingView({
   // Step 0: Welcome
   if (step === 0) {
     return (
-      <div className="flex min-h-screen flex-col items-center bg-bg">
-        <div className="flex w-full items-center p-8">
+      <div className="flex min-h-dvh flex-col items-center bg-surface bg-[radial-gradient(ellipse_at_center,rgb(var(--brand)/0.10)_0%,transparent_60%)]">
+        <div className="flex w-full items-center p-6 sm:p-8">
           <Logo size={34} showName />
         </div>
-        <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm">
-            <Avatar name={workspace} size={28} />
+        <div className="flex flex-1 flex-col items-center justify-center px-4 pb-16 text-center">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-line bg-surface py-1.5 pl-1.5 pr-4 text-[13px] text-soft shadow-card">
+            <Avatar name={workspace} size={26} />
             {t("ob.workspaceBadge", { name: workspace })}
           </div>
 
-          <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+          <h1 className="font-display text-[28px] font-semibold tracking-[-0.03em] sm:text-[34px]">
             {t("ob.welcomeTitle", { name: userName })}
           </h1>
-          <p className="mt-3 max-w-lg text-muted">
+          <p className="mt-3 max-w-lg text-[14px] text-soft">
             {t("ob.welcomeSubtitle")}
           </p>
 
-          <div className="mt-10 flex flex-wrap justify-center gap-4">
-            {SERVICES.map((svc) => {
-              const active = selectedServices.has(svc.id);
+          {/* Figma: the five setup steps at a glance, the current one highlighted */}
+          <ol className="mt-10 grid w-full max-w-[720px] grid-cols-2 gap-3 sm:grid-cols-5">
+            {STEPS.map((key, i) => {
+              const Icon = STEP_ICONS[i]!;
+              const current = i === 0;
               return (
-                <button
-                  key={svc.id}
-                  onClick={() => {
-                    setSelectedServices((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(svc.id)) next.delete(svc.id);
-                      else next.add(svc.id);
-                      return next;
-                    });
-                  }}
+                <li
+                  key={key}
+                  aria-current={current ? "step" : undefined}
                   className={cn(
-                    "flex w-28 flex-col items-center gap-2 rounded-xl border p-4 text-center transition-colors",
-                    active ? "border-brand/40 bg-brand/5" : "border-border bg-surface",
+                    "flex flex-col items-center gap-2.5 rounded-2xl border bg-surface px-3 py-4 text-center shadow-card",
+                    current ? "border-brand" : "border-line",
+                    i === STEPS.length - 1 && "col-span-2 sm:col-span-1",
                   )}
                 >
-                  <div className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-xl",
-                    active ? "bg-brand/15 text-brand" : "bg-surface-2 text-muted",
-                  )}>
-                    <svc.icon className="h-5 w-5" />
-                  </div>
-                  <span className="text-xs font-medium text-foreground">{svc.label}</span>
-                </button>
+                  <span className={cn("flex h-[34px] w-[34px] items-center justify-center rounded-lg", current ? "bg-brand/10 text-brand-ink" : "bg-bg text-muted")}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className={cn("font-display text-[13px]", current ? "font-medium text-foreground" : "text-soft")}>{t(key)}</span>
+                </li>
               );
             })}
-          </div>
+          </ol>
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <Button size="lg" onClick={() => setStep(1)}>
@@ -390,7 +378,7 @@ export function OnboardingView({
         </div>
         <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
           <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-surface-2">
-            <Check className="h-7 w-7 text-brand" />
+            <Check className="h-7 w-7 text-brand-ink" />
           </div>
 
           <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">

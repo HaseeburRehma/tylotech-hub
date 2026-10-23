@@ -105,7 +105,7 @@ export function ActivityView({
               return (
                 <li key={r.id}>
                   {header && (
-                    <p className="bg-surface-2/50 px-5 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted">{day}</p>
+                    <p className="bg-surface-2/50 px-5 py-1.5 eyebrow">{day}</p>
                   )}
                   <div className="flex flex-col gap-0.5 px-5 py-3 sm:flex-row sm:items-baseline sm:gap-4">
                     <span className="w-12 shrink-0 text-xs tabular-nums text-muted">

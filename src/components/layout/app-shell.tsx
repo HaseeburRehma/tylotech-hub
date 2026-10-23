@@ -46,9 +46,9 @@ export function AppShell({
 
   return (
     <InboxProvider enabled={canSeeInternal} userId={user.id}>
-    <div className="flex h-screen overflow-hidden bg-bg">
+    <div className="flex h-dvh overflow-hidden bg-bg">
       {/* Desktop sidebar */}
-      <div className="sticky top-0 hidden h-screen lg:block">
+      <div className="sticky top-0 hidden h-dvh lg:block">
         <Sidebar canSeeInternal={canSeeInternal} userId={user.id} clients={clients} />
       </div>
 

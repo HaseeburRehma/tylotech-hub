@@ -181,7 +181,7 @@ export function LeadsView({
         ].map((s) => (
           <button key={s.label} type="button" onClick={s.onClick} className="text-left">
             <Card className="flex items-center gap-3 p-4 transition-colors hover:border-brand/40">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand-ink">
                 <s.icon className="h-5 w-5" />
               </span>
               <span className="min-w-0">
@@ -279,7 +279,7 @@ export function LeadsView({
                   </span>
                   <span className="hidden text-right text-xs text-muted xl:block">
                     {l.appointment_at && l.status === "appointment_set" ? (
-                      <span className="text-brand">📅 {fmtDateTime(l.appointment_at)}</span>
+                      <span className="text-brand-ink">📅 {fmtDateTime(l.appointment_at)}</span>
                     ) : (
                       since(l.created_at, t)
                     )}

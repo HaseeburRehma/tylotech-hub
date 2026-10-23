@@ -3,14 +3,19 @@
 @tailwind utilities;
 
 :root {
-  /* Default TyloTech — Light theme — overridden at runtime by ThemeProvider */
-  --bg: 252 252 251;
-  --surface: 255 255 255;
-  --surface-2: 245 245 243;
-  --border: 230 230 228;
-  --foreground: 23 23 23;
-  --muted: 120 120 126;
-  --brand: 194 158 72;
+  /* Default TyloTech — Light theme (Figma "TyloTech – Main File" tokens).
+     --brand / --accent are overridden at runtime by ThemeProvider. */
+  --bg: 246 245 243; /* surface/subtle */
+  --surface: 255 255 255; /* surface/default */
+  --surface-2: 241 240 237;
+  --border: 226 224 220; /* border/default */
+  --line: 238 237 234; /* border/subtle — card outlines, dividers */
+  --foreground: 26 25 23; /* text/primary */
+  --soft: 92 89 84; /* text/secondary */
+  --muted: 125 121 115; /* text/tertiary */
+  --positive: 11 85 104; /* delta chips: good direction */
+  --negative: 180 80 47; /* delta chips: bad direction */
+  --brand: 209 170 113; /* surface/accent */
   --brand-foreground: 255 255 255;
   --accent: 248 244 236;
   --success: 34 170 90;
@@ -19,20 +24,38 @@
   --info: 59 130 246;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: var(--font-sans);
+  /* Eyebrow labels and data (Figma Mono/Eyebrow, Mono/Data). */
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  /* Brand as text/icon colour: never the light brand tone on white (Figma rule 1). */
+  --brand-ink-light: 148 113 63;
+  --brand-ink-dark: 216 182 130;
+  --brand-ink: var(--brand-ink-light);
+  /* Figma Focus/Ring — one focus style everywhere. */
+  --focus: 1 71 92;
+  --focus-alpha: 0.35;
 }
 
+/* Figma "Dark Section" tokens: petrol surfaces, white text, gold stays the accent. */
 .dark {
-  --bg: 18 18 20;
-  --surface: 28 28 32;
-  --surface-2: 38 38 42;
-  --border: 50 50 56;
-  --foreground: 240 240 245;
-  --muted: 150 150 158;
-  --accent: 38 36 32;
+  --bg: 0 22 32; /* surface/page #001620 */
+  --surface: 0 34 48; /* surface/default #002230 */
+  --surface-2: 0 46 61; /* surface/subtle #002E3D */
+  --border: 1 71 92; /* border/default #01475C */
+  --line: 0 46 61; /* border/subtle */
+  --foreground: 255 255 255; /* text/primary */
+  --soft: 179 214 226; /* text/secondary #B3D6E2 */
+  --muted: 127 186 205; /* text/tertiary #7FBACD */
+  --positive: 179 214 226;
+  --negative: 240 140 110;
+  --accent: 0 46 61;
   --success: 52 200 110;
   --warning: 240 190 70;
-  --danger: 240 80 80;
-  --info: 80 150 255;
+  --danger: 240 100 90;
+  --info: 127 186 205;
+  --brand-ink: var(--brand-ink-dark);
+  /* Focus/Ring Accent: gold ring on dark surfaces. */
+  --focus: 209 170 113;
+  --focus-alpha: 0.45;
 }
 
 * {
@@ -95,7 +118,12 @@ body {
   }
 
   .card {
-    @apply rounded-2xl border border-border bg-surface shadow-card;
+    @apply rounded-2xl border border-line bg-surface shadow-card;
+  }
+
+  /* Small mono uppercase label above numbers / board columns (Figma "Kopf"). */
+  .eyebrow {
+    @apply font-mono text-[10px] font-medium uppercase leading-[13px] tracking-[0.07em] text-muted;
   }
 
   .card-hover {
@@ -103,19 +131,49 @@ body {
   }
 
   .input-base {
-    @apply w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground
-      placeholder:text-muted/60 outline-none transition-all
-      focus:border-brand/50 focus:ring-2 focus:ring-brand/15;
+    @apply w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-foreground
+      placeholder:text-muted/60 outline-none transition-all;
+  }
+  .input-base:focus {
+    border-color: rgb(var(--focus));
+    box-shadow: 0 0 0 3px rgb(var(--focus) / var(--focus-alpha));
+  }
+
+  /* Hand-built fields (selects, textareas in dialogs) share the Figma focus ring. */
+  .field-focus:focus,
+  .field-focus:focus-within {
+    border-color: rgb(var(--focus));
+    box-shadow: 0 0 0 3px rgb(var(--focus) / var(--focus-alpha));
+    outline: none;
+  }
+
+  /* Table header cell (Figma: mono uppercase on a hairline). */
+  .th {
+    @apply eyebrow whitespace-nowrap px-4 py-3 text-left;
+  }
+
+  /* Toolbar button next to filters ("Filter", "Sort: Budget", "Assignee: All"). */
+  .tool-btn {
+    @apply inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border bg-surface px-3 text-[13px] text-soft shadow-card transition-colors hover:text-foreground;
   }
 
   .ring-focus {
-    @apply outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-bg;
+    @apply outline-none;
+  }
+  .ring-focus:focus-visible {
+    box-shadow: 0 0 0 3px rgb(var(--focus) / var(--focus-alpha));
   }
 }
 
 /* @mention tags in chat */
 .mention-tag {
-  @apply rounded bg-brand/10 px-1 py-0.5 text-brand font-medium;
+  @apply rounded bg-brand/10 px-1 py-0.5 text-brand-ink font-medium;
+}
+
+/* Keyboard focus that isn't styled elsewhere still gets the Figma ring. */
+:where(a, button, [role="button"], [role="tab"], [role="switch"], summary):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(var(--focus) / var(--focus-alpha));
 }
 
 /* Recharts theming hooks */

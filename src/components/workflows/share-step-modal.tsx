@@ -107,7 +107,7 @@ export function ShareStepModal({
     <ModalShell open={open} onClose={onClose} className="max-w-xl">
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <h2 className="flex items-center gap-2 font-semibold text-foreground">
-          <MessageSquare className="h-4 w-4 text-brand" /> {t("wf.share.title")}
+          <MessageSquare className="h-4 w-4 text-brand-ink" /> {t("wf.share.title")}
         </h2>
         <button type="button" onClick={onClose} className="rounded-lg p-1 text-muted hover:bg-surface-2 hover:text-foreground" aria-label={t("common.close")}>
           <X className="h-4 w-4" />
@@ -179,7 +179,7 @@ export function ShareStepModal({
                   >
                     <Avatar name={m.name} size={20} />
                     {m.name}
-                    {on && <Check className="h-3 w-3 text-brand" />}
+                    {on && <Check className="h-3 w-3 text-brand-ink" />}
                   </button>
                 );
               })}

@@ -21,7 +21,6 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { RequestToolModal } from "@/components/modals/request-tool-modal";
@@ -54,7 +53,7 @@ export default function AiToolsPage() {
   const [planLocked, setPlanLocked] = useState<Set<string>>(new Set());
   const [recent, setRecent] = useState<AiHistoryEntry[]>([]);
   useEffect(() => {
-    setRecent(readAiHistory(user.id).slice(0, 4));
+    setRecent(readAiHistory(user.id).slice(0, 3));
     const sb = createClient();
     if (!sb) return;
     Promise.all([
@@ -81,7 +80,7 @@ export default function AiToolsPage() {
   const firstName = user.name?.split(" ")[0] ?? "";
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-6">
       <PageHeader title={t("ai.title")} subtitle={t("ai.subtitle")}>
         <div className="flex items-center gap-2">
           {user.role !== "client" && (
@@ -106,14 +105,14 @@ export default function AiToolsPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="font-display text-3xl font-semibold tracking-tight md:text-4xl"
+          className="font-display text-[28px] font-semibold tracking-[-0.03em] md:text-[34px]"
         >
           {(() => {
             const parts = t("ait.heroTitle").split("{start}");
             return (
               <>
                 {parts[0]}
-                <em className="not-italic text-brand">{t("ait.heroStart")}</em>
+                <em className="font-serif text-[1.08em] font-normal italic tracking-normal text-brand-ink">{t("ait.heroStart")}</em>
                 {firstName ? `, ${firstName}` : ""}
                 {parts[1]}
               </>
@@ -124,7 +123,7 @@ export default function AiToolsPage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}
-          className="mx-auto mt-2 max-w-lg text-sm text-muted"
+          className="mx-auto mt-2 max-w-lg text-sm text-soft"
         >
           {t("ait.heroSubtitle")}
         </motion.p>
@@ -135,9 +134,10 @@ export default function AiToolsPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15, duration: 0.5 }}
-        className="mx-auto max-w-2xl"
+        className="mx-auto max-w-3xl"
       >
-        <div className="rounded-2xl bg-foreground p-4">
+        {/* Figma: deep teal prompt card */}
+        <div className="overflow-hidden rounded-2xl bg-gradient-to-b from-[#17485b] to-[#04161d] shadow-float ring-1 ring-black/10">
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -149,13 +149,13 @@ export default function AiToolsPage() {
             }}
             aria-label={t("ait.heroSubtitle")}
             placeholder={t("ait.heroSubtitle")}
-            rows={2}
-            className="w-full resize-none bg-transparent text-sm text-bg placeholder:text-bg/40 focus:outline-none"
+            rows={3}
+            className="block w-full resize-none bg-transparent px-5 pt-4 text-[15px] text-white placeholder:text-white/45 focus:outline-none"
           />
-          <div className="flex items-center justify-between pt-2">
-            <div className="flex items-center gap-2">
-              <span className="rounded-lg bg-bg/10 px-2.5 py-1 text-xs text-bg/70">
-                {user.name?.split(" ")[0] ?? "Client"}
+          <div className="flex items-center justify-between border-t border-white/10 px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate rounded-lg bg-white/10 px-2.5 py-1 text-xs text-white/80">
+                {user.company ?? user.name?.split(" ")[0] ?? "Client"}
               </span>
             </div>
             <button
@@ -172,15 +172,15 @@ export default function AiToolsPage() {
       </motion.div>
 
       {/* Tools grid */}
-      <div>
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h3 className="text-sm font-semibold">{t("ait.readyTools")}</h3>
-            <Badge variant="brand" className="text-[10px]">
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <h3 className="font-mono text-[11px] text-muted">{t("ait.readyTools")}</h3>
+            <span className="rounded bg-positive/10 px-1.5 py-px font-mono text-[10px] text-positive">
               {t("ait.toolsAvailable", { n: unlocked, total: AI_TOOLS.length })}
-            </Badge>
+            </span>
           </div>
-          <button onClick={() => { setRequestPrefill(undefined); setShowRequestTool(true); }} className="text-sm text-muted hover:text-foreground transition-colors">
+          <button onClick={() => { setRequestPrefill(undefined); setShowRequestTool(true); }} className="text-[13px] text-soft transition-colors hover:text-foreground">
             {t("ait.requestOwnTool")}
           </button>
         </div>
@@ -210,25 +210,25 @@ export default function AiToolsPage() {
                     }
                   }}
                   className={cn(
-                    "group flex items-center gap-3.5 rounded-xl border border-border bg-surface p-4 transition-all",
-                    upgrade ? "hover:shadow-card" : off ? "cursor-not-allowed opacity-50" : "hover:shadow-card",
+                    "group flex items-center gap-3.5 rounded-xl border border-line bg-surface px-4 py-3.5 shadow-card transition-all",
+                    upgrade ? "hover:border-brand/40" : off ? "cursor-not-allowed opacity-50" : "hover:border-brand/40",
                   )}
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand-ink">
                     <Icon className="h-[18px] w-[18px]" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-foreground">{t(tool.name)}</span>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span className="font-display text-sm font-semibold text-foreground">{t(tool.name)}</span>
                       {upgrade ? (
-                        <Badge className="gap-1 bg-brand/15 text-[10px] uppercase tracking-wider text-brand">
+                        <span className="inline-flex items-center gap-1 rounded bg-brand/15 px-1.5 py-px font-mono text-[9px] uppercase tracking-wide text-foreground">
                           <Lock className="h-2.5 w-2.5" />
                           {t("ait.upgrade")}
-                        </Badge>
+                        </span>
                       ) : (
-                        <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+                        <span className="rounded bg-line px-1.5 py-px font-mono text-[9px] uppercase tracking-wide text-muted">
                           {off ? t("prompts.inactive") : t(tool.category)}
-                        </Badge>
+                        </span>
                       )}
                     </div>
                     <p className="mt-0.5 truncate text-xs text-muted">{t(tool.description)}</p>
@@ -242,33 +242,38 @@ export default function AiToolsPage() {
       </div>
 
       {/* Recently created */}
-      <div>
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-sm font-semibold">{t("ait.recentlyCreated")}</h3>
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-mono text-[11px] text-muted">{t("ait.recentlyCreated")}</h3>
+          <button type="button" onClick={() => setShowHistory(true)} className="text-[13px] text-soft hover:text-foreground">
+            {t("ait.history")}
+          </button>
         </div>
         {recent.length === 0 ? (
-          <div className="rounded-xl border border-border bg-surface p-8 text-center">
+          <div className="card p-8 text-center">
             <Sparkles className="mx-auto mb-2 h-5 w-5 text-muted" />
             <p className="text-sm text-muted">{t("ait.noResult")}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {recent.map((e) => {
               const def = AI_TOOLS.find((x) => x.slug === e.tool);
               return (
                 <Link
                   key={e.id}
                   href={`/ai-tools/${e.tool}?h=${e.id}`}
-                  className="rounded-xl border border-border bg-surface p-4 transition-all hover:shadow-card"
+                  className="card flex flex-col p-4 transition-all hover:border-brand/40"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-semibold text-foreground">{def ? t(def.name) : e.tool}</span>
-                    <span className="shrink-0 text-[11px] text-muted">
+                  <span className="w-fit rounded bg-brand/10 px-1.5 py-px font-mono text-[9.5px] uppercase tracking-wide text-foreground">
+                    {def ? t(def.name) : e.tool}
+                  </span>
+                  <p className="mt-2 line-clamp-3 flex-1 text-[13px] leading-relaxed text-soft">{e.output}</p>
+                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2.5 text-[11.5px] text-muted">
+                    <span className="truncate">{e.brand}</span>
+                    <span className="shrink-0">
                       {new Date(e.at).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short" })}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-xs text-muted">{e.brand}</p>
-                  <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted/80">{e.output}</p>
                 </Link>
               );
             })}

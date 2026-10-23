@@ -1,5 +1,6 @@
 "use client";
 
+import { renderRich } from "@/lib/rich-text";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AtSign,
@@ -88,23 +89,6 @@ function formatDate(iso: string, t: (k: string) => string): string {
   } catch {
     return "";
   }
-}
-
-function renderRich(text: string): string {
-  const esc = text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
-  // Links first (only http/https; already escaped, so safe inside href), parked
-  // as placeholders so the bold/mention rules below can't reach into a URL.
-  const links: string[] = [];
-  const parked = esc.replace(/\bhttps?:\/\/[^\s<]*[^\s<.,;:!?)\]'"*]/g, (url) => `\u0000${links.push(url) - 1}\u0000`);
-  return parked
-    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/==([^=\n]+)==/g, '<mark style="background:rgba(201,168,76,.38);color:inherit;border-radius:3px;padding:0 2px">$1</mark>')
-    .replace(/@([A-Za-zÀ-ÿ][\w\s]{0,30}[\w])/g, '<span class="text-brand font-semibold">@$1</span>')
-    .replace(/\u0000(\d+)\u0000/g, (_, i: string) => {
-      const url = links[Number(i)]!;
-      const label = url.length > 60 ? `${url.slice(0, 57)}…` : url;
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="break-all underline decoration-current/40 underline-offset-2 hover:decoration-current">${label}</a>`;
-    });
 }
 
 function MentionPopup({
@@ -247,7 +231,7 @@ function ThreadPanel({
       </div>
 
       <form onSubmit={submit} className="border-t border-border p-3">
-        <div className="rounded-xl border border-border bg-bg/60 focus-within:border-brand/50">
+        <div className="rounded-xl border border-border bg-bg/60 field-focus">
           <div className="flex items-end gap-1.5 px-2 py-1.5">
             <textarea
               ref={composerRef}
@@ -447,7 +431,7 @@ function ChatThreadInner({
       <>
         <span dangerouslySetInnerHTML={{ __html: renderRich(text) }} />
         {m.edited_at && <span className="ml-1 text-[10px] text-muted/40">({t("chat.edited")})</span>}
-        {m.pinned_at && <Pin className="ml-1 inline h-3 w-3 -rotate-45 align-baseline text-brand" aria-label={t("chat.pin.pinned")} />}
+        {m.pinned_at && <Pin className="ml-1 inline h-3 w-3 -rotate-45 align-baseline text-brand-ink" aria-label={t("chat.pin.pinned")} />}
         {translated && (
           <button
             type="button"
@@ -568,7 +552,7 @@ function ChatThreadInner({
         onClick={() => q && jumpTo(q.id)}
         className="mb-1 mt-1 flex w-full max-w-md flex-col items-start rounded-lg border-l-[3px] border-brand bg-surface-2/70 px-2.5 py-1.5 text-left transition-colors hover:bg-surface-2"
       >
-        <span className="text-[11px] font-semibold text-brand">{q ? q.sender_name : t("chat.quoteMissing")}</span>
+        <span className="text-[11px] font-semibold text-brand-ink">{q ? q.sender_name : t("chat.quoteMissing")}</span>
         {q && <span className="line-clamp-2 text-xs text-muted">{snippetOf(q)}</span>}
       </button>
     );
@@ -1031,13 +1015,13 @@ function ChatThreadInner({
   const groupLogo = !internal && currentRole !== "client" ? clientLogo : null;
 
   return (
-    <div className={cn("flex h-full min-h-0 overflow-hidden rounded-2xl border border-border bg-bg", className)}>
+    <div className={cn("flex h-full min-h-0 overflow-hidden rounded-2xl border border-line bg-bg shadow-card", className)}>
       <AttachmentViewer items={viewerItems} index={viewerIndex} onIndex={setViewerIndex} onClose={() => setViewerIndex(null)} />
       {/* ── Chat sidebar ─────────────────────────────────────────── */}
       {peers.length > 0 && (
-        <div className="hidden w-[260px] shrink-0 flex-col border-r border-border bg-surface/50 md:flex">
+        <div className="hidden w-[260px] shrink-0 flex-col border-r border-line bg-surface md:flex lg:w-[290px]">
           {/* Tabs: Chats · Threads · Erwähnungen */}
-          <div className="flex items-center gap-1 border-b border-border px-3 py-2.5">
+          <div className="m-3 flex items-center gap-0.5 rounded-xl bg-line/70 p-1">
             {([
               { key: "channels" as const, label: t("chat.conversations") },
               { key: "threads" as const, label: t("chat.thread") },
@@ -1047,10 +1031,10 @@ function ChatThreadInner({
                 key={tab.key}
                 onClick={() => setSidebarTab(tab.key)}
                 className={cn(
-                  "rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors",
+                  "flex-1 rounded-lg px-2 py-1.5 text-[12.5px] transition-colors",
                   sidebarTab === tab.key
-                    ? "bg-bg text-foreground shadow-sm border border-border"
-                    : "text-muted hover:text-foreground",
+                    ? "bg-surface font-medium text-foreground shadow-card"
+                    : "text-soft hover:text-foreground",
                 )}
               >
                 {tab.label}
@@ -1070,10 +1054,10 @@ function ChatThreadInner({
                   key={ch.key}
                   onClick={() => { setSelected(ch.key); setThreadParentId(null); }}
                   className={cn(
-                    "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors border-l-2",
+                    "flex w-full items-center gap-3 border-l-2 px-4 py-3 text-left transition-colors",
                     isActive
-                      ? "bg-brand/[0.06] border-l-brand"
-                      : "border-l-transparent hover:bg-surface-2",
+                      ? "border-l-brand bg-brand/10"
+                      : "border-l-transparent hover:bg-bg",
                   )}
                 >
                   {ch.isGroup ? (
@@ -1126,7 +1110,7 @@ function ChatThreadInner({
                   )}
                 >
                   <div className="flex items-center gap-2">
-                    <MessageCircle className="h-3.5 w-3.5 shrink-0 text-brand" />
+                    <MessageCircle className="h-3.5 w-3.5 shrink-0 text-brand-ink" />
                     <span className="truncate text-sm font-semibold text-foreground">{m.content?.slice(0, 50) || "Thread"}</span>
                   </div>
                   <div className="flex items-center gap-2 pl-5">
@@ -1178,7 +1162,7 @@ function ChatThreadInner({
       {/* ── Main chat area ───────────────────────────────────────── */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-line bg-surface px-4 py-3 sm:px-5">
           {(() => {
             const identity = (
               <div className="flex min-w-0 items-center gap-3">
@@ -1196,7 +1180,7 @@ function ChatThreadInner({
                   <SenderAvatar name={headerTitle} role={peers.find((p) => p.id === selected)?.role} size={36} />
                 )}
                 <div className="min-w-0 text-left">
-                  <p className="truncate text-sm font-semibold text-foreground">{headerTitle}</p>
+                  <p className="truncate font-display text-[15px] font-semibold text-foreground">{headerTitle}</p>
                   <p className="truncate text-[11px] text-muted">{headerSubtitle}</p>
                 </div>
               </div>
@@ -1216,7 +1200,7 @@ function ChatThreadInner({
                       }
                     }}
                     placeholder={t("chat.searchPlaceholder")}
-                    className="h-9 w-full rounded-xl border border-border bg-surface pl-9 pr-16 text-sm outline-none focus:border-brand/50"
+                    className="h-9 w-full rounded-xl border border-border bg-surface pl-9 pr-16 text-sm outline-none field-focus"
                   />
                   {q && (
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] tabular-nums text-muted">
@@ -1409,15 +1393,15 @@ function ChatThreadInner({
                     {firstUnreadId === m.id && (
                       <div className="my-4 flex items-center gap-3" role="separator">
                         <div className="h-px flex-1 bg-brand/40" />
-                        <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-[11px] font-semibold text-brand">{t("chat.newMessages")}</span>
+                        <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-[11px] font-semibold text-brand-ink">{t("chat.newMessages")}</span>
                         <div className="h-px flex-1 bg-brand/40" />
                       </div>
                     )}
                     {divider && (
                       <div className="my-5 flex items-center gap-3">
-                        <div className="h-px flex-1 bg-border" />
-                        <span className="text-[12px] font-medium text-muted">{divider}</span>
-                        <div className="h-px flex-1 bg-border" />
+                        <div className="h-px flex-1 bg-line" />
+                        <span className="font-mono text-[10.5px] tracking-[0.04em] text-muted">{divider}</span>
+                        <div className="h-px flex-1 bg-line" />
                       </div>
                     )}
 
@@ -1445,11 +1429,11 @@ function ChatThreadInner({
                     >
                       {!grouped ? (
                         <div className="flex gap-3">
-                          <SenderAvatar name={m.sender_name} role={m.sender_role} size={36} className="mt-0.5 shrink-0" />
+                          <SenderAvatar name={m.sender_name} role={m.sender_role} size={32} className="mt-0.5 shrink-0" />
                           <div className="relative min-w-0 flex-1">
                             <div className="flex items-baseline gap-2">
-                              <span className="text-sm font-semibold text-foreground">{m.sender_name}</span>
-                              <span className="text-[11px] text-muted">{formatTime(m.created_at)}</span>
+                              <span className="font-display text-[14px] font-semibold text-foreground">{m.sender_name}</span>
+                              <span className="font-mono text-[10.5px] text-muted">{formatTime(m.created_at)}</span>
                             </div>
 
                             {m.reply_to_id && renderQuote(m.reply_to_id)}
@@ -1468,7 +1452,7 @@ function ChatThreadInner({
                                 </div>
                               </div>
                             ) : hasText ? (
-                              <div className="mt-1 rounded-xl border-l-2 border-brand/30 pl-3 py-1 text-sm leading-relaxed text-foreground">
+                              <div className="mt-2 w-fit max-w-full rounded-xl border border-line bg-surface px-4 py-3 text-[14px] leading-[22px] text-foreground shadow-card">
                                 {renderText(m)}
                               </div>
                             ) : null}
@@ -1476,7 +1460,7 @@ function ChatThreadInner({
                             {replyCount > 0 && (
                               <button
                                 onClick={() => setThreadParentId(m.id)}
-                                className="mt-1.5 inline-flex items-center gap-1.5 text-[12px] font-medium text-brand transition-colors hover:underline"
+                                className="mt-1.5 inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-ink transition-colors hover:underline"
                               >
                                 <MessageCircle className="h-3.5 w-3.5" />
                                 {replyCount} {t("chat.replies")}
@@ -1486,7 +1470,7 @@ function ChatThreadInner({
                           </div>
                         </div>
                       ) : (
-                        <div className="relative pl-[48px]">
+                        <div className="relative pl-[44px]">
                           <span className="invisible absolute left-3 top-1.5 text-[10px] text-muted/40 group-hover:visible">{formatTime(m.created_at)}</span>
                           {m.reply_to_id && renderQuote(m.reply_to_id)}
                             {hasAttachment && renderAttachment(m, isTemp, attUrl, () => openViewer(m.id))}
@@ -1503,12 +1487,12 @@ function ChatThreadInner({
                               </div>
                             </div>
                           ) : hasText ? (
-                            <div className="rounded-xl border-l-2 border-brand/30 pl-3 py-1 text-sm leading-relaxed text-foreground">
+                            <div className="w-fit max-w-full rounded-xl border border-line bg-surface px-4 py-3 text-[14px] leading-[22px] text-foreground shadow-card">
                               {renderText(m)}
                             </div>
                           ) : null}
                           {replyCount > 0 && (
-                            <button onClick={() => setThreadParentId(m.id)} className="mt-1.5 inline-flex items-center gap-1.5 text-[12px] font-medium text-brand hover:underline">
+                            <button onClick={() => setThreadParentId(m.id)} className="mt-1.5 inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-ink hover:underline">
                               <MessageCircle className="h-3.5 w-3.5" /> {replyCount} {t("chat.replies")}
                             </button>
                           )}
@@ -1558,11 +1542,11 @@ function ChatThreadInner({
                 <QuickRepliesModal open={qrManage} onClose={() => setQrManage(false)} items={qr.items} ready={qr.ready} onChanged={() => void qr.reload()} />
               )}
 
-              <div className={cn("relative rounded-2xl border bg-bg transition-colors", dragOver ? "border-brand bg-brand/[0.04]" : "border-border focus-within:border-brand/40")}>
+              <div className={cn("relative rounded-2xl border bg-surface shadow-card transition-colors", dragOver ? "border-brand bg-brand/[0.04]" : "border-border field-focus")}>
                 {quoting && (
                   <div className="flex items-start gap-2 border-b border-border/60 px-3 py-2">
                     <div className="min-w-0 flex-1 rounded-lg border-l-[3px] border-brand bg-surface-2/70 px-2.5 py-1.5">
-                      <p className="text-[11px] font-semibold text-brand">
+                      <p className="text-[11px] font-semibold text-brand-ink">
                         {t("chat.replyingTo", { name: quoting.sender_id === currentUserId ? t("chat.yourself") : quoting.sender_name })}
                       </p>
                       <p className="line-clamp-2 text-xs text-muted">{snippetOf(quoting)}</p>
@@ -1586,7 +1570,7 @@ function ChatThreadInner({
                           <img src={a.url} alt={a.file.name} className="h-16 w-16 rounded-lg border border-border object-cover" />
                         ) : (
                           <div className="flex h-16 w-28 items-center gap-2 rounded-lg border border-border bg-surface-2 px-2">
-                            <FileText className="h-5 w-5 shrink-0 text-brand" />
+                            <FileText className="h-5 w-5 shrink-0 text-brand-ink" />
                             <span className="min-w-0"><span className="block truncate text-[11px] font-medium">{a.file.name}</span><span className="block text-[10px] text-muted">{formatBytes(a.file.size)}</span></span>
                           </div>
                         )}
@@ -1769,7 +1753,7 @@ function renderAttachment(m: Message, isTemp: boolean, attUrl: string, onOpen: (
       ) : (
         <button type="button" onClick={onOpen}
           className="inline-flex items-center gap-2.5 rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-left text-sm transition-colors hover:border-brand/40">
-          <FileText className="h-5 w-5 shrink-0 text-brand" />
+          <FileText className="h-5 w-5 shrink-0 text-brand-ink" />
           <span className="min-w-0">
             <span className="block max-w-[200px] truncate font-medium text-foreground">{m.attachment_name}</span>
             {m.attachment_size ? <span className="block text-[10px] text-muted">{mime.split("/")[0].toUpperCase()} · {formatBytes(m.attachment_size)}</span> : null}

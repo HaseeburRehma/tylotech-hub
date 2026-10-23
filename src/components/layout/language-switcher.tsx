@@ -9,7 +9,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex overflow-hidden rounded-lg border border-border bg-surface-2 text-[11px] font-semibold",
+        "inline-flex gap-0.5 rounded-lg bg-line/80 p-[3px] font-mono text-[10.5px] font-medium",
         className,
       )}
       role="group"
@@ -19,9 +19,10 @@ export function LanguageSwitcher({ className }: { className?: string }) {
         <button
           key={l}
           onClick={() => setLocale(l)}
+          aria-pressed={locale === l}
           className={cn(
-            "px-2 py-1 uppercase transition-colors",
-            locale === l ? "bg-brand text-brand-foreground" : "text-muted hover:text-foreground",
+            "rounded-md px-2 py-0.5 uppercase transition-colors",
+            locale === l ? "bg-surface text-foreground shadow-card" : "text-muted hover:text-foreground",
           )}
           title={l === "de" ? "Deutsch" : "English"}
         >

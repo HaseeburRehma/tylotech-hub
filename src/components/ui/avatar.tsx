@@ -30,7 +30,7 @@ export function Avatar({
     <div
       className={cn(
         "flex shrink-0 items-center justify-center overflow-hidden text-xs font-semibold ring-1 ring-border",
-        logo && showImage ? cn("rounded-lg", tone === "light" ? "bg-[#18181b]" : "bg-white") : "rounded-full bg-brand/15 text-brand",
+        logo && showImage ? cn("rounded-lg", tone === "light" ? "bg-[#18181b]" : "bg-white") : "rounded-full bg-brand/15 text-brand-ink",
         className,
       )}
       style={{ width: size, height: size, padding: logo && showImage ? Math.max(2, Math.round(size * 0.12)) : undefined }}

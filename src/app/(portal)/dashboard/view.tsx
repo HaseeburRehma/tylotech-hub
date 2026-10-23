@@ -9,17 +9,13 @@ import {
   Check,
   CheckCircle2,
   ChevronRight,
-  Download,
-  MessageCircle,
-  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, Panel, PanelHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { PendingApprovalsBanner } from "@/components/approvals/approvals-list";
-import { Progress } from "@/components/ui/progress";
 import { PerfArea } from "@/components/charts/perf-area";
 import { PROJECT_STATUS, UPDATE_META } from "@/lib/status";
 import { cn, formatCurrency, formatRelativeTime } from "@/lib/utils";
@@ -36,26 +32,23 @@ import type { IntegrationHealthRow, PortfolioSummary } from "@/lib/data";
 import { APP_TZ } from "@/lib/utils";
 
 function DeltaBadge({ value, goodWhenDown = false }: { value: number; goodWhenDown?: boolean }) {
-  const positive = goodWhenDown ? value < 0 : value >= 0;
+  const good = goodWhenDown ? value <= 0 : value >= 0;
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold",
-        positive ? "bg-success/10 text-success" : "bg-danger/10 text-danger",
+        "inline-flex items-center gap-0.5 rounded-md py-0.5 pl-1.5 pr-2 font-mono text-[11px] font-medium leading-[14px]",
+        good ? "bg-positive/10 text-positive" : "bg-negative/10 text-negative",
       )}
     >
-      {positive ? (
-        <ArrowUpRight className="h-3 w-3" />
-      ) : (
-        <ArrowDownRight className="h-3 w-3" />
-      )}
-      {value > 0 ? "+" : ""}
+      {value >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+      {value > 0 ? "+" : value < 0 ? "−" : ""}
       {Math.abs(value)}%
     </span>
   );
 }
 
-function KpiCardNew({
+/** One cell of the Figma KPI strip (sits in a hairline grid on top of the chart). */
+function KpiCell({
   label,
   value,
   delta,
@@ -72,23 +65,57 @@ function KpiCardNew({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.06, ease: [0.16, 1, 0.3, 1] }}
-      className="rounded-2xl border border-border bg-surface p-5"
+      transition={{ duration: 0.4, delay: index * 0.05, ease: [0.16, 1, 0.3, 1] }}
+      className="min-w-0 bg-surface px-4 py-4 sm:px-6 sm:py-5"
     >
-      <div className="mb-3 flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-brand" />
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">{label}</p>
+      <div className="flex items-center gap-2">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
+        <p className="eyebrow truncate">{label}</p>
       </div>
-      <p className="font-display text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+      <p className="mt-2 truncate font-display text-[22px] font-semibold leading-8 tracking-[-0.03em] text-foreground sm:text-[28px]">
+        {value}
+      </p>
       {delta !== undefined && (
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
           <DeltaBadge value={delta} goodWhenDown={goodWhenDown} />
-          <span className="text-xs text-muted">{suffix}</span>
+          <span className="text-[11.5px] text-muted">{suffix}</span>
         </div>
       )}
     </motion.div>
+  );
+}
+
+/**
+ * Hairline grid: 2 cells per row on phones, 4 from lg. Each cell draws its own
+ * right/bottom rule and the grid is pulled 1px under the edges, so any count
+ * wraps cleanly and leftover slots stay blank.
+ */
+function KpiStrip({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="overflow-hidden border-b border-line">
+      <div className="-mb-px -mr-px grid grid-cols-2 lg:grid-cols-4 [&>*]:border-b [&>*]:border-r [&>*]:border-line">{children}</div>
+    </div>
+  );
+}
+
+/** Figma page header: title + subtitle left, period pill and primary action right. */
+function DashHeader({ title, subtitle, period, action }: { title: string; subtitle: string; period: string; action: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <h1 className="font-display text-[22px] font-semibold tracking-[-0.02em] text-foreground animate-fade-up md:text-2xl">{title}</h1>
+        <p className="mt-1 text-[13px] text-muted">{subtitle}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="inline-flex h-9 min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-surface px-3 text-sm text-soft shadow-card sm:flex-none">
+          <CalendarDays className="h-4 w-4 shrink-0" />
+          <span className="truncate">{period}</span>
+        </span>
+        {action}
+      </div>
+    </div>
   );
 }
 
@@ -176,59 +203,49 @@ export function ClientDashboardView({
   }, [user.client_id, router]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-5">
       {user.role === "client" && <AutoRefresh />}
 
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground animate-fade-up">
-            {t("dash.welcome", { name: firstName })}
-          </h1>
-          <p className="mt-1 text-sm text-muted">{t("dash.subtitle")}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-surface px-3 text-sm text-muted">
-            <CalendarDays className="h-4 w-4" />
-            {period}
-          </span>
-          <Button size="sm" onClick={() => window.open("/api/reports/performance", "_blank")}>
+      <DashHeader
+        title={t("dash.welcome", { name: firstName })}
+        subtitle={t("dash.subtitle")}
+        period={period}
+        action={
+          <Button size="sm" onClick={() => window.open("/api/reports/performance", "_blank", "noopener")}>
             {t("dash.export")}
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <PendingApprovalsBanner />
 
-      {/* KPI Cards */}
-      {kpis.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[...kpis].sort((a, b) => kpiRank(a.metric_name) - kpiRank(b.metric_name)).map((kpi, i) => (
-            <KpiCardNew
-              key={kpi.id}
-              index={i}
-              label={kpi.label}
-              value={formatKpiValue(kpi)}
-              delta={shownDelta(kpi.delta)}
-              suffix={t("dash.vsPrevMonth")}
-              goodWhenDown={LOWER_IS_BETTER.has(kpi.metric_name)}
-            />
-          ))}
-        </div>
-      ) : (
-        <Card className="flex flex-col items-center justify-center py-12 text-center">
-          <p className="text-sm font-medium text-foreground">{t("dash.noDataTitle")}</p>
-          <p className="mt-1 max-w-sm text-sm text-muted">{t("dash.noDataBody")}</p>
-        </Card>
-      )}
-
-      {/* Chart */}
-      <Card className="overflow-hidden">
-        <div className="flex items-center justify-between px-6 pt-5">
-          <div className="flex items-center gap-4 text-xs">
+      {/* KPI strip + trend chart in one panel (Figma) */}
+      <Panel>
+        {kpis.length > 0 ? (
+          <KpiStrip>
+            {[...kpis].sort((a, b) => kpiRank(a.metric_name) - kpiRank(b.metric_name)).map((kpi, i) => (
+              <KpiCell
+                key={kpi.id}
+                index={i}
+                label={kpi.label}
+                value={formatKpiValue(kpi)}
+                delta={shownDelta(kpi.delta)}
+                suffix={t("dash.vsPrevMonth")}
+                goodWhenDown={LOWER_IS_BETTER.has(kpi.metric_name)}
+              />
+            ))}
+          </KpiStrip>
+        ) : (
+          <div className="flex flex-col items-center justify-center border-b border-line px-6 py-10 text-center">
+            <p className="text-sm font-medium text-foreground">{t("dash.noDataTitle")}</p>
+            <p className="mt-1 max-w-sm text-sm text-muted">{t("dash.noDataBody")}</p>
+          </div>
+        )}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4 sm:px-6">
+          <div className="flex flex-wrap items-center gap-4 text-xs">
             {chartKeys.map((k) => (
-              <span key={k} className="flex items-center gap-1.5 text-muted">
-                <span className={cn("h-2 w-2 rounded-full", k === "spend" ? "bg-brand" : k === "leads" ? "bg-info" : "bg-success")} />
+              <span key={k} className="flex items-center gap-1.5 text-soft">
+                <span className={cn("h-0.5 w-3.5 rounded-full", k === "spend" ? "bg-brand" : k === "leads" ? "bg-positive" : "bg-success")} />
                 {chartLabels[k]}
               </span>
             ))}
@@ -238,112 +255,113 @@ export function ClientDashboardView({
         {series.length > 0 ? (
           <PerfArea data={series} keys={chartKeys} labels={chartLabels} />
         ) : (
-          <div className="flex h-[260px] items-center justify-center text-sm text-muted">
+          <div className="flex h-[260px] items-center justify-center px-6 text-center text-sm text-muted">
             {t("dash.noSeries")}
           </div>
         )}
-      </Card>
+      </Panel>
 
       {/* Bottom panels */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        {/* Integration attention — left panel */}
-        <Card className="lg:col-span-3">
-          <CardHeader>
-            <div>
-              <CardTitle>{t("dash.updatesTitle")}</CardTitle>
-              <p className={cn("mt-0.5 text-xs", connectedSources < totalSources ? "text-warning" : "text-muted")}>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Panel className="min-w-0">
+          <PanelHeader
+            title={t("dash.updatesTitle")}
+            subtitle={
+              <span className={connectedSources < totalSources ? "text-warning" : undefined}>
                 {t("dash.sourcesConnected", { n: connectedSources, total: totalSources })}
-              </p>
-            </div>
-            <Link href="/integrations" className="text-xs font-medium text-muted hover:text-foreground transition-colors">
-              {t("dash.toIntegrations")} <ChevronRight className="inline h-3 w-3" />
-            </Link>
-          </CardHeader>
-          <div className="space-y-1 px-1">
-            {updates.length === 0 && (
-              <p className="py-6 text-center text-sm text-muted">{t("dash.noUpdates")}</p>
-            )}
+              </span>
+            }
+            action={
+              <Link href="/integrations" className="inline-flex items-center gap-0.5 hover:text-foreground">
+                <span className="hidden sm:inline">{t("dash.toIntegrations")}</span> <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
+            }
+          />
+          {updates.length === 0 && <p className="px-5 py-8 text-center text-sm text-muted">{t("dash.noUpdates")}</p>}
+          <ul className="divide-y divide-line">
             {updates.map((u, i) => {
               const meta = UPDATE_META[u.type];
               return (
-                <motion.div
+                <motion.li
                   key={u.id}
                   initial={{ opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.05 }}
-                  className="flex gap-3 rounded-xl p-3 transition-colors hover:bg-surface-2"
+                  className="flex gap-3 px-5 py-3.5"
                 >
-                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand" />
+                  <span className="w-0.5 shrink-0 self-stretch rounded-full bg-brand" />
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium text-foreground">{u.title}</p>
-                      <Badge variant={meta.variant} className="shrink-0">
-                        {t(meta.label)}
-                      </Badge>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className="eyebrow">{t(meta.label)}</p>
+                      <span className="ml-auto text-[11px] text-muted">{formatRelativeTime(u.created_at)}</span>
                     </div>
-                    <p className="mt-0.5 line-clamp-2 text-xs text-muted">{u.description}</p>
+                    <p className="mt-1 font-display text-sm font-medium text-foreground">{u.title}</p>
+                    <p className="mt-0.5 line-clamp-2 text-[13px] text-soft">{u.description}</p>
                   </div>
-                  <span className="shrink-0 text-[11px] text-muted/60">
-                    {formatRelativeTime(u.created_at)}
-                  </span>
-                </motion.div>
+                </motion.li>
               );
             })}
-          </div>
-        </Card>
+          </ul>
+        </Panel>
 
-        {/* My assigned work — right panel */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <div>
-              <CardTitle>{t("dash.myWork")}</CardTitle>
-              <p className="mt-0.5 text-xs text-muted">
-                {projects.length} {t("dash.openTasks")}
-              </p>
-            </div>
-          </CardHeader>
-          <div className="space-y-1">
-            {projects.length === 0 && (
-              <p className="py-6 text-center text-sm text-muted">{t("dash.noProjects")}</p>
-            )}
-            {projects.map((p) => {
-              const s = PROJECT_STATUS[p.status];
-              return (
-                <div
-                  key={p.id}
-                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-surface-2"
-                >
-                  <span
-                    className={cn(
-                      "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border",
-                      p.status === "done"
-                        ? "border-success bg-success/10 text-success"
-                        : "border-border",
-                    )}
-                  >
-                    {p.status === "done" && <Check className="h-3 w-3" />}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className={cn(
-                      "truncate text-sm",
-                      p.status === "done" ? "text-muted line-through" : "font-medium text-foreground",
-                    )}>
-                      {p.name}
-                    </p>
-                    <p className="text-[11px] text-muted">
-                      {p.assigned_to} {p.due && `· ${new Date(p.due).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short" })}`}
-                    </p>
-                  </div>
-                  <Badge variant={s.variant} className="shrink-0 text-[10px]">
-                    {t(s.label)}
-                  </Badge>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
+        <Panel className="min-w-0">
+          <PanelHeader
+            title={t("dash.myWork")}
+            subtitle={`${projects.length} ${t("dash.openTasks")}`}
+            action={
+              <Link href="/projects" className="inline-flex items-center gap-0.5 hover:text-foreground">
+                <span className="hidden sm:inline">{t("dash.allProjects")}</span> <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
+            }
+          />
+          {projects.length === 0 && <p className="px-5 py-8 text-center text-sm text-muted">{t("dash.noProjects")}</p>}
+          <ul className="divide-y divide-line">
+            {projects.map((p) => (
+              <TaskRow
+                key={p.id}
+                done={p.status === "done"}
+                name={p.name}
+                meta={p.assigned_to ?? ""}
+                due={p.due}
+                status={p.status}
+              />
+            ))}
+          </ul>
+        </Panel>
       </div>
     </div>
+  );
+}
+
+/** Figma "My assigned work" row: checkbox, title + meta, date / status on the right. */
+function TaskRow({ done, name, meta, due, status }: { done: boolean; name: string; meta: string; due?: string | null; status: Project["status"] }) {
+  const t = useT();
+  const s = PROJECT_STATUS[status];
+  return (
+    <li className="flex items-center gap-3 px-5 py-3">
+      <span
+        className={cn(
+          "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border",
+          done ? "border-brand bg-brand text-brand-foreground" : "border-border bg-surface",
+        )}
+      >
+        {done && <Check className="h-3 w-3" strokeWidth={3} />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className={cn("truncate font-display text-[13.5px]", done ? "text-muted line-through" : "font-medium text-foreground")}>{name}</p>
+        <div className="mt-0.5 flex min-w-0 items-center gap-2">
+          {meta && <span className="truncate text-[11.5px] text-muted">{meta}</span>}
+          {status === "blocked" && (
+            <span className="shrink-0 rounded bg-negative/10 px-1.5 font-mono text-[10px] text-negative">{t(s.label)}</span>
+          )}
+        </div>
+      </div>
+      <span className="shrink-0 text-right text-[11.5px] text-muted">
+        {due
+          ? new Date(due).toLocaleDateString("de-DE", { timeZone: APP_TZ, weekday: "short", day: "numeric", month: "short" })
+          : t(s.label)}
+      </span>
+    </li>
   );
 }
 
@@ -384,25 +402,14 @@ export function StaffDashboardView({
   const period = new Date().toLocaleDateString("de-DE", { timeZone: APP_TZ, month: "long", year: "numeric" });
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground animate-fade-up">
-            {t("dash.welcome", { name: firstName })}
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            {t("dash.staff.subtitle", { period })}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-surface px-3 text-sm text-muted">
-            <CalendarDays className="h-4 w-4" />
-            {period}
-          </span>
+    <div className="space-y-4 sm:space-y-5">
+      <DashHeader
+        title={t("dash.welcome", { name: firstName })}
+        subtitle={t("dash.staff.subtitle", { period })}
+        period={period}
+        action={
           <Button
             size="sm"
-            variant="primary"
             disabled={!activeClient}
             title={activeClient ? activeClient.name : undefined}
             onClick={() =>
@@ -411,225 +418,155 @@ export function StaffDashboardView({
           >
             {t("dash.shareReport")}
           </Button>
+        }
+      />
+
+      {/* Portfolio KPIs + trend (Figma: one panel) */}
+      <Panel>
+        <KpiStrip>
+          <KpiCell
+            index={0}
+            label={t("dash.staff.spendManaged")}
+            value={formatCurrency(portfolio.spend30d)}
+            delta={shownDelta(portfolio.spendDelta)}
+            suffix={t("dash.vsPrevMonth")}
+          />
+          <KpiCell
+            index={1}
+            label={t("dash.staff.leadsGenerated")}
+            value={new Intl.NumberFormat("de-DE").format(portfolio.leads30d)}
+            delta={shownDelta(portfolio.leadsDelta)}
+            suffix={t("dash.vsPrevMonth")}
+          />
+          <KpiCell
+            index={2}
+            label={t("dash.staff.costPerLead")}
+            value={portfolio.leads30d > 0 ? formatCurrency(portfolio.spend30d / portfolio.leads30d) : "—"}
+            delta={shownDelta(portfolio.cplDelta)}
+            suffix={t("dash.vsPrevMonth")}
+            goodWhenDown
+          />
+          <KpiCell index={3} label={t("dash.staff.activeClients")} value={String(activeClients)} />
+        </KpiStrip>
+        <div className="flex items-center gap-4 px-4 pt-4 text-xs sm:px-6">
+          <span className="flex items-center gap-1.5 text-soft">
+            <span className="h-0.5 w-3.5 rounded-full bg-brand" /> {t("dash.spend")}
+          </span>
+          <span className="flex items-center gap-1.5 text-soft">
+            <span className="h-0.5 w-3.5 rounded-full bg-positive" /> {t("dash.leads")}
+          </span>
         </div>
-      </div>
+        {portfolio.series.length > 0 ? (
+          <PerfArea data={portfolio.series} keys={["spend", "leads"]} />
+        ) : (
+          <div className="flex h-[260px] items-center justify-center px-6 text-center text-sm text-muted">{t("dash.staff.noTrend")}</div>
+        )}
+      </Panel>
 
-      {/* Two-column layout: Main + Sidebar */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_340px]">
-        {/* ── Left: main content ── */}
-        <div className="space-y-6">
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <KpiCardNew
-              index={0}
-              label={t("dash.staff.spendManaged")}
-              value={formatCurrency(portfolio.spend30d)}
-              delta={shownDelta(portfolio.spendDelta)}
-              suffix={t("dash.vsPrevMonth")}
-            />
-            <KpiCardNew
-              index={1}
-              label={t("dash.staff.leadsGenerated")}
-              value={new Intl.NumberFormat("de-DE").format(portfolio.leads30d)}
-              delta={shownDelta(portfolio.leadsDelta)}
-              suffix={t("dash.vsPrevMonth")}
-            />
-            <KpiCardNew
-              index={2}
-              label={t("dash.staff.costPerLead")}
-              value={portfolio.leads30d > 0 ? formatCurrency(portfolio.spend30d / portfolio.leads30d) : "—"}
-              delta={shownDelta(portfolio.cplDelta)}
-              suffix={t("dash.vsPrevMonth")}
-              goodWhenDown
-            />
-            <KpiCardNew
-              index={3}
-              label={t("dash.staff.activeClients")}
-              value={String(activeClients)}
-            />
-          </div>
-
-          {/* Chart */}
-          <Card className="overflow-hidden">
-            <div className="flex items-center justify-between px-6 pt-5">
-              <div className="flex items-center gap-4 text-xs">
-                <span className="flex items-center gap-1.5 text-muted">
-                  <span className="h-2 w-2 rounded-full bg-brand" /> {t("dash.spend")}
-                </span>
-                <span className="flex items-center gap-1.5 text-muted">
-                  <span className="h-2 w-2 rounded-full bg-info" /> {t("dash.leads")}
-                </span>
-              </div>
-            </div>
-            {portfolio.series.length > 0 ? (
-              <PerfArea data={portfolio.series} keys={["spend", "leads"]} />
-            ) : (
-              <div className="flex h-[260px] items-center justify-center text-sm text-muted">
-                {t("dash.staff.noTrend")}
-              </div>
-            )}
-          </Card>
-
-          {/* Integration attention */}
-          <Card>
-            <CardHeader>
-              <div>
-                <CardTitle>{t("dash.integrationAttention")}</CardTitle>
-                <p className="mt-0.5 text-xs text-muted">{t("dash.staff.attentionCount", { n: attention.length })}</p>
-              </div>
-              <Link href="/integrations" className="text-xs font-medium text-muted hover:text-foreground transition-colors">
-                {t("dash.toIntegrations")} <ChevronRight className="inline h-3 w-3" />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Integrations needing attention */}
+        <Panel className="min-w-0">
+          <PanelHeader
+            title={t("dash.integrationAttention")}
+            subtitle={t("dash.staff.attentionCount", { n: attention.length })}
+            action={
+              <Link href="/integrations" className="inline-flex items-center gap-0.5 hover:text-foreground">
+                <span className="hidden sm:inline">{t("dash.toIntegrations")}</span> <ChevronRight className="h-3.5 w-3.5" />
               </Link>
-            </CardHeader>
-            <div className="space-y-1">
-              {attention.length === 0 && (
-                <div className="flex items-center gap-2 py-6 justify-center text-sm text-muted">
-                  <CheckCircle2 className="h-4 w-4 text-success" />
-                  <span>{t("dash.staff.attentionEmpty")}</span>
+            }
+          />
+          {attention.length === 0 && (
+            <div className="flex items-center justify-center gap-2 px-5 py-8 text-sm text-muted">
+              <CheckCircle2 className="h-4 w-4 text-success" />
+              <span>{t("dash.staff.attentionEmpty")}</span>
+            </div>
+          )}
+          <ul className="max-h-[420px] divide-y divide-line overflow-y-auto">
+            {attention.map((row, i) => (
+              <motion.li
+                key={`${row.clientId}-${row.provider}`}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: Math.min(i, 8) * 0.04 }}
+                className="flex items-start gap-3 px-5 py-3.5"
+              >
+                <span className="w-0.5 shrink-0 self-stretch rounded-full bg-negative" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-mono text-[10px] font-medium uppercase tracking-[0.07em] text-negative">{row.providerLabel}</p>
+                  <p className="mt-1 truncate font-display text-sm font-medium text-foreground">{row.clientName}</p>
+                  <p className="mt-0.5 text-[12.5px] text-soft">
+                    {row.lastSyncedAt
+                      ? t("dash.staff.lastSynced", {
+                          date: new Date(row.lastSyncedAt).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short" }),
+                        })
+                      : t("dash.staff.neverSynced")}
+                  </p>
                 </div>
-              )}
-              {attention.map((row, i) => (
-                <motion.div
-                  key={`${row.clientId}-${row.provider}`}
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-surface-2"
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-warning/10">
-                    <AlertTriangle className="h-4 w-4 text-warning" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium text-foreground">{row.clientName}</p>
-                      <Badge variant="outline" className="shrink-0">
-                        {row.providerLabel}
-                      </Badge>
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted">
-                      {row.lastSyncedAt
-                        ? t("dash.staff.lastSynced", {
-                            date: new Date(row.lastSyncedAt).toLocaleDateString("de-DE", { timeZone: APP_TZ,
-                              day: "numeric",
-                              month: "short",
-                            }),
-                          })
-                        : t("dash.staff.neverSynced")}
-                    </p>
-                  </div>
-                  <Link
-                    href={`/integrations${row.clientSlug ? `?client=${row.clientSlug}` : ""}`}
-                    className="shrink-0"
-                  >
-                    <Button size="sm" variant="secondary">
-                      {t("dash.staff.reconnect")}
-                    </Button>
-                  </Link>
-                </motion.div>
-              ))}
-            </div>
-          </Card>
-        </div>
+                <Link href={`/integrations${row.clientSlug ? `?client=${row.clientSlug}` : ""}`} className="shrink-0">
+                  <Button size="sm" variant="secondary" className="h-8">
+                    {t("dash.staff.reconnect")}
+                  </Button>
+                </Link>
+              </motion.li>
+            ))}
+          </ul>
+        </Panel>
 
-        {/* ── Right: sidebar ── */}
-        <div className="space-y-4">
-          {/* My assigned work */}
-          <Card>
-            <CardHeader>
-              <div>
-                <CardTitle>{t("dash.myWork")}</CardTitle>
-                <p className="mt-0.5 text-xs text-muted">
-                  {myActiveTasks} {t("dash.openTasks")}
-                </p>
-              </div>
-              <Link href="/internal/projects" className="text-xs font-medium text-muted hover:text-foreground transition-colors">
-                {t("dash.allProjects")} <ChevronRight className="inline h-3 w-3" />
+        {/* My assigned work */}
+        <Panel className="min-w-0">
+          <PanelHeader
+            title={t("dash.myWork")}
+            subtitle={`${myActiveTasks} ${t("dash.openTasks")}`}
+            action={
+              <Link href="/internal/projects" className="inline-flex items-center gap-0.5 hover:text-foreground">
+                <span className="hidden sm:inline">{t("dash.allProjects")}</span> <ChevronRight className="h-3.5 w-3.5" />
               </Link>
-            </CardHeader>
-            <div className="space-y-1">
-              {myProjects.length === 0 && (
-                <p className="py-6 text-center text-sm text-muted">{t("dash.staff.noMyProjects")}</p>
-              )}
-              {myProjects.map((p) => {
-                const s = PROJECT_STATUS[p.status];
-                return (
-                  <div
-                    key={p.id}
-                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-surface-2"
-                  >
-                    <span
-                      className={cn(
-                        "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border",
-                        p.status === "done"
-                          ? "border-success bg-success/10 text-success"
-                          : "border-border",
-                      )}
-                    >
-                      {p.status === "done" && <Check className="h-3 w-3" />}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className={cn(
-                        "truncate text-sm",
-                        p.status === "done" ? "text-muted line-through" : "font-medium text-foreground",
-                      )}>
-                        {p.name}
-                      </p>
-                      <p className="text-[11px] text-muted">
-                        {p.clientName}
-                        {p.due && ` · ${new Date(p.due).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short" })}`}
-                      </p>
-                    </div>
-                    <Badge variant={s.variant} className="shrink-0 text-[10px]">
-                      {t(s.label)}
-                    </Badge>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-
-          {/* Activity feed */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("dash.staff.feedTitle")}</CardTitle>
-              <Link href="/chat" className="text-xs font-medium text-muted hover:text-foreground transition-colors">
-                {t("dash.viewAll")} <ChevronRight className="inline h-3 w-3" />
-              </Link>
-            </CardHeader>
-            <ul className="space-y-1">
-              {updates.length === 0 && (
-                <li className="py-6 text-center text-sm text-muted">{t("dash.staff.noFeed")}</li>
-              )}
-              {updates.map((u, i) => {
-                const meta = UPDATE_META[u.type];
-                return (
-                  <motion.li
-                    key={u.id}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="flex gap-3 rounded-xl p-3 transition-colors hover:bg-surface-2"
-                  >
-                    <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate text-sm font-medium text-foreground">{u.title}</p>
-                        <Badge variant="outline" className="shrink-0">
-                          {u.clientName}
-                        </Badge>
-                      </div>
-                      <p className="mt-0.5 line-clamp-2 text-xs text-muted">{u.description}</p>
-                    </div>
-                    <span className="shrink-0 text-[11px] text-muted/60">
-                      {formatRelativeTime(u.created_at)}
-                    </span>
-                  </motion.li>
-                );
-              })}
-            </ul>
-          </Card>
-        </div>
+            }
+          />
+          {myProjects.length === 0 && <p className="px-5 py-8 text-center text-sm text-muted">{t("dash.staff.noMyProjects")}</p>}
+          <ul className="divide-y divide-line">
+            {myProjects.map((p) => (
+              <TaskRow key={p.id} done={p.status === "done"} name={p.name} meta={p.clientName} due={p.due} status={p.status} />
+            ))}
+          </ul>
+        </Panel>
       </div>
+
+      {/* Activity feed across clients */}
+      <Panel>
+        <PanelHeader
+          title={t("dash.staff.feedTitle")}
+          action={
+            <Link href="/chat" className="inline-flex items-center gap-0.5 hover:text-foreground">
+              {t("dash.viewAll")} <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
+          }
+        />
+        {updates.length === 0 && <p className="px-5 py-8 text-center text-sm text-muted">{t("dash.staff.noFeed")}</p>}
+        <ul className="grid grid-cols-1 divide-y divide-line md:grid-cols-2 md:divide-y-0">
+          {updates.map((u, i) => (
+            <motion.li
+              key={u.id}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: Math.min(i, 8) * 0.04 }}
+              className="flex gap-3 px-5 py-3.5 md:border-b md:border-line md:odd:border-r"
+            >
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <p className="min-w-0 truncate font-display text-sm font-medium text-foreground">{u.title}</p>
+                  <Badge variant="outline" className="shrink-0 px-2 py-0 text-[10.5px]">
+                    {u.clientName}
+                  </Badge>
+                </div>
+                <p className="mt-0.5 line-clamp-2 text-[12.5px] text-soft">{u.description}</p>
+              </div>
+              <span className="shrink-0 text-[11px] text-muted">{formatRelativeTime(u.created_at)}</span>
+            </motion.li>
+          ))}
+        </ul>
+      </Panel>
     </div>
   );
 }

@@ -115,7 +115,7 @@ function RequestApprovalModal({ step, partner, onClose, onDone }: { step: RunSte
     <ModalShell open onClose={onClose} className="max-w-lg">
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <h2 className="flex items-center gap-2 font-semibold text-foreground">
-          <ShieldCheck className="h-4 w-4 text-brand" /> {t("approval.requestTitle", { partner })}
+          <ShieldCheck className="h-4 w-4 text-brand-ink" /> {t("approval.requestTitle", { partner })}
         </h2>
         <button type="button" onClick={onClose} aria-label={t("common.close")} className="rounded-lg p-1 text-muted hover:bg-surface-2 hover:text-foreground">
           <X className="h-4 w-4" />

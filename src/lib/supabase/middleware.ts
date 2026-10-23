@@ -2,6 +2,8 @@ import { LOGIN_BRAND_COOKIE, loginPathFor } from "@/lib/login-brand";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from "./config";
+import { REMEMBER_COOKIE, rememberFromValue, withRemember } from "./remember";
+import { isTransientAuthError } from "./session-errors";
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
@@ -34,8 +36,9 @@ export async function updateSession(request: NextRequest) {
       setAll(cookiesToSet: CookieToSet[]) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         response = NextResponse.next({ request });
+        const remember = rememberFromValue(request.cookies.get(REMEMBER_COOKIE)?.value);
         cookiesToSet.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options),
+          response.cookies.set(name, value, withRemember(options, remember)),
         );
       },
     },
@@ -43,16 +46,32 @@ export async function updateSession(request: NextRequest) {
 
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
   const isPortal = PORTAL_PREFIXES.some((p) => path === p || path.startsWith(p + "/"));
 
+  // A redirect must carry the cookies the refresh above just wrote — otherwise
+  // the browser keeps the old (already rotated) refresh token and is signed out
+  // on its next request.
+  const redirectTo = (url: URL) => {
+    const res = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((c) => res.cookies.set(c));
+    return res;
+  };
+
+  // Couldn't reach Supabase (network blip, timeout, 5xx) — that is not a
+  // sign-out. Let the page render; it re-checks the session itself.
+  const hasAuthCookie = request.cookies.getAll().some((c) => /^sb-.*-auth-token/.test(c.name));
+  const transient = hasAuthCookie && isTransientAuthError(authError);
+  if (isPortal && !user && transient) return response;
+
   if (isPortal && !user) {
     const url = request.nextUrl.clone();
     url.pathname = loginPathFor(request.cookies.get(LOGIN_BRAND_COOKIE)?.value);
     url.searchParams.set("redirect", path);
-    return NextResponse.redirect(url);
+    return redirectTo(url);
   }
 
   // MFA enforcement: if user has TOTP enrolled but session is only AAL1, redirect to verify
@@ -62,7 +81,7 @@ export async function updateSession(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/mfa-verify";
       url.searchParams.set("redirect", path);
-      return NextResponse.redirect(url);
+      return redirectTo(url);
     }
   }
 

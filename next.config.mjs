@@ -23,6 +23,10 @@ const nextConfig = {
           // Keeps other sites' windows out of ours; OAuth uses full redirects, not popups.
           { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
           { key: "X-DNS-Prefetch-Control", value: "on" },
+          // Baseline CSP: no plugins, no <base> hijack, forms only post back to us,
+          // only we may frame the app. (A script-src policy needs per-request nonces
+          // for Next's inline scripts — not enabled yet.)
+          { key: "Content-Security-Policy", value: "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" },
         ],
       },
       {

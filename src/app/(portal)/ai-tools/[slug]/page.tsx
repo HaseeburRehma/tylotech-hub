@@ -22,7 +22,7 @@ import Link from "next/link";
 import { notFound, useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Panel, PanelHeader } from "@/components/ui/card";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/lib/theme/theme-provider";
@@ -149,7 +149,7 @@ function ClientChip({ fallbackCompany }: { fallbackCompany: string }) {
   const badge = active ? (
     <ClientLogo client={active} size={24} />
   ) : (
-    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand/15 text-[10px] font-bold text-brand">
+    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand/15 text-[10px] font-bold text-brand-ink">
       {initialsOf(company)}
     </span>
   );
@@ -196,7 +196,7 @@ function ClientChip({ fallbackCompany }: { fallbackCompany: string }) {
               >
                 <ClientLogo client={c} size={24} />
                 <span className="flex-1 truncate">{c.name}</span>
-                {c.id === active?.id && <Check className="h-4 w-4 text-brand" />}
+                {c.id === active?.id && <Check className="h-4 w-4 text-brand-ink" />}
               </button>
             </li>
           ))}
@@ -351,37 +351,34 @@ export default function ToolPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Back link + client chip row */}
-      <div className="flex items-center justify-between">
-        <Link href="/ai-tools" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> {t("ait.allTools")}
-        </Link>
-        <ClientChip fallbackCompany={theme.company} />
-      </div>
-
+    <div className="space-y-5">
       <AiHistoryModal open={showHistory} onClose={() => setShowHistory(false)} tool={slug} />
 
-      {/* Tool header */}
-      <div className="flex items-center gap-4">
-        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand/15 text-brand">
-          <Icon className="h-6 w-6" />
-        </span>
-        <div>
-          <h1 className="font-display text-2xl font-semibold tracking-tight">{t(config.name)}</h1>
-          <p className="text-sm text-muted">{t(config.blurb)}</p>
+      {/* Figma header: back link, tool tile + title, client on the right */}
+      <div>
+        <Link href="/ai-tools" className="inline-flex items-center gap-1.5 text-[13px] text-soft hover:text-foreground">
+          <ArrowLeft className="h-3.5 w-3.5" /> {t("ait.allTools")}
+        </Link>
+        <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3.5">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand-ink">
+              <Icon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <h1 className="font-display text-[22px] font-semibold tracking-[-0.02em] md:text-2xl">{t(config.name)}</h1>
+              <p className="text-[13px] text-muted">{t(config.blurb)}</p>
+            </div>
+          </div>
+          <ClientChip fallbackCompany={theme.company} />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)]">
         {/* Input */}
-        <Card className="flex flex-col p-6">
-          <div className="mb-5">
-            <h2 className="text-base font-semibold">{t("ait.input")}</h2>
-            <p className="mt-0.5 text-sm text-muted">{t("ait.inputSubtitle")}</p>
-          </div>
+        <Panel className="flex flex-col">
+          <PanelHeader title={t("ait.input")} subtitle={t("ait.inputSubtitle")} />
 
-          <div className="flex-1 space-y-4">
+          <div className="flex-1 space-y-5 p-5">
             {config.fields.map((f) => (
               <div key={f.name}>
                 <Label htmlFor={f.name}>{t(f.label)}</Label>
@@ -426,7 +423,7 @@ export default function ToolPage() {
             ))}
           </div>
 
-          <div className="mt-6">
+          <div className="border-t border-line p-5">
             {formError && <p role="alert" className="mb-3 text-sm text-danger">{formError}</p>}
             {blocked && <p role="alert" className="rounded-lg bg-warning/10 px-3 py-2 text-sm text-warning">{t(`ait.err.${blocked}`)}</p>}
             <Button onClick={run} loading={loading} disabled={!!blocked} className="w-full" size="lg">
@@ -438,18 +435,18 @@ export default function ToolPage() {
               {t("ait.poweredNotice")}
             </p>
           </div>
-        </Card>
+        </Panel>
 
         {/* Output */}
-        <Card className="flex flex-col p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-base font-semibold">{t("ait.result")}</h2>
+        <Panel className="flex min-h-[420px] flex-col">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line py-3 pl-5 pr-4">
+            <h2 className="font-display text-[15px] font-semibold">{t("ait.result")}</h2>
             {output && !isError ? (
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={copy}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+                  className="tool-btn h-8 px-2.5 text-xs"
                 >
                   {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
                   {copied ? t("ait.copied") : t("ait.copy")}
@@ -458,7 +455,7 @@ export default function ToolPage() {
                   type="button"
                   onClick={saveAsDocument}
                   disabled={!targetClientId || action?.state === "busy"}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+                  className="tool-btn h-8 px-2.5 text-xs disabled:opacity-50"
                 >
                   {action?.kind === "doc" && action.state === "ok" ? (
                     <Check className="h-3.5 w-3.5 text-success" />
@@ -471,7 +468,7 @@ export default function ToolPage() {
                   type="button"
                   onClick={() => void run()}
                   disabled={loading}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+                  className="tool-btn h-8 px-2.5 text-xs disabled:opacity-50"
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
                   {t("ait.regenerate")}
@@ -481,7 +478,7 @@ export default function ToolPage() {
               <button
                 type="button"
                 onClick={() => setShowHistory(true)}
-                className="text-sm text-muted hover:text-foreground"
+                className="text-[12.5px] font-medium text-soft hover:text-foreground"
               >
                 {t("ait.history")}
               </button>
@@ -489,12 +486,12 @@ export default function ToolPage() {
           </div>
 
           {demo && output && !isError && (
-            <Badge variant="warning" className="mb-3 w-fit">
+            <Badge variant="warning" className="mx-5 mt-4 w-fit">
               {t("ait.demoMode")}
             </Badge>
           )}
 
-          <div className="flex-1">
+          <div className="flex-1 p-5">
             {loading ? (
               <div className="space-y-2.5 p-4">
                 {[...Array(5)].map((_, i) => (
@@ -517,19 +514,19 @@ export default function ToolPage() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="rounded-xl border border-border bg-bg/40 p-5"
+                className="rounded-xl border border-line bg-bg/60 p-5"
               >
-                <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
+                <pre className="whitespace-pre-wrap font-sans text-[14px] leading-[22px] text-foreground">
                   {output}
                 </pre>
               </motion.div>
             ) : (
               <div className="flex h-full min-h-[300px] flex-col items-center justify-center text-center text-muted">
-                <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-surface-2">
+                <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-line bg-bg">
                   <Sparkles className="h-5 w-5 text-muted" />
                 </span>
-                <p className="text-sm font-semibold text-foreground">{t("ait.noResult")}</p>
-                <p className="mx-auto mt-1.5 max-w-[260px] text-xs leading-relaxed text-muted">
+                <p className="font-display text-[15px] font-semibold text-foreground">{t("ait.noResult")}</p>
+                <p className="mx-auto mt-1.5 max-w-[320px] text-[13px] leading-relaxed text-soft">
                   {t("ait.noResultDesc")}
                 </p>
               </div>
@@ -538,7 +535,7 @@ export default function ToolPage() {
 
           {/* Metadata bar — visible when there's output */}
           {output && !loading && !isError && (
-            <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line bg-bg/50 px-5 py-3">
               <p className="text-xs text-muted">
                 {generatedFor || brand}
                 {generatedAt && (
@@ -553,7 +550,7 @@ export default function ToolPage() {
                 type="button"
                 onClick={shareInChat}
                 disabled={!targetClientId || action?.state === "busy"}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+                className="tool-btn h-8 px-3 text-xs disabled:opacity-50"
               >
                 {action?.kind === "chat" && action.state === "ok" ? (
                   <Check className="h-3.5 w-3.5 text-success" />
@@ -567,7 +564,7 @@ export default function ToolPage() {
           {action && action.state !== "busy" && (
             <p
               role="status"
-              className={`mt-2 text-xs ${action.state === "ok" ? "text-success" : "text-danger"}`}
+              className={`px-5 pb-3 text-xs ${action.state === "ok" ? "text-success" : "text-danger"}`}
             >
               {action.state === "ok"
                 ? action.kind === "doc"
@@ -576,7 +573,7 @@ export default function ToolPage() {
                 : action.msg ?? t("ait.actionFailed")}
             </p>
           )}
-        </Card>
+        </Panel>
       </div>
     </div>
   );

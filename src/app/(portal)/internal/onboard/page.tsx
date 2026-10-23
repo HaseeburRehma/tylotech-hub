@@ -141,7 +141,7 @@ export default function OnboardPage() {
                 className={cn(
                   "flex h-9 w-9 items-center justify-center rounded-xl border text-sm transition-colors",
                   active
-                    ? "border-brand bg-brand/15 text-brand"
+                    ? "border-brand bg-brand/15 text-brand-ink"
                     : complete
                       ? "border-success/40 bg-success/15 text-success"
                       : "border-border text-muted",
@@ -350,7 +350,7 @@ export default function OnboardPage() {
               </div>
               <div className="flex gap-2">
                 <Badge variant="brand">{form.plan}</Badge>
-                <span className="rounded-full border border-brand/40 px-2.5 py-1 text-xs text-brand">Powered by TyloTech</span>
+                <span className="rounded-full border border-brand/40 px-2.5 py-1 text-xs text-brand-ink">Powered by TyloTech</span>
               </div>
             </div>
           </div>

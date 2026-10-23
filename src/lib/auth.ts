@@ -2,6 +2,7 @@ import { cache } from "react";
 import { Role } from "@/types";
 import { bearerToken, createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { isTransientAuthError } from "@/lib/supabase/session-errors";
 
 export interface AuthUser {
   id: string;
@@ -49,7 +50,13 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
   const token = bearerToken();
   const {
     data: { user },
+    error: authError,
   } = token ? await supabase.auth.getUser(token) : await supabase.auth.getUser();
+  // Supabase unreachable (network, timeout, 5xx) is not "signed out": fail this
+  // request (error page with retry) instead of sending the user to the login.
+  if (!user && isTransientAuthError(authError)) {
+    throw new Error("Authentication service temporarily unavailable");
+  }
   if (!user) return null;
 
   // Users with 2FA enrolled must complete it before any server code (pages or
@@ -63,13 +70,17 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
     if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") return null;
   }
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("users")
     // `*` keeps this tolerant of columns added by later migrations (title, avatar_url, deactivated_at…).
     .select("*, clients(*)")
     .eq("id", user.id)
     .single();
 
+  // "No row" means no access; anything else (timeout, 5xx) is temporary.
+  if (!profile && profileError && profileError.code !== "PGRST116") {
+    throw new Error("Profile temporarily unavailable");
+  }
   if (!profile) return null;
 
   const client = Array.isArray(profile.clients) ? profile.clients[0] : profile.clients;

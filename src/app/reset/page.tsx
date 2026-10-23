@@ -96,7 +96,7 @@ export default function ResetPage() {
           <div className="rounded-xl border border-border bg-surface p-4">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand/10">
-                <Mail className="h-5 w-5 text-brand" />
+                <Mail className="h-5 w-5 text-brand-ink" />
               </div>
               <div>
                 <p className="text-sm font-semibold">{t("auth.linkSent")}</p>

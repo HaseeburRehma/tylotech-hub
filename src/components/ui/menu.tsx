@@ -70,7 +70,7 @@ export function Menu({
 
   return (
     <>
-      <span ref={anchorRef} className="inline-flex">
+      <span ref={anchorRef} className="inline-flex min-w-0 max-w-full">
         {trigger({ open, toggle })}
       </span>
       {open &&
@@ -114,7 +114,7 @@ export function MenuItem({
     >
       {icon && <span className="flex h-4 w-4 shrink-0 items-center justify-center text-muted">{icon}</span>}
       <span className="flex-1 truncate">{children}</span>
-      {selected && <Check className="h-4 w-4 shrink-0 text-brand" />}
+      {selected && <Check className="h-4 w-4 shrink-0 text-brand-ink" />}
     </button>
   );
 }

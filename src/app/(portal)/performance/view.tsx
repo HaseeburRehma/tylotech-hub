@@ -183,7 +183,7 @@ function Reveal({ i, children, className }: { i: number; children: React.ReactNo
 }
 
 function Eyebrow({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <span className={cn("font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted", className)}>{children}</span>;
+  return <span className={cn("eyebrow", className)}>{children}</span>;
 }
 
 function Chip({ active, onClick, children }: { active?: boolean; onClick?: () => void; children: React.ReactNode }) {
@@ -194,10 +194,10 @@ function Chip({ active, onClick, children }: { active?: boolean; onClick?: () =>
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "h-8 shrink-0 rounded-full border px-3 text-xs font-medium transition-all duration-200",
+        "h-8 shrink-0 whitespace-nowrap rounded-full border px-3 text-[12.5px] transition-all duration-200",
         active
-          ? "border-brand/50 bg-brand/10 text-foreground shadow-[inset_0_0_0_1px_rgb(var(--brand)/0.15)]"
-          : "border-border bg-surface text-muted hover:border-brand/30 hover:text-foreground",
+          ? "border-brand bg-brand/10 font-medium text-foreground"
+          : "border-border bg-surface text-soft shadow-card hover:border-brand/40 hover:text-foreground",
       )}
     >
       {children}
@@ -207,7 +207,7 @@ function Chip({ active, onClick, children }: { active?: boolean; onClick?: () =>
 
 function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: { id: T; label: string }[]; onChange: (v: T) => void; label: string }) {
   return (
-    <div role="group" aria-label={label} className="inline-flex rounded-xl border border-border bg-surface-2/60 p-1">
+    <div role="group" aria-label={label} className="inline-flex max-w-full overflow-x-auto rounded-xl bg-line/70 p-1">
       {options.map((o) => (
         <button
           key={o.id}
@@ -215,8 +215,8 @@ function Segmented<T extends string>({ value, options, onChange, label }: { valu
           aria-pressed={value === o.id}
           onClick={() => onChange(o.id)}
           className={cn(
-            "rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200",
-            value === o.id ? "bg-surface text-foreground shadow-card ring-1 ring-border" : "text-muted hover:text-foreground",
+            "shrink-0 rounded-lg px-3 py-1.5 text-[13px] transition-all duration-200",
+            value === o.id ? "bg-surface font-medium text-foreground shadow-card" : "text-soft hover:text-foreground",
           )}
         >
           {o.label}
@@ -257,8 +257,8 @@ function DeltaPill({ delta, lowerIsBetter, fmt }: { delta: number | null; lowerI
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums",
-        good ? "bg-success/15 text-success" : "bg-danger/15 text-danger",
+        "inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 font-mono text-[11px] font-medium",
+        good ? "bg-positive/10 text-positive" : "bg-negative/10 text-negative",
       )}
     >
       <Icon className="h-3 w-3" />
@@ -408,10 +408,10 @@ export function PerformanceView({
   return (
     <div className="space-y-5">
       {/* Header */}
-      <Reveal i={reveal++} className="flex flex-wrap items-end justify-between gap-4">
+      <Reveal i={reveal++} className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h1 className="font-display text-[28px] font-semibold leading-tight tracking-tight text-foreground">{t("perf.title")}</h1>
-          <p className="mt-1 text-sm text-muted">{t("perf.subtitle")}</p>
+          <h1 className="font-display text-[22px] font-semibold tracking-[-0.02em] text-foreground md:text-2xl">{t("perf.title")}</h1>
+          <p className="mt-1 text-[13px] text-muted">{t("perf.subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Segmented
@@ -425,7 +425,7 @@ export function PerformanceView({
             disabled={!exportHref}
             title={exportHref ? undefined : t("perf.exportPickClient")}
             onClick={() => exportHref && window.open(exportHref, "_blank")}
-            className="inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-surface px-3.5 text-xs font-medium text-foreground transition-colors hover:border-brand/40 disabled:opacity-50"
+            className="tool-btn text-foreground disabled:opacity-50"
           >
             <Download className="h-3.5 w-3.5" /> {t("perf.exportPdf")}
           </button>
@@ -434,9 +434,9 @@ export function PerformanceView({
 
       {/* Filters */}
       <Reveal i={reveal++}>
-        <Card className="divide-y divide-border/70 p-0">
+        <div className="space-y-2.5">
           {isStaff && clients.length > 0 && (
-            <div className="flex items-center gap-4 px-4 py-3">
+            <div className="flex items-center gap-3 sm:gap-4">
               <Eyebrow className="w-14 shrink-0">{t("perf.client")}</Eyebrow>
               <div ref={clientRow} className="relative flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none]">
                 <Chip active={portfolio} onClick={() => goClient("all")}>
@@ -479,7 +479,7 @@ export function PerformanceView({
               </div>
             </div>
           )}
-          <div className="flex items-center gap-4 px-4 py-3">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Eyebrow className="w-14 shrink-0">{t("perf.source")}</Eyebrow>
             <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none]">
               {sourceOptions.map((s) => (
@@ -496,7 +496,7 @@ export function PerformanceView({
               ))}
             </div>
           </div>
-        </Card>
+        </div>
       </Reveal>
 
       {/* Sync status */}
@@ -548,7 +548,7 @@ export function PerformanceView({
                   </div>
                   <div className="mt-3 flex items-end justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-display text-[28px] font-semibold leading-none tracking-tight tabular-nums text-foreground">{fmt.value(v, m.unit)}</p>
+                      <p className="font-display text-[27px] font-semibold leading-none tracking-[-0.03em] tabular-nums text-foreground">{fmt.value(v, m.unit)}</p>
                       <div className="mt-2 h-5">
                         <DeltaPill delta={delta} lowerIsBetter={m.lowerIsBetter} fmt={fmt} />
                       </div>
@@ -564,8 +564,6 @@ export function PerformanceView({
           {chartGroup && chartMetric && (
             <Reveal i={reveal++}>
               <Card className="relative overflow-hidden p-0">
-                {/* soft gold glow behind the curve */}
-                <div aria-hidden className="pointer-events-none absolute -top-24 left-1/3 h-56 w-2/3 rounded-full bg-brand/10 blur-3xl" />
                 <div className="relative flex flex-wrap items-start justify-between gap-3 px-5 pb-2 pt-5">
                   <div>
                     <h2 className="font-display text-base font-semibold text-foreground">{t("perf.trend")}</h2>
@@ -672,7 +670,7 @@ export function PerformanceView({
                             className="border-b border-border/50 last:border-0 hover:bg-surface-2/40"
                           >
                             <td className="max-w-[340px] px-5 py-3">
-                              <a href={p.page} target="_blank" rel="noopener noreferrer" className="block truncate font-mono text-[13px] text-foreground hover:text-brand" title={p.page}>
+                              <a href={p.page} target="_blank" rel="noopener noreferrer" className="block truncate font-mono text-[13px] text-foreground hover:text-brand-ink" title={p.page}>
                                 {portfolio && <span className="text-muted">{host}</span>}
                                 {path === "/" ? `/ (${t("perf.homepage")})` : path}
                               </a>

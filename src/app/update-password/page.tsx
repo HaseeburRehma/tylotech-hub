@@ -51,7 +51,7 @@ function Rule({ met, label }: { met: boolean; label: string }) {
   return (
     <div className="flex items-center gap-2 text-sm">
       {met ? (
-        <CheckSquare className="h-4 w-4 text-brand" />
+        <CheckSquare className="h-4 w-4 text-brand-ink" />
       ) : (
         <Square className="h-4 w-4 text-muted/40" />
       )}

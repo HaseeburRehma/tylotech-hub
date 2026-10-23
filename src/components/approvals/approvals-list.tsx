@@ -105,7 +105,7 @@ function ApprovalCard({ a, canDecide }: { a: Approval; canDecide: boolean }) {
             <li key={f.id}>
               {f.kind === "link" ? (
                 <a href={f.url ?? "#"} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 rounded-lg border border-border bg-surface-2/50 px-3 py-2 text-sm hover:border-brand/40">
-                  <Link2 className="h-4 w-4 shrink-0 text-brand" />
+                  <Link2 className="h-4 w-4 shrink-0 text-brand-ink" />
                   <span className="min-w-0 flex-1 truncate">{f.name}</span>
                   <ExternalLink className="h-3.5 w-3.5 text-muted" />
                 </a>
@@ -115,7 +115,7 @@ function ApprovalCard({ a, canDecide }: { a: Approval; canDecide: boolean }) {
                   onClick={() => setViewer(viewable.findIndex((v) => v.id === f.id))}
                   className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface-2/50 px-3 py-2 text-left text-sm hover:border-brand/40"
                 >
-                  {f.mime?.startsWith("image/") ? <ImageIcon className="h-4 w-4 shrink-0 text-brand" /> : <FileText className="h-4 w-4 shrink-0 text-brand" />}
+                  {f.mime?.startsWith("image/") ? <ImageIcon className="h-4 w-4 shrink-0 text-brand-ink" /> : <FileText className="h-4 w-4 shrink-0 text-brand-ink" />}
                   <span className="min-w-0 flex-1 truncate">{f.name}</span>
                 </button>
               )}

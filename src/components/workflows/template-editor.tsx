@@ -109,7 +109,7 @@ export function TemplateEditor({ template, staff, onDone }: { template: Template
         {steps.map((s, i) => (
           <li key={s.key} className="rounded-xl border border-border bg-surface-2/30 p-3">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted">
+              <span className="eyebrow">
                 {t("wf.step")} {String(i + 1).padStart(2, "0")}
               </span>
               <div className="flex items-center gap-1">

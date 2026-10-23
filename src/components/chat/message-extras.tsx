@@ -287,7 +287,7 @@ export function MessageActions({
           </button>
         )}
         {onPin && (
-          <button type="button" onClick={onPin} aria-label={pinned ? t("chat.pin.unpin") : t("chat.pin.pin")} title={pinned ? t("chat.pin.unpin") : t("chat.pin.pin")} className={cn(btn, pinned && "text-brand")}>
+          <button type="button" onClick={onPin} aria-label={pinned ? t("chat.pin.unpin") : t("chat.pin.pin")} title={pinned ? t("chat.pin.unpin") : t("chat.pin.pin")} className={cn(btn, pinned && "text-brand-ink")}>
             {pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
           </button>
         )}

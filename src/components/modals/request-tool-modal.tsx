@@ -62,12 +62,12 @@ export function RequestToolModal({
   return (
     <ModalShell open={open} onClose={onClose}>
               {/* Header */}
-              <div className="flex items-start gap-4 px-6 pt-6 pb-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/15">
-                  <Sparkles className="h-5 w-5 text-brand" />
+              <div className="flex items-start gap-4 border-b border-line px-6 py-5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10">
+                  <Sparkles className="h-5 w-5 text-brand-ink" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-lg font-semibold text-foreground">{t("reqTool.title")}</h2>
+                  <h2 className="font-display text-lg font-semibold tracking-[-0.01em] text-foreground">{t("reqTool.title")}</h2>
                   <p className="mt-0.5 text-sm text-muted">{t("reqTool.desc")}</p>
                 </div>
                 <button type="button" aria-label={t("widget.close")} onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground transition-colors">
@@ -79,12 +79,12 @@ export function RequestToolModal({
               <div className="space-y-4 px-6 pb-2">
                 {/* What */}
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">{t("reqTool.whatLabel")}</label>
+                  <label className="mb-1.5 block text-[13px] text-soft">{t("reqTool.whatLabel")}</label>
                   <textarea
                     value={what}
                     onChange={(e) => setWhat(e.target.value)}
                     rows={3}
-                    className="w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 focus:border-brand/50 resize-none"
+                    className="w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 field-focus resize-none"
                   />
                 </div>
 
@@ -92,11 +92,11 @@ export function RequestToolModal({
                 <div className={clients.length ? "grid grid-cols-1 gap-4 sm:grid-cols-2" : "grid grid-cols-1 gap-4"}>
                   {clients.length > 0 && (
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-foreground">{t("reqTool.forClients")}</label>
+                    <label className="mb-1.5 block text-[13px] text-soft">{t("reqTool.forClients")}</label>
                     <select
                       value={forClients}
                       onChange={(e) => setForClients(e.target.value)}
-                      className="h-11 w-full appearance-none rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none focus:border-brand/50"
+                      className="h-11 w-full appearance-none rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none field-focus"
                     >
                       <option value="all" className="bg-surface">{t("reqTool.allAccounts")}</option>
                       {clients.map((c) => (
@@ -108,11 +108,11 @@ export function RequestToolModal({
                   </div>
                   )}
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-foreground">{t("reqTool.frequency")}</label>
+                    <label className="mb-1.5 block text-[13px] text-soft">{t("reqTool.frequency")}</label>
                     <select
                       value={frequency}
                       onChange={(e) => setFrequency(e.target.value)}
-                      className="h-11 w-full appearance-none rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none focus:border-brand/50"
+                      className="h-11 w-full appearance-none rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none field-focus"
                     >
                       <option value="weekly" className="bg-surface">{t("reqTool.freqWeekly")}</option>
                       <option value="daily" className="bg-surface">{t("reqTool.freqDaily")}</option>
@@ -132,7 +132,7 @@ export function RequestToolModal({
                     value={manual}
                     onChange={(e) => setManual(e.target.value)}
                     rows={2}
-                    className="w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 focus:border-brand/50 resize-none"
+                    className="w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 field-focus resize-none"
                   />
                 </div>
               </div>

@@ -35,7 +35,7 @@ export function ModalShell({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-foreground/25 backdrop-blur-sm"
+            className="fixed inset-0 z-[60] bg-[#08222C]/40 backdrop-blur-[2px]"
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 20 }}
@@ -49,7 +49,7 @@ export function ModalShell({
               role="dialog"
               aria-modal="true"
               className={cn(
-                "max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-bg shadow-float",
+                "max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-[20px] border border-line bg-surface shadow-float",
                 className,
               )}
             >

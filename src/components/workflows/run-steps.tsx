@@ -89,7 +89,7 @@ export function RunSteps({ run, staff, partner = "—" }: { run: Run; staff: Sta
                   className="flex w-full items-start justify-between gap-3 text-left"
                 >
                   <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">
+                    <p className="eyebrow">
                       {t("wf.step")} {String(i + 1).padStart(2, "0")}
                     </p>
                     <p className={cn("mt-0.5 font-semibold", s.status === "locked" ? "text-muted" : "text-foreground")}>{s.title}</p>

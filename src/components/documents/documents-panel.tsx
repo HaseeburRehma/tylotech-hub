@@ -2,8 +2,11 @@
 
 import { motion } from "framer-motion";
 import {
+  ArrowDownUp,
   Check,
   Download,
+  MoreHorizontal,
+  Search,
   FileArchive,
   FileText,
   Loader2,
@@ -18,6 +21,8 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Segmented } from "@/components/ui/segmented";
+import { Menu, MenuItem } from "@/components/ui/menu";
 import { DocItem, DocType } from "@/types";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
@@ -25,12 +30,22 @@ import { useUser } from "@/components/providers/user-provider";
 import { APP_TZ } from "@/lib/utils";
 
 // `label` values are i18n keys — translated at render via t().
-const META: Record<DocType, { label: string; icon: LucideIcon; variant: "info" | "brand" | "success" | "warning" }> = {
-  report: { label: "documents.report", icon: FileText, variant: "info" },
+// Figma chips: report teal, contract gold, invoice/asset neutral.
+const META: Record<DocType, { label: string; icon: LucideIcon; variant: "positive" | "brand" | "neutral" }> = {
+  report: { label: "documents.report", icon: FileText, variant: "positive" },
   contract: { label: "documents.contract", icon: ScrollText, variant: "brand" },
-  invoice: { label: "documents.invoice", icon: Receipt, variant: "success" },
-  asset: { label: "documents.asset", icon: FileArchive, variant: "warning" },
+  invoice: { label: "documents.invoice", icon: Receipt, variant: "neutral" },
+  asset: { label: "documents.asset", icon: FileArchive, variant: "neutral" },
 };
+
+type SortKey = "newest" | "oldest" | "name";
+const SORT_LABEL: Record<SortKey, string> = { newest: "documents.sortNewest", oldest: "documents.sortOldest", name: "documents.sortName" };
+
+/** "report.pdf" → "PDF" for the file-type tile (Figma). */
+function extOf(name: string) {
+  const m = name.match(/\.([a-z0-9]{1,4})$/i);
+  return m ? m[1]!.toUpperCase() : "FILE";
+}
 
 const FILTERS: { key: DocType | "all"; label: string }[] = [
   { key: "all", label: "documents.all" },
@@ -50,6 +65,8 @@ export function DocumentsPanel({
   const router = useRouter();
   const t = useT();
   const [filter, setFilter] = useState<DocType | "all">("all");
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<SortKey>("newest");
   const [uploadType, setUploadType] = useState<DocType>("report");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +87,16 @@ export function DocumentsPanel({
   }
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const docs = documents.filter((d) => filter === "all" || d.type === filter);
+  const q = query.trim().toLowerCase();
+  const docs = documents
+    .filter((d) => filter === "all" || d.type === filter)
+    .filter((d) => !q || d.name.toLowerCase().includes(q))
+    .sort((a, b) =>
+      sort === "name" ? a.name.localeCompare(b.name) : sort === "oldest" ? a.created_at.localeCompare(b.created_at) : b.created_at.localeCompare(a.created_at),
+    );
+  const countOf = (k: DocType | "all") => (k === "all" ? documents.length : documents.filter((d) => d.type === k).length);
+  const canDelete = (d: DocItem) => user.role !== "client" || d.uploaded_by === user.id;
+  const downloadable = (d: DocItem) => !!d.file_url && !d.file_url.startsWith("#");
 
   async function upload(file: File) {
     setUploading(true);
@@ -106,41 +132,37 @@ export function DocumentsPanel({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
-          {FILTERS.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={cn(
-                "rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors",
-                filter === f.key
-                  ? "border-brand/40 bg-brand/10 text-brand"
-                  : "border-border text-muted hover:text-foreground",
-              )}
-            >
-              {t(f.label)}
-            </button>
-          ))}
+      {/* Toolbar: search + upload, then type tabs + sort (Figma) */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:w-64">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("documents.search")}
+            aria-label={t("documents.search")}
+            className="input-base h-10 py-0 pl-9"
+          />
         </div>
         <div className="flex items-center gap-2">
           {user.role !== "client" && (
-          <select
-            aria-label={t("documents.typeLabel")}
-            value={uploadType}
-            onChange={(e) => setUploadType(e.target.value as DocType)}
-            className="h-9 rounded-xl border border-border bg-surface-2 px-2 text-xs outline-none focus:border-brand/50"
-          >
-            <option value="report" className="bg-surface">{t("documents.report")}</option>
-            <option value="contract" className="bg-surface">{t("documents.contract")}</option>
-            <option value="invoice" className="bg-surface">{t("documents.invoice")}</option>
-            <option value="asset" className="bg-surface">{t("documents.asset")}</option>
-          </select>
+            <select
+              aria-label={t("documents.typeLabel")}
+              value={uploadType}
+              onChange={(e) => setUploadType(e.target.value as DocType)}
+              className="tool-btn pr-2"
+            >
+              <option value="report" className="bg-surface">{t("documents.report")}</option>
+              <option value="contract" className="bg-surface">{t("documents.contract")}</option>
+              <option value="invoice" className="bg-surface">{t("documents.invoice")}</option>
+              <option value="asset" className="bg-surface">{t("documents.asset")}</option>
+            </select>
           )}
           <button
             onClick={() => fileRef.current?.click()}
             disabled={uploading || !clientId}
-            className="inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 text-sm text-foreground transition-colors hover:border-brand/40 disabled:opacity-50"
+            className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-xl bg-brand bg-gradient-to-b from-white/20 to-black/10 px-3.5 font-display text-sm font-semibold text-brand-foreground shadow-card transition hover:brightness-105 disabled:opacity-50 sm:flex-none ring-focus"
           >
             {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             {t("documents.upload")}
@@ -158,12 +180,38 @@ export function DocumentsPanel({
         </div>
       </div>
 
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Segmented
+          value={filter}
+          onChange={setFilter}
+          options={FILTERS.map((f) => ({ key: f.key, label: t(f.label), count: countOf(f.key) }))}
+        />
+        <Menu
+          width={200}
+          align="end"
+          trigger={({ toggle, open }) => (
+            <button type="button" onClick={toggle} aria-expanded={open} className="tool-btn w-fit">
+              <ArrowDownUp className="h-3.5 w-3.5" />
+              {t(SORT_LABEL[sort])}
+            </button>
+          )}
+        >
+          {(close) =>
+            (Object.keys(SORT_LABEL) as SortKey[]).map((k) => (
+              <MenuItem key={k} selected={sort === k} onSelect={() => { setSort(k); close(); }}>
+                {t(SORT_LABEL[k])}
+              </MenuItem>
+            ))
+          }
+        </Menu>
+      </div>
+
       {error && (
         <div className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">{error}</div>
       )}
 
-      <Card className="p-2">
-        {docs.length === 0 ? (
+      <Card className="overflow-hidden p-0">
+        {documents.length === 0 ? (
           <div className="flex flex-col items-center gap-4 py-14 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-surface">
               <FileText className="h-7 w-7 text-muted" />
@@ -196,61 +244,106 @@ export function DocumentsPanel({
             {requestState === "error" && <p className="text-sm text-danger">{t("ait.actionFailed")}</p>}
           </div>
         ) : (
-          <ul className="divide-y divide-border">
-            {docs.map((d, i) => {
-              const m = META[d.type];
-              const Icon = m.icon;
-              return (
-                <motion.li
-                  key={d.id}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  className="group flex items-center gap-4 rounded-xl p-3.5 transition-colors hover:bg-surface-2"
-                >
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-muted group-hover:bg-brand/15 group-hover:text-brand">
-                    <Icon className="h-5 w-5" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{d.name}</p>
-                    <p className="text-xs text-muted">
-                      {new Date(d.created_at).toLocaleDateString("en-DE", { timeZone: APP_TZ, day: "numeric", month: "long", year: "numeric" })}
-                      {d.size ? ` · ${d.size}` : ""}
-                    </p>
-                  </div>
-                  <Badge variant={m.variant} className="hidden sm:inline-flex">{t(m.label)}</Badge>
-                  {d.file_url && !d.file_url.startsWith("#") ? (
-                    <a
-                      href={`/api/documents/download?id=${d.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex h-9 w-9 items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
-                      aria-label={`Download ${d.name}`}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-line">
+                  <th className="th">{t("documents.col.document")}</th>
+                  <th className="th hidden sm:table-cell">{t("documents.col.type")}</th>
+                  <th className="th hidden text-right md:table-cell">{t("documents.col.size")}</th>
+                  <th className="th hidden text-right sm:table-cell">{t("documents.col.date")}</th>
+                  <th className="w-12 px-4 py-3"><span className="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {docs.map((d, i) => {
+                  const m = META[d.type];
+                  const date = new Date(d.created_at).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" });
+                  return (
+                    <motion.tr
+                      key={d.id}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(i, 10) * 0.03 }}
+                      className="hover:bg-bg/60"
                     >
-                      <Download className="h-[18px] w-[18px]" />
-                    </a>
-                  ) : (
-                    <span
-                      className="flex h-9 w-9 items-center justify-center rounded-xl text-muted/30"
-                      title="Sample document — no file attached"
-                    >
-                      <Download className="h-[18px] w-[18px]" />
-                    </span>
-                  )}
-                  {(user.role !== "client" || d.uploaded_by === user.id) && (
-                  <button
-                    type="button"
-                    onClick={() => setPendingDelete(d)}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl text-muted transition-colors hover:text-danger"
-                    aria-label={`Delete ${d.name}`}
-                  >
-                    <Trash2 className="h-[18px] w-[18px]" />
-                  </button>
-                  )}
-                </motion.li>
-              );
-            })}
-          </ul>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={cn(
+                              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line font-mono text-[8.5px] font-medium",
+                              d.type === "report" ? "bg-positive/5 text-positive" : d.type === "contract" ? "bg-brand/10 text-brand-ink" : "bg-bg text-muted",
+                            )}
+                          >
+                            {extOf(d.name)}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="line-clamp-2 font-display text-[13.5px] font-medium text-foreground sm:line-clamp-1">{d.name}</p>
+                            <p className="text-xs text-muted sm:hidden">
+                              {t(m.label)} · {date}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="hidden px-4 py-3 sm:table-cell">
+                        <Badge variant={m.variant}>{t(m.label)}</Badge>
+                      </td>
+                      <td className="hidden whitespace-nowrap px-4 py-3 text-right font-mono text-[12.5px] text-soft md:table-cell">{d.size || "—"}</td>
+                      <td className="hidden whitespace-nowrap px-4 py-3 text-right text-[12.5px] text-muted sm:table-cell">{date}</td>
+                      <td className="px-4 py-3 text-right">
+                        {(downloadable(d) || canDelete(d)) && (
+                        <Menu
+                          width={190}
+                          align="end"
+                          trigger={({ toggle, open }) => (
+                            <button
+                              type="button"
+                              onClick={toggle}
+                              aria-expanded={open}
+                              aria-label={d.name}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-bg hover:text-foreground"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
+                          )}
+                        >
+                          {(close) => (
+                            <>
+                              {downloadable(d) && (
+                                <MenuItem
+                                  icon={<Download className="h-4 w-4" />}
+                                  onSelect={() => {
+                                    close();
+                                    window.open(`/api/documents/download?id=${d.id}`, "_blank", "noopener");
+                                  }}
+                                >
+                                  {t("documents.download")}
+                                </MenuItem>
+                              )}
+                              {canDelete(d) && (
+                                <MenuItem
+                                  danger
+                                  icon={<Trash2 className="h-4 w-4 text-danger" />}
+                                  onSelect={() => {
+                                    close();
+                                    setPendingDelete(d);
+                                  }}
+                                >
+                                  {t("documents.delete")}
+                                </MenuItem>
+                              )}
+                            </>
+                          )}
+                        </Menu>
+                        )}
+                      </td>
+                    </motion.tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {docs.length === 0 && <p className="px-5 py-10 text-center text-sm text-muted">{t("documents.noMatch")}</p>}
+          </div>
         )}
       </Card>
 

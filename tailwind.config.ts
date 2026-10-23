@@ -19,12 +19,19 @@ const config: Config = {
         surface: "rgb(var(--surface) / <alpha-value>)",
         "surface-2": "rgb(var(--surface-2) / <alpha-value>)",
         border: "rgb(var(--border) / <alpha-value>)",
+        line: "rgb(var(--line) / <alpha-value>)",
         foreground: "rgb(var(--foreground) / <alpha-value>)",
+        soft: "rgb(var(--soft) / <alpha-value>)",
+        positive: "rgb(var(--positive) / <alpha-value>)",
+        negative: "rgb(var(--negative) / <alpha-value>)",
         muted: "rgb(var(--muted) / <alpha-value>)",
         brand: {
           DEFAULT: "rgb(var(--brand) / <alpha-value>)",
           foreground: "rgb(var(--brand-foreground) / <alpha-value>)",
+          // Brand for text and icons — always readable on the current surface.
+          ink: "rgb(var(--brand-ink) / <alpha-value>)",
         },
+        petrol: "rgb(0 46 61 / <alpha-value>)", // Figma action/primary, surface/brand
         accent: "rgb(var(--accent) / <alpha-value>)",
         success: "rgb(var(--success) / <alpha-value>)",
         warning: "rgb(var(--warning) / <alpha-value>)",
@@ -35,15 +42,16 @@ const config: Config = {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
         display: ["var(--font-display)", "var(--font-sans)", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+        serif: ["var(--font-serif)", "Georgia", "serif"],
       },
       borderRadius: {
-        xl: "0.875rem",
-        "2xl": "1.25rem",
-        "3xl": "1.75rem",
+        xl: "0.75rem",
+        "2xl": "1rem",
+        "3xl": "1.5rem",
       },
       boxShadow: {
         glow: "0 0 0 1px rgb(var(--brand) / 0.15), 0 4px 24px -4px rgb(var(--brand) / 0.12)",
-        card: "0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.03)",
+        card: "0 1px 2px 0 rgb(8 34 44 / 0.06)", // Elevation/XS
         float: "0 12px 40px -12px rgb(0 0 0 / 0.15)",
       },
       backgroundImage: {

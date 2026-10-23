@@ -4,12 +4,15 @@ import {
   ArrowRight,
   FolderKanban,
   LayoutDashboard,
+  LineChart,
   Mail,
+  MessageCircle,
   Users,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/lib/i18n/provider";
+import { useUser } from "@/components/providers/user-provider";
 
 function StyledHeadline({ text }: { text: string }) {
   const parts = text.split(/(\*[^*]+\*)/g);
@@ -17,11 +20,7 @@ function StyledHeadline({ text }: { text: string }) {
     <>
       {parts.map((p, i) =>
         p.startsWith("*") && p.endsWith("*") ? (
-          <span
-            key={i}
-            className="italic"
-            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
-          >
+          <span key={i} className="font-serif text-[1.08em] font-normal italic tracking-normal text-brand-ink">
             {p.slice(1, -1)}
           </span>
         ) : (
@@ -32,7 +31,14 @@ function StyledHeadline({ text }: { text: string }) {
   );
 }
 
-const NAV_LINKS = [
+// Clients can't open staff pages — they get the Figma set (Dashboard, Performance, Chat).
+const CLIENT_LINKS = [
+  { href: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard", descKey: "e404.dashboardDesc" },
+  { href: "/performance", icon: LineChart, labelKey: "nav.performance", descKey: "e404.perfDesc" },
+  { href: "/chat", icon: MessageCircle, labelKey: "nav.chat", descKey: "e404.chatDesc" },
+] as const;
+
+const STAFF_LINKS = [
   {
     href: "/dashboard",
     icon: LayoutDashboard,
@@ -55,34 +61,34 @@ const NAV_LINKS = [
 
 export default function NotFound() {
   const t = useT();
+  const user = useUser();
+  const links = user.role === "client" ? CLIENT_LINKS : STAFF_LINKS;
 
   return (
     <div className="flex min-h-[70vh] flex-col items-center justify-center px-6 text-center">
-      <p className="text-xs font-semibold tracking-[0.2em] text-muted">
-        {t("e404.label")}
-      </p>
+      <p className="font-mono text-xs font-medium tracking-[0.12em] text-muted">{t("e404.label")}</p>
 
-      <h1 className="mt-4 font-display text-4xl font-bold tracking-tight sm:text-5xl">
+      <h1 className="mt-3 font-display text-[28px] font-semibold tracking-[-0.03em] sm:text-[34px]">
         <StyledHeadline text={t("e404.headline")} />
       </h1>
 
-      <p className="mt-4 max-w-md text-sm text-muted">
+      <p className="mt-3 max-w-md text-[14px] text-soft">
         {t("e404.body")}
       </p>
 
       {/* Nav cards */}
-      <div className="mt-8 w-full max-w-lg divide-y divide-border rounded-2xl border border-border bg-bg">
-        {NAV_LINKS.map(({ href, icon: Icon, labelKey, descKey }) => (
+      <div className="card mt-8 w-full max-w-lg divide-y divide-line overflow-hidden">
+        {links.map(({ href, icon: Icon, labelKey, descKey }) => (
           <Link
             key={href}
             href={href}
-            className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-surface first:rounded-t-2xl last:rounded-b-2xl"
+            className="flex items-center gap-3.5 px-5 py-3.5 transition-colors hover:bg-bg"
           >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-surface">
-              <Icon className="h-5 w-5 text-muted" />
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-bg">
+              <Icon className="h-4 w-4 text-muted" />
             </div>
             <div className="flex-1 text-left">
-              <p className="text-sm font-semibold">{t(labelKey)}</p>
+              <p className="font-display text-sm font-medium">{t(labelKey)}</p>
               <p className="text-xs text-muted">{t(descKey)}</p>
             </div>
             <ArrowRight className="h-4 w-4 text-muted" />
@@ -97,7 +103,7 @@ export default function NotFound() {
         </Link>
         <Link href="mailto:info@tylotech.de">
           <Button variant="outline">
-            <Mail className="mr-1.5 h-4 w-4" />
+            <Mail className="h-4 w-4" />
             {t("e404.support")}
           </Button>
         </Link>
