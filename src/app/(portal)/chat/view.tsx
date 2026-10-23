@@ -106,6 +106,7 @@ export function ChatView({
         {/* Chat (takes remaining space) */}
         <div className="min-h-0 min-w-0 flex-1">
           <ChatThread
+            key={clientId ?? "internal"}
             initialMessages={initialMessages}
             currentUserId={currentUserId}
             currentName={currentName}
