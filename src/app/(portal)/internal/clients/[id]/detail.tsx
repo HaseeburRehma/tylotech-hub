@@ -407,7 +407,7 @@ export function ClientDetail({
               {updates.slice(0, 4).map((u, i, arr) => (
                 <li key={u.id} className="relative flex gap-3 py-3">
                   {i < arr.length - 1 && <span className="absolute bottom-0 left-[15px] top-12 w-px bg-line" />}
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand-ink">
                     <ChevronRight className="h-4 w-4" />
                   </span>
                   <div className="min-w-0 flex-1">

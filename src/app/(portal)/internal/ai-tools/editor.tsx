@@ -243,7 +243,7 @@ function PromptPanel({
           onChange={(e) => setPrompt(e.target.value)}
           readOnly={!canEdit}
           maxLength={20000}
-          className="w-full min-h-[400px] resize-none rounded-xl border border-border bg-bg p-4 font-mono text-sm leading-relaxed text-foreground outline-none transition-colors focus:border-brand/40"
+          className="w-full min-h-[400px] resize-none rounded-xl border border-border bg-bg p-4 font-mono text-sm leading-relaxed text-foreground outline-none transition-colors field-focus"
           placeholder={t("prompts.placeholder")}
         />
       </div>

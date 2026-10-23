@@ -48,7 +48,7 @@ export function AddLeadModal({ clientId, onClose, onCreated }: { clientId: strin
   }
   return (
     <ModalShell open onClose={onClose}>
-      <Header title={t("leads.add")} onClose={onClose} icon={<Plus className="h-4 w-4 text-brand" />} />
+      <Header title={t("leads.add")} onClose={onClose} icon={<Plus className="h-4 w-4 text-brand-ink" />} />
       <div className="space-y-3 p-5">
         <div>
           <Label htmlFor="ld-name">{t("leads.f.name")}</Label>
@@ -107,7 +107,7 @@ export function InviteSalesModal({ clientId, company, onClose }: { clientId: str
   }
   return (
     <ModalShell open onClose={onClose}>
-      <Header title={t("leads.inviteTitle", { company })} onClose={onClose} icon={<UserPlus className="h-4 w-4 text-brand" />} />
+      <Header title={t("leads.inviteTitle", { company })} onClose={onClose} icon={<UserPlus className="h-4 w-4 text-brand-ink" />} />
       <div className="space-y-3 p-5">
         {result ? (
           <>
@@ -147,7 +147,7 @@ export function InviteSalesModal({ clientId, company, onClose }: { clientId: str
               </div>
             ))}
             {rows.length < 5 && (
-              <button type="button" onClick={() => setRows((x) => [...x, { name: "", email: "" }])} className="text-xs font-medium text-brand hover:underline">
+              <button type="button" onClick={() => setRows((x) => [...x, { name: "", email: "" }])} className="text-xs font-medium text-brand-ink hover:underline">
                 + {t("leads.invite.more")}
               </button>
             )}
@@ -251,7 +251,7 @@ export function SourcesModal({
 
   return (
     <ModalShell open onClose={onClose} className="max-w-2xl">
-      <Header title={t("leads.sources")} onClose={onClose} icon={<Globe className="h-4 w-4 text-brand" />} />
+      <Header title={t("leads.sources")} onClose={onClose} icon={<Globe className="h-4 w-4 text-brand-ink" />} />
       <div className="space-y-6 p-5">
         {error && <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
         {info && <p className="rounded-lg bg-success/10 px-3 py-2 text-sm text-success">{info}</p>}

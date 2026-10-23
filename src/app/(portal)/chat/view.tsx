@@ -119,17 +119,16 @@ export function ChatView({
           />
         </div>
 
-        {/* Updates sidebar */}
-        <div className="hidden w-[300px] shrink-0 flex-col overflow-hidden lg:flex">
-          <div className="flex items-center justify-between px-4 py-3">
-            <p className="text-sm font-semibold text-foreground">{t("chat.thisMonthAt")}</p>
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand/10 px-1.5 text-[11px] font-semibold text-brand">{updates.length}</span>
+        {/* Updates column (Figma "This month at TyloTech") */}
+        <section className="card hidden w-[300px] shrink-0 flex-col overflow-hidden lg:flex">
+          <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-3.5">
+            <p className="font-display text-[15px] font-semibold text-foreground">{t("chat.thisMonthAt")}</p>
+            <span className="rounded-md bg-line px-1.5 font-mono text-[10.5px] text-muted">{updates.length}</span>
           </div>
-
-          <div className="flex-1 overflow-y-auto px-4">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             <UpdatesList updates={updates} />
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );
@@ -137,33 +136,30 @@ export function ChatView({
 
 function UpdatesList({ updates }: { updates: Update[] }) {
   const t = useT();
+  if (updates.length === 0)
+    return (
+      <div className="flex flex-col items-center justify-center px-5 py-12 text-center">
+        <Star className="mb-2 h-8 w-8 text-muted/30" />
+        <p className="text-sm text-muted">{t("chat.noUpdates")}</p>
+      </div>
+    );
   return (
-    <>
-      {updates.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Star className="mb-2 h-8 w-8 text-muted/20" />
-                <p className="text-sm text-muted">{t("chat.noUpdates")}</p>
-              </div>
-            )}
-            <div className="space-y-6">
-              {updates.map((u) => {
-                const Icon = TYPE_ICONS[u.type] ?? FileText;
-                return (
-                  <div key={u.id} className="flex items-start gap-3">
-                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-[13px] font-semibold leading-snug text-foreground">{u.title}</p>
-                        <span className="shrink-0 text-[11px] text-muted">{formatRelativeTime(u.created_at)}</span>
-                      </div>
-                      {u.description && <p className="mt-1 text-[12px] leading-relaxed text-muted">{u.description}</p>}
-                    </div>
-                  </div>
-                );
-              })}
+    <ul className="divide-y divide-line">
+      {updates.map((u) => {
+        const Icon = TYPE_ICONS[u.type] ?? FileText;
+        return (
+          <li key={u.id} className="px-5 py-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand/10 text-brand-ink">
+                <Icon className="h-3.5 w-3.5" />
+              </span>
+              <span className="text-[11.5px] text-muted">{formatRelativeTime(u.created_at)}</span>
             </div>
-    </>
+            <p className="mt-2.5 font-display text-[14px] font-semibold leading-snug text-foreground">{u.title}</p>
+            {u.description && <p className="mt-1 text-[12.5px] leading-[19px] text-soft">{u.description}</p>}
+          </li>
+        );
+      })}
+    </ul>
   );
 }

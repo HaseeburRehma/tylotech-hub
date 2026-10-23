@@ -39,7 +39,7 @@ export function BrandPreview() {
         aria-label={t("brand.title")}
         className={cn(
           "relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-surface-2 hover:text-foreground",
-          previewing ? "text-brand" : "text-muted",
+          previewing ? "text-brand-ink" : "text-muted",
         )}
       >
         <Palette className="h-4 w-4" />
@@ -83,7 +83,7 @@ export function BrandPreview() {
                         {b.id === TYLOTECH_THEME.id ? TYLOTECH_THEME.tagline : "Powered by TyloTech"}
                       </span>
                     </span>
-                    {active && <Check className="h-4 w-4 shrink-0 text-brand" />}
+                    {active && <Check className="h-4 w-4 shrink-0 text-brand-ink" />}
                   </button>
                 );
               })}
@@ -94,7 +94,7 @@ export function BrandPreview() {
                 <button
                   type="button"
                   onClick={() => setThemeById(TYLOTECH_THEME.id)}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-brand hover:underline"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-ink hover:underline"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
                   {t("brand.reset")}

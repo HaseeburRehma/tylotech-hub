@@ -232,7 +232,7 @@ export function IntegrationsBoard({
                   <div className="flex min-w-0 items-center gap-3">
                     <span
                       className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line ${
-                        connected ? "bg-surface text-brand" : "bg-bg text-muted"
+                        connected ? "bg-surface text-brand-ink" : "bg-bg text-muted"
                       }`}
                     >
                       <Icon className="h-5 w-5" />
@@ -294,7 +294,7 @@ export function IntegrationsBoard({
                           data-lpignore="true"
                           onBlur={(e) => canEditTarget && e.target.value !== (row?.meta?.accountId ?? "") && configure(p.id, "accountId", e.target.value)}
                           placeholder="act_1234567890"
-                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-[12px] text-foreground outline-none focus:border-brand/50 read-only:opacity-70"
+                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-[12px] text-foreground outline-none field-focus read-only:opacity-70"
                         />
                       </label>
                     )}
@@ -309,7 +309,7 @@ export function IntegrationsBoard({
                           data-lpignore="true"
                           onBlur={(e) => canEditTarget && e.target.value !== (row?.meta?.accountId ?? "") && configure(p.id, "accountId", e.target.value)}
                           placeholder="123-456-7890"
-                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-[12px] text-foreground outline-none focus:border-brand/50 read-only:opacity-70"
+                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-[12px] text-foreground outline-none field-focus read-only:opacity-70"
                         />
                       </label>
                     )}
@@ -324,7 +324,7 @@ export function IntegrationsBoard({
                           data-lpignore="true"
                           onBlur={(e) => canEditTarget && e.target.value !== (row?.meta?.propertyId ?? "") && configure(p.id, "propertyId", e.target.value)}
                           placeholder="123456789"
-                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-[12px] text-foreground outline-none focus:border-brand/50 read-only:opacity-70"
+                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-[12px] text-foreground outline-none field-focus read-only:opacity-70"
                         />
                       </label>
                     )}
@@ -339,7 +339,7 @@ export function IntegrationsBoard({
                           data-lpignore="true"
                           onBlur={(e) => canEditTarget && e.target.value !== (row?.meta?.siteUrl ?? "") && configure(p.id, "siteUrl", e.target.value)}
                           placeholder="https://example.com/"
-                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-[12px] text-foreground outline-none focus:border-brand/50"
+                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-[12px] text-foreground outline-none field-focus"
                         />
                       </label>
                     )}
@@ -365,7 +365,7 @@ export function IntegrationsBoard({
                             }
                           }}
                           placeholder={row?.has_token ? t("integ.tokenReplacePh") : t("integ.tokenPh")}
-                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-[12px] text-foreground outline-none focus:border-brand/50"
+                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-[12px] text-foreground outline-none field-focus"
                         />
                         <span className="mt-1 block text-[10px] text-muted/70">{t("integ.tokenEnterHint")}</span>
                       </label>

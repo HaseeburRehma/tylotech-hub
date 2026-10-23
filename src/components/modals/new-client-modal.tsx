@@ -91,12 +91,12 @@ export function NewClientModal({
   return (
     <ModalShell open={open} onClose={onClose}>
               {/* Header */}
-              <div className="flex items-start gap-4 px-6 pt-6 pb-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/15">
-                  <Building2 className="h-5 w-5 text-brand" />
+              <div className="flex items-start gap-4 border-b border-line px-6 py-5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10">
+                  <Building2 className="h-5 w-5 text-brand-ink" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-lg font-semibold text-foreground">{t("newClient.title")}</h2>
+                  <h2 className="font-display text-lg font-semibold tracking-[-0.01em] text-foreground">{t("newClient.title")}</h2>
                   <p className="mt-0.5 text-sm text-muted">{t("newClient.desc")}</p>
                 </div>
                 <button type="button" aria-label={t("widget.close")} onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground transition-colors">
@@ -105,7 +105,7 @@ export function NewClientModal({
               </div>
 
               {/* Form */}
-              <div className="space-y-4 px-6">
+              <div className="space-y-4 px-6 py-5">
                 {error && (
                   <div className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">{error}</div>
                 )}
@@ -113,26 +113,26 @@ export function NewClientModal({
                 {/* Company + Industry */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-foreground">{t("newClient.company")}</label>
+                    <label className="mb-1.5 block text-[13px] text-soft">{t("newClient.company")}</label>
                     <input
                       value={company}
                       onChange={(e) => setCompany(e.target.value)}
-                      className="h-11 w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 focus:border-brand/50"
+                      className="h-11 w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 field-focus"
                     />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-foreground">{t("newClient.industry")}</label>
+                    <label className="mb-1.5 block text-[13px] text-soft">{t("newClient.industry")}</label>
                     <input
                       value={industry}
                       onChange={(e) => setIndustry(e.target.value)}
-                      className="h-11 w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 focus:border-brand/50"
+                      className="h-11 w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 field-focus"
                     />
                   </div>
                 </div>
 
                 {/* Plan */}
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">{t("newClient.plan")}</label>
+                  <label className="mb-1.5 block text-[13px] text-soft">{t("newClient.plan")}</label>
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
@@ -184,33 +184,33 @@ export function NewClientModal({
                 {/* MRR + Since */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-foreground">{t("newClient.mrr")}</label>
+                    <label className="mb-1.5 block text-[13px] text-soft">{t("newClient.mrr")}</label>
                     <input
                       value={mrr}
                       onChange={(e) => setMrr(e.target.value)}
                       placeholder="1.200 €"
-                      className="h-11 w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 focus:border-brand/50"
+                      className="h-11 w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 field-focus"
                     />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-foreground">{t("newClient.since")}</label>
+                    <label className="mb-1.5 block text-[13px] text-soft">{t("newClient.since")}</label>
                     <input
                       value={since}
                       onChange={(e) => setSince(e.target.value)}
                       placeholder="Oktober 2026"
-                      className="h-11 w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 focus:border-brand/50"
+                      className="h-11 w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 field-focus"
                     />
                   </div>
                 </div>
 
                 {/* Contact email */}
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">{t("newClient.contactEmail")}</label>
+                  <label className="mb-1.5 block text-[13px] text-soft">{t("newClient.contactEmail")}</label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="h-11 w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 focus:border-brand/50"
+                    className="h-11 w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 field-focus"
                   />
                 </div>
 
@@ -238,7 +238,7 @@ export function NewClientModal({
                     <input
                       value={hexInput}
                       onChange={(e) => onHexChange(e.target.value)}
-                      className="ml-1 h-9 w-24 rounded-xl border border-border bg-bg px-3 text-sm font-mono text-foreground outline-none focus:border-brand/50"
+                      className="ml-1 h-9 w-24 rounded-xl border border-border bg-bg px-3 text-sm font-mono text-foreground outline-none field-focus"
                     />
                   </div>
                 </div>

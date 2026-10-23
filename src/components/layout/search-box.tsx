@@ -70,7 +70,7 @@ export function SearchBox() {
         }}
         onFocus={() => setOpen(true)}
         placeholder={t("topbar.search")}
-        className="h-10 w-full max-w-md rounded-xl border border-border bg-surface/60 pl-10 pr-4 text-sm text-foreground placeholder:text-muted/60 outline-none transition-colors focus:border-brand/50 focus:ring-2 focus:ring-brand/15"
+        className="h-10 w-full max-w-md rounded-xl border border-border bg-surface/60 pl-10 pr-4 text-sm text-foreground placeholder:text-muted/60 outline-none transition-colors field-focus"
       />
       {loading && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted md:right-[calc(100%-28rem)]" />}
 

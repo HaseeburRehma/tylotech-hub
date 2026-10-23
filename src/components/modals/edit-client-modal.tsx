@@ -90,7 +90,7 @@ export function EditClientModal({ open, onClose, client }: { open: boolean; onCl
     <ModalShell open={open} onClose={onClose}>
       <div className="flex items-start justify-between gap-4 px-6 pb-2 pt-6">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/15 text-brand">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/15 text-brand-ink">
             <Pencil className="h-5 w-5" />
           </span>
           <div>

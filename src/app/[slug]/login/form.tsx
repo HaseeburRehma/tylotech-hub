@@ -84,7 +84,7 @@ export function ClientLoginForm({ slug }: { slug: string }) {
         <div>
           <div className="flex items-center justify-between">
             <Label htmlFor="password">{t("auth.password")}</Label>
-            <Link href={`/${slug}/reset`} className="mb-1.5 text-xs font-medium text-brand hover:underline">
+            <Link href={`/${slug}/reset`} className="mb-1.5 text-xs font-medium text-brand-ink hover:underline">
               {t("auth.forgot")}
             </Link>
           </div>

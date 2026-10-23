@@ -209,7 +209,7 @@ export function SettingsView({
                     : "border-border bg-surface text-soft hover:text-foreground lg:bg-transparent lg:hover:bg-surface",
                 )}
               >
-                <Icon className={cn("h-4 w-4", active ? "text-brand" : "text-muted")} />
+                <Icon className={cn("h-4 w-4", active ? "text-brand-ink" : "text-muted")} />
                 {t(`settings.${key}`)}
               </button>
             );

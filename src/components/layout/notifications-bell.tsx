@@ -9,7 +9,6 @@ import {
   RefreshCw,
   AlertCircle,
   UserPlus,
-  Settings,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -37,12 +36,14 @@ const TYPE_ICON: Record<string, React.ElementType> = {
   user: UserPlus,
 };
 
+// Figma notification tiles: gold for people/messages, neutral for files,
+// teal for syncs, rust for alerts.
 const TYPE_COLOR: Record<string, string> = {
-  message: "bg-brand/15 text-brand",
-  document: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
-  sync: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-  alert: "bg-red-500/15 text-red-500",
-  user: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
+  message: "bg-brand/15 text-brand-ink",
+  document: "bg-line text-soft",
+  sync: "bg-positive/10 text-positive",
+  alert: "bg-negative/10 text-negative",
+  user: "bg-brand/15 text-brand-ink",
 };
 
 function guessType(title: string): string {
@@ -133,24 +134,24 @@ export function NotificationsBell({ userId, variant = "topbar" }: { userId: stri
           exit={{ opacity: 0, y: -8, scale: 0.97 }}
           transition={{ duration: 0.15 }}
           className={cn(
-            "z-[60] rounded-2xl border border-border bg-surface shadow-float",
+            "z-[60] overflow-hidden rounded-2xl border border-line bg-surface shadow-float",
             variant === "sidebar"
-              ? "fixed left-[268px] top-3 w-[360px] max-h-[calc(100vh-1.5rem)] overflow-y-auto"
-              : "fixed inset-x-4 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[360px]",
+              ? "fixed left-[268px] top-11 flex max-h-[calc(100dvh-3.5rem)] w-[392px] flex-col"
+              : "fixed inset-x-4 top-16 flex max-h-[calc(100dvh-5rem)] flex-col sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[392px]",
           )}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4">
-            <p className="text-base font-semibold text-foreground">{t("notif.title")}</p>
+          <div className="flex shrink-0 items-center justify-between border-b border-line px-[18px] py-3.5">
+            <p className="font-display text-[15px] font-semibold text-foreground">{t("notif.title")}</p>
             {unread > 0 && (
-              <button onClick={markAll} className="text-xs font-medium text-brand hover:underline">
+              <button onClick={markAll} className="text-[13px] font-medium text-brand-ink hover:underline">
                 {t("notif.markAll")}
               </button>
             )}
           </div>
 
           {/* Items */}
-          <div className="max-h-[400px] overflow-y-auto px-2">
+          <div className="min-h-0 flex-1 divide-y divide-line overflow-y-auto">
             {items.length === 0 ? (
               <p className="px-3 py-10 text-center text-sm text-muted">{t("notif.caughtUp")}</p>
             ) : (
@@ -163,20 +164,20 @@ export function NotificationsBell({ userId, variant = "topbar" }: { userId: stri
                     key={i.id}
                     onClick={() => openItem(i)}
                     className={cn(
-                      "relative flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-surface-2",
-                      !i.read && "bg-brand/[0.04]",
+                      "relative flex w-full items-start gap-3 px-[18px] py-3.5 text-left transition-colors hover:bg-bg",
+                      !i.read && "bg-brand/[0.07] hover:bg-brand/10",
                     )}
                   >
-                    <span className={cn("mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", iconColor)}>
-                      <Icon className="h-4 w-4" />
+                    <span className={cn("mt-0.5 flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg", iconColor)}>
+                      <Icon className="h-[15px] w-[15px]" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium text-foreground">{i.title}</span>
-                      {i.body && <span className="mt-0.5 block text-xs text-muted line-clamp-2">{i.body}</span>}
-                      <span className="mt-1 block text-[11px] text-muted/60">{formatRelativeTime(i.created_at)}</span>
+                      <span className="block font-display text-[13.5px] font-medium text-foreground">{i.title}</span>
+                      {i.body && <span className="mt-0.5 block text-[12.5px] leading-[18px] text-soft line-clamp-2">{i.body}</span>}
+                      <span className="mt-1 block font-mono text-[10.5px] text-muted">{formatRelativeTime(i.created_at)}</span>
                     </span>
                     {!i.read && (
-                      <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-brand" />
+                      <span className="mt-1.5 h-[7px] w-[7px] shrink-0 rounded-full bg-brand" aria-label="unread" />
                     )}
                   </button>
                 );
@@ -185,13 +186,12 @@ export function NotificationsBell({ userId, variant = "topbar" }: { userId: stri
           </div>
 
           {/* Footer */}
-          <div className="border-t border-border px-5 py-3">
+          <div className="shrink-0 border-t border-line bg-bg px-5 py-3">
             <Link
               href="/settings?tab=notifications"
               onClick={() => setOpen(false)}
-              className="flex items-center justify-center gap-1.5 text-sm text-muted transition-colors hover:text-foreground"
+              className="flex items-center justify-center gap-1.5 text-[13px] text-soft transition-colors hover:text-foreground"
             >
-              <Settings className="h-3.5 w-3.5" />
               {t("notif.settingsLink")}
             </Link>
           </div>
@@ -208,16 +208,20 @@ export function NotificationsBell({ userId, variant = "topbar" }: { userId: stri
         aria-expanded={open}
         className={cn(
           "relative flex items-center justify-center text-muted hover:text-foreground ring-focus",
-          variant === "sidebar" ? "h-8 w-8 rounded-lg hover:bg-surface-2" : "h-10 w-10 rounded-xl border border-border",
+          variant === "sidebar" ? "h-[30px] w-[30px] rounded-lg hover:bg-bg" : "h-10 w-10 rounded-xl border border-border",
         )}
-        aria-label={t("notif.title")}
+        aria-label={unread > 0 ? `${t("notif.title")} (${unread})` : t("notif.title")}
       >
-        <Bell className={variant === "sidebar" ? "h-4 w-4" : "h-[18px] w-[18px]"} />
-        {unread > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-brand-foreground ring-2 ring-bg">
-            {unread > 9 ? "9+" : unread}
-          </span>
-        )}
+        <Bell className={variant === "sidebar" ? "h-[17px] w-[17px]" : "h-[18px] w-[18px]"} strokeWidth={1.75} />
+        {/* Figma: a small rust dot on the bell; the count shows in the panel and for screen readers. */}
+        {unread > 0 &&
+          (variant === "sidebar" ? (
+            <span className="absolute right-[3px] top-[4px] h-[7px] w-[7px] rounded-full bg-negative ring-2 ring-surface" />
+          ) : (
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-brand-foreground ring-2 ring-bg">
+              {unread > 9 ? "9+" : unread}
+            </span>
+          ))}
       </button>
 
       {/* The sidebar sits in a sticky (own stacking context) column, so its panel

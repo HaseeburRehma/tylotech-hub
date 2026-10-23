@@ -15,13 +15,14 @@ import {
   ChevronDown,
   Clock,
   Globe,
+  Keyboard,
   KeyRound,
+  LifeBuoy,
   LogOut,
-  Mail,
   Moon,
+  MoreHorizontal,
   Search,
   Settings,
-  Sun,
 } from "lucide-react";
 import { useT, useI18n } from "@/lib/i18n/provider";
 import { useUser } from "@/components/providers/user-provider";
@@ -152,30 +153,30 @@ function ClientSwitcher({ onNavigate }: { onNavigate?: () => void }) {
   }
 
   return (
-    <div ref={ref} className="relative mx-3 mb-2">
-      <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted/70">
-        {t("nav.client")}
-      </p>
+    <div ref={ref} className="relative">
       <button
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2.5 rounded-xl border border-border px-2.5 py-2 text-sm transition-colors hover:bg-surface-2 ring-focus"
+        className="flex w-full items-center gap-2.5 rounded-[11px] border border-line bg-bg py-2 pl-2 pr-2.5 transition-colors hover:border-border ring-focus"
       >
-        <ClientLogo client={active} size={28} />
-        <span className="flex-1 truncate text-left font-medium text-foreground">{active.name}</span>
+        <ClientLogo client={active} size={26} />
+        <span className="min-w-0 flex-1 text-left">
+          <span className="block font-mono text-[9.5px] font-medium uppercase leading-3 tracking-[0.05em] text-muted">{t("nav.client")}</span>
+          <span className="block truncate font-display text-sm font-medium leading-[19px] text-foreground">{active.name}</span>
+        </span>
         {otherWaiting > 0 && (
           <span title={t("inbox.othersWaiting", { n: otherWaiting })} className="flex items-center text-danger">
             <Clock className="h-3.5 w-3.5" />
           </span>
         )}
         <UnreadPill n={otherUnread} />
-        <ChevronDown className={cn("h-4 w-4 text-muted transition-transform", open && "rotate-180")} />
+        <ChevronDown className={cn("h-[15px] w-[15px] text-muted transition-transform", open && "rotate-180")} />
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 z-50 mt-1 rounded-xl border border-border bg-surface p-1 shadow-float">
+        <div className="absolute left-0 right-0 z-50 mt-1 rounded-xl border border-line bg-surface p-1 shadow-float">
           {clients.length > 6 && (
             <div className="relative mb-1">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
@@ -202,15 +203,15 @@ function ClientSwitcher({ onNavigate }: { onNavigate?: () => void }) {
                     aria-selected={selected}
                     onClick={() => pick(c)}
                     className={cn(
-                      "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-surface-2",
-                      selected ? "bg-brand/8 font-medium text-foreground" : "text-muted hover:text-foreground",
+                      "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-bg",
+                      selected ? "bg-brand/10 font-medium text-foreground" : "text-soft hover:text-foreground",
                     )}
                   >
                     <ClientLogo client={c} size={24} />
                     <span className={cn("flex-1 truncate text-left", inbox.byClient[c.id]?.unread && "font-semibold text-foreground")}>{c.name}</span>
                     <WaitingClock since={inbox.byClient[c.id]?.waitingSince ?? null} />
                     <UnreadPill n={inbox.byClient[c.id]?.unread ?? 0} />
-                    {selected && <Check className="h-4 w-4 shrink-0 text-brand" />}
+                    {selected && <Check className="h-4 w-4 shrink-0 text-brand-ink" />}
                   </button>
                 </li>
               );
@@ -258,19 +259,19 @@ function NavList({
           href={item.href}
           onClick={onNavigate}
           className={cn(
-            "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ring-focus",
-            active ? "text-foreground font-medium" : "text-muted hover:text-foreground hover:bg-surface-2",
+            "group relative flex h-10 shrink-0 items-center gap-[11px] rounded-[10px] px-3 font-display text-[14.5px] font-medium tracking-[-0.01em] transition-colors ring-focus",
+            active ? "text-foreground" : "text-soft hover:bg-bg hover:text-foreground",
           )}
         >
           {active && (
             <motion.span
               layoutId="nav-active"
-              className="absolute inset-0 -z-10 rounded-xl bg-brand/8 ring-1 ring-brand/15"
+              className="absolute inset-0 -z-10 rounded-[10px] bg-brand/10"
               transition={{ type: "spring", stiffness: 400, damping: 32 }}
             />
           )}
-          <Icon className={cn("h-[18px] w-[18px]", active && "text-brand")} />
-          <span className="flex-1">{t(item.label)}</span>
+          <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-brand-ink" : "text-muted group-hover:text-soft")} strokeWidth={1.75} />
+          <span className="flex-1 truncate">{t(item.label)}</span>
           {item.href === "/chat" && <UnreadPill n={activeUnread} />}
           {item.href === "/internal" && inbox.overdue.length > 0 && (
             <span title={t("inbox.waitingCount", { n: inbox.overdue.length })} className="flex items-center gap-0.5 text-[10px] font-semibold text-danger">
@@ -283,17 +284,13 @@ function NavList({
     });
 
   return (
-    <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3">
-      <p className="px-3 pb-1.5 pt-4 text-[10px] font-semibold uppercase tracking-widest text-muted/70">
-        {t("nav.workspace")}
-      </p>
+    <nav className="-mx-1 flex flex-1 flex-col gap-0.5 overflow-y-auto px-1">
+      <p className="pb-2 pt-[22px] font-display text-[11.5px] font-medium leading-4 text-muted">{t("nav.workspace")}</p>
       {render(CLIENT_NAV)}
 
       {canSeeInternal && (
         <>
-          <p className="px-3 pb-1.5 pt-5 text-[10px] font-semibold uppercase tracking-widest text-muted/70">
-            {t("nav.tylotech")}
-          </p>
+          <p className="pb-2 pt-[22px] font-display text-[11.5px] font-medium leading-4 text-muted">{t("nav.tylotech")}</p>
           {render(INTERNAL_NAV)}
         </>
       )}
@@ -341,27 +338,7 @@ export function DarkModeToggle() {
   );
 }
 
-function SidebarBottomNav() {
-  const t = useT();
-
-  const linkClass =
-    "flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted transition-colors hover:text-foreground hover:bg-surface-2";
-
-  return (
-    <div className="mx-3 shrink-0 space-y-0.5 border-t border-border pt-3">
-      <a href="mailto:info@tylotech.de" className={linkClass}>
-        <Mail className="h-[18px] w-[18px]" />
-        <span className="flex-1">{t("sidebar.contactEmail")}</span>
-      </a>
-      <Link href="/settings" className={linkClass}>
-        <Settings className="h-[18px] w-[18px]" />
-        <span className="flex-1">{t("account.settings")}</span>
-      </Link>
-    </div>
-  );
-}
-
-function UserProfileDropdown({ canSeeInternal }: { canSeeInternal: boolean }) {
+function UserProfileDropdown() {
   const t = useT();
   const router = useRouter();
   const user = useUser();
@@ -370,12 +347,20 @@ function UserProfileDropdown({ canSeeInternal }: { canSeeInternal: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!open) return;
     function onClickOutside(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
     document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, []);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   async function signOut() {
     const supabase = createClient();
@@ -384,64 +369,95 @@ function UserProfileDropdown({ canSeeInternal }: { canSeeInternal: boolean }) {
   }
 
   const itemClass =
-    "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted transition-colors hover:text-foreground hover:bg-surface-2";
+    "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] text-foreground transition-colors hover:bg-bg";
+  const iconClass = "h-4 w-4 shrink-0 text-muted";
+  const role = ROLE_LABEL[user.role] ?? user.role;
 
   return (
-    <div ref={ref} className="relative m-3 mt-2 shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-3 rounded-xl p-2 transition-colors hover:bg-surface-2"
-      >
-        <Avatar name={user.name} src={user.avatarUrl} size={36} />
-        <div className="min-w-0 flex-1 text-left">
-          <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
-          <p className="truncate text-xs text-muted">
-            {ROLE_LABEL[user.role] ?? user.role}
-          </p>
-        </div>
-        <ChevronDown className={cn("h-4 w-4 text-muted transition-transform", open && "rotate-180")} />
-      </button>
-
+    <div ref={ref} className="relative shrink-0">
+      {/* Figma "Kontomenü" */}
       {open && (
-        <div className="absolute bottom-full left-0 right-0 z-50 mb-2 rounded-xl border border-border bg-surface p-1.5 shadow-float">
-          {/* Language */}
-          <button
-            type="button"
-            onClick={() => { setLocale(locale === "de" ? "en" : "de"); }}
-            className={itemClass}
-          >
-            <Globe className="h-[18px] w-[18px]" />
-            <span className="flex-1 text-left">{t("account.language")}</span>
-            <span className="text-xs text-muted">{locale === "de" ? "Deutsch" : "English"}</span>
-          </button>
-
-          {/* Dark mode */}
-          <div className={cn(itemClass, "cursor-default")}>
-            <Moon className="h-[18px] w-[18px]" />
-            <span className="flex-1">{t("sidebar.darkMode")}</span>
-            <DarkModeToggle />
+        <div role="menu" className="absolute bottom-full left-0 z-50 mb-2 w-[268px] overflow-hidden rounded-2xl border border-line bg-surface shadow-float">
+          <div className="flex items-center gap-3 px-4 py-3.5">
+            <Avatar name={user.name} src={user.avatarUrl} size={34} />
+            <div className="min-w-0">
+              <p className="truncate font-display text-sm font-medium text-foreground">{user.name}</p>
+              <p className="truncate text-xs text-muted">{user.email}</p>
+            </div>
           </div>
-
-          {/* Admin settings */}
-          {canSeeInternal && (
-            <Link href="/internal" onClick={() => setOpen(false)} className={itemClass}>
-              <KeyRound className="h-[18px] w-[18px]" />
-              <span className="flex-1">{t("sidebar.adminAccess")}</span>
+          <div className="flex items-center justify-between gap-2 border-y border-line px-4 py-2.5">
+            {user.role === "admin" ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-brand/60 bg-brand/10 px-2.5 py-0.5 text-xs font-medium text-foreground">
+                <KeyRound className="h-3 w-3 text-brand-ink" /> {role}
+              </span>
+            ) : (
+              <span className="text-xs font-medium text-foreground">{role}</span>
+            )}
+            {user.role !== "client" && <span className="text-xs text-muted">{t("account.teamLabel")}</span>}
+          </div>
+          <div className="p-1.5">
+            <Link href="/settings" onClick={() => setOpen(false)} className={itemClass} role="menuitem">
+              <Settings className={iconClass} />
+              <span className="flex-1">{t("account.settings")}</span>
             </Link>
-          )}
-
-          {/* Sign out */}
-          <button
-            type="button"
-            onClick={signOut}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-danger transition-colors hover:bg-danger/10"
-          >
-            <LogOut className="h-[18px] w-[18px]" />
-            <span className="flex-1 text-left">{t("account.signOut")}</span>
-          </button>
+            <button type="button" role="menuitem" onClick={() => setLocale(locale === "de" ? "en" : "de")} className={itemClass}>
+              <Globe className={iconClass} />
+              <span className="flex-1 text-left">
+                {t("account.language")} · {locale === "de" ? "Deutsch" : "English"}
+              </span>
+            </button>
+            <div className={cn(itemClass, "cursor-default hover:bg-transparent")}>
+              <Moon className={iconClass} />
+              <span className="flex-1">{t("sidebar.darkMode")}</span>
+              <DarkModeToggle />
+            </div>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                window.dispatchEvent(new Event("open-command-palette"));
+              }}
+              className={itemClass}
+            >
+              <Keyboard className={iconClass} />
+              <span className="flex-1 text-left">{t("account.shortcuts")}</span>
+              <kbd className="rounded border border-line bg-bg px-1.5 py-px font-mono text-[10px] text-muted">⌘K</kbd>
+            </button>
+            <a href="mailto:info@tylotech.de" role="menuitem" className={itemClass}>
+              <LifeBuoy className={iconClass} />
+              <span className="flex-1">{t("account.help")}</span>
+            </a>
+          </div>
+          <div className="border-t border-line p-1.5">
+            <button
+              type="button"
+              role="menuitem"
+              onClick={signOut}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] text-negative transition-colors hover:bg-negative/10"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="flex-1 text-left">{t("account.signOut")}</span>
+            </button>
+          </div>
         </div>
       )}
+
+      {/* Figma "Konto" card */}
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-2.5 rounded-[11px] border border-line py-[9px] pl-2 pr-2.5 transition-colors hover:bg-bg ring-focus"
+      >
+        <Avatar name={user.name} src={user.avatarUrl} size={28} />
+        <div className="min-w-0 flex-1 text-left">
+          <p className="truncate font-display text-[13.5px] font-medium leading-[18px] text-foreground">{user.name}</p>
+          <p className="truncate text-[11.5px] leading-[15px] text-muted">{role}</p>
+        </div>
+        <MoreHorizontal className="h-[15px] w-[15px] shrink-0 text-muted" />
+      </button>
     </div>
   );
 }
@@ -459,9 +475,10 @@ export function Sidebar({
 }) {
   const t = useT();
   return (
-    <aside className="flex h-full w-[260px] flex-col border-r border-border bg-surface">
-      <div className="flex h-16 items-center gap-2 px-5">
-        <Logo />
+    <aside className="flex h-full w-[248px] flex-col border-r border-line bg-surface px-4 pb-4 pt-5">
+      {/* Figma "Marke": wordmark + tools */}
+      <div className="flex items-center gap-1 pb-[18px] pl-1.5">
+        <Logo size={33} />
         <div className="ml-auto flex items-center gap-0.5">
           <button
             type="button"
@@ -483,8 +500,9 @@ export function Sidebar({
 
       <NavList onNavigate={onNavigate} canSeeInternal={canSeeInternal} clients={clients} />
 
-      <SidebarBottomNav />
-      <UserProfileDropdown canSeeInternal={canSeeInternal} />
+      <div className="pt-3">
+        <UserProfileDropdown />
+      </div>
     </aside>
   );
 }

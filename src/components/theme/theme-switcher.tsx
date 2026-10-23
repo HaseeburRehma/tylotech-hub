@@ -26,7 +26,7 @@ export function ThemeSwitcher() {
         className="flex h-10 items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 text-sm text-muted transition-colors hover:border-brand/40 hover:text-foreground ring-focus"
         title="Switch white-label brand"
       >
-        <Palette className="h-4 w-4 text-brand" />
+        <Palette className="h-4 w-4 text-brand-ink" />
         <span className="hidden sm:inline">White-label</span>
         <span
           className="h-3.5 w-3.5 rounded-full ring-2 ring-bg"
@@ -85,7 +85,7 @@ export function ThemeSwitcher() {
                       </span>
                       <span className="block text-xs text-muted">{t.tagline}</span>
                     </span>
-                    {active && <Check className="h-4 w-4 text-brand" />}
+                    {active && <Check className="h-4 w-4 text-brand-ink" />}
                   </button>
                 );
               })}

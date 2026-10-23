@@ -106,7 +106,7 @@ export default function NewTeamMemberPage() {
                     id="role"
                     value={form.role}
                     onChange={set("role")}
-                    className="h-11 w-full rounded-xl border border-border bg-bg/60 pl-10 pr-3 text-sm outline-none focus:border-brand/50 focus:ring-2 focus:ring-brand/15"
+                    className="h-11 w-full rounded-xl border border-border bg-bg/60 pl-10 pr-3 text-sm outline-none field-focus"
                   >
                     <option value="team">{t("teamForm.roleTeam")}</option>
                     {user.role === "admin" && <option value="admin">{t("teamForm.roleAdmin")}</option>}

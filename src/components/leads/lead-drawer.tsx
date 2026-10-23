@@ -33,7 +33,7 @@ const PILL: Record<string, string> = {
   info: "border-info/50 bg-info/15 text-info",
   neutral: "border-border bg-surface-2 text-foreground",
   warning: "border-warning/50 bg-warning/15 text-warning",
-  brand: "border-brand/50 bg-brand/15 text-brand",
+  brand: "border-brand/50 bg-brand/15 text-brand-ink",
   success: "border-success/50 bg-success/15 text-success",
   danger: "border-danger/50 bg-danger/15 text-danger",
   outline: "border-border bg-transparent text-muted",
@@ -223,7 +223,7 @@ export function LeadDrawer({
             {lead.email && (
               <div className="flex flex-wrap items-center gap-2">
                 <a href={`mailto:${lead.email}`} onClick={() => void log("email", "")} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:bg-surface-2">
-                  <Mail className="h-4 w-4 text-brand" /> {lead.email}
+                  <Mail className="h-4 w-4 text-brand-ink" /> {lead.email}
                 </a>
                 <button type="button" onClick={() => copy(lead.email!)} aria-label={t("chat.copy")} className="rounded-lg p-2 text-muted hover:bg-surface-2 hover:text-foreground">
                   {copied === lead.email ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}

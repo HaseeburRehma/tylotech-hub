@@ -124,7 +124,7 @@ export function MfaSetup() {
     <Card className="p-6">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <ShieldCheck className="h-5 w-5 text-brand" />
+          <ShieldCheck className="h-5 w-5 text-brand-ink" />
           {t("mfa.title")}
         </CardTitle>
       </CardHeader>

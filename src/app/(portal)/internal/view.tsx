@@ -153,7 +153,7 @@ export function InternalView({
         badge={
           user.role === "admin" && (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-brand/60 bg-brand/10 px-2.5 py-0.5 text-xs font-medium text-foreground">
-              <KeyRound className="h-3 w-3 text-brand" />
+              <KeyRound className="h-3 w-3 text-brand-ink" />
               Super Admin
             </span>
           )

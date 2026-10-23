@@ -670,7 +670,7 @@ export function PerformanceView({
                             className="border-b border-border/50 last:border-0 hover:bg-surface-2/40"
                           >
                             <td className="max-w-[340px] px-5 py-3">
-                              <a href={p.page} target="_blank" rel="noopener noreferrer" className="block truncate font-mono text-[13px] text-foreground hover:text-brand" title={p.page}>
+                              <a href={p.page} target="_blank" rel="noopener noreferrer" className="block truncate font-mono text-[13px] text-foreground hover:text-brand-ink" title={p.page}>
                                 {portfolio && <span className="text-muted">{host}</span>}
                                 {path === "/" ? `/ (${t("perf.homepage")})` : path}
                               </a>

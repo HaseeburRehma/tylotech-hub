@@ -98,7 +98,7 @@ export function StartRunModal({
       {/* Header */}
       <div className="flex shrink-0 items-start gap-4 px-5 pt-5 pb-4 sm:px-6 sm:pt-6">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/15">
-          <ListChecks className="h-5 w-5 text-brand" />
+          <ListChecks className="h-5 w-5 text-brand-ink" />
         </div>
         <div className="min-w-0 flex-1">
           <h2 className="text-lg font-semibold text-foreground">{t("wf.startTitle")}</h2>
@@ -150,7 +150,7 @@ export function StartRunModal({
                     <button
                       type="button"
                       onClick={() => setSelected(allSelected ? [] : sorted.map((c) => c.id))}
-                      className="font-medium text-brand hover:underline"
+                      className="font-medium text-brand-ink hover:underline"
                     >
                       {allSelected ? t("wf.selectNone") : t("wf.selectAll")}
                     </button>

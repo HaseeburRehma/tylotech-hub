@@ -121,7 +121,7 @@ export function ChatWidget() {
                 value={val}
                 onChange={(e) => setVal(e.target.value)}
                 placeholder={t("widget.placeholder")}
-                className="h-10 flex-1 rounded-xl border border-border bg-bg/60 px-3 text-sm outline-none focus:border-brand/50"
+                className="h-10 flex-1 rounded-xl border border-border bg-bg/60 px-3 text-sm outline-none field-focus"
               />
               <button
                 type="submit"

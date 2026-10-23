@@ -13,7 +13,7 @@ export function renderRich(text: string): string {
   return parked
     .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
     .replace(/==([^=\n]+)==/g, '<mark style="background:rgba(201,168,76,.38);color:inherit;border-radius:3px;padding:0 2px">$1</mark>')
-    .replace(/@([A-Za-zÀ-ÿ][\w\s]{0,30}[\w])/g, '<span class="text-brand font-semibold">@$1</span>')
+    .replace(/@([A-Za-zÀ-ÿ][\w\s]{0,30}[\w])/g, '<span class="text-brand-ink font-semibold">@$1</span>')
     .replace(/\u0000(\d+)\u0000/g, (_, i: string) => {
       const url = links[Number(i)]!;
       const label = url.length > 60 ? `${url.slice(0, 57)}…` : url;

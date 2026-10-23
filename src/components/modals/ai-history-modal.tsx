@@ -28,7 +28,7 @@ export function AiHistoryModal({ open, onClose, tool }: { open: boolean; onClose
     <ModalShell open={open} onClose={onClose} className="max-w-xl">
       <div className="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
         <div className="flex items-center gap-2.5">
-          <Clock className="h-5 w-5 text-brand" />
+          <Clock className="h-5 w-5 text-brand-ink" />
           <h2 className="font-display text-lg font-semibold">{t("ait.history")}</h2>
         </div>
         <div className="flex items-center gap-1">

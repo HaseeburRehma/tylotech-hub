@@ -44,16 +44,16 @@ export function EditProjectModal({ project, onClose }: { project: Project | null
   }
 
   const field =
-    "w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 focus:border-brand/50";
+    "w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 field-focus";
 
   return (
     <ModalShell open={!!project} onClose={onClose}>
-      <div className="flex items-start gap-4 px-6 pt-6 pb-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/15">
-          <Pencil className="h-5 w-5 text-brand" />
+      <div className="flex items-start gap-4 border-b border-line px-6 py-5">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10">
+          <Pencil className="h-5 w-5 text-brand-ink" />
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="text-lg font-semibold text-foreground">{t("editProj.title")}</h2>
+          <h2 className="font-display text-lg font-semibold tracking-[-0.01em] text-foreground">{t("editProj.title")}</h2>
           <p className="mt-0.5 text-sm text-muted">{t("editProj.desc")}</p>
         </div>
         <button
@@ -66,18 +66,18 @@ export function EditProjectModal({ project, onClose }: { project: Project | null
         </button>
       </div>
 
-      <div className="space-y-4 px-6">
+      <div className="space-y-4 px-6 py-5">
         {error && <div className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">{error}</div>}
         <div>
-          <label htmlFor="ep-name" className="mb-1.5 block text-sm font-medium text-foreground">{t("newProj.name")}</label>
+          <label htmlFor="ep-name" className="mb-1.5 block text-[13px] text-soft">{t("newProj.name")}</label>
           <input id="ep-name" value={name} maxLength={160} onChange={(e) => setName(e.target.value)} className={`${field} h-11`} />
         </div>
         <div>
-          <label htmlFor="ep-due" className="mb-1.5 block text-sm font-medium text-foreground">{t("newProj.due")}</label>
+          <label htmlFor="ep-due" className="mb-1.5 block text-[13px] text-soft">{t("newProj.due")}</label>
           <input id="ep-due" type="date" value={due} onChange={(e) => setDue(e.target.value)} className={`${field} h-11`} />
         </div>
         <div>
-          <label htmlFor="ep-desc" className="mb-1.5 block text-sm font-medium text-foreground">{t("newProj.descField")}</label>
+          <label htmlFor="ep-desc" className="mb-1.5 block text-[13px] text-soft">{t("newProj.descField")}</label>
           <textarea
             id="ep-desc"
             value={description}

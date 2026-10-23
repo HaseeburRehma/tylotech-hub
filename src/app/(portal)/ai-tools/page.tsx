@@ -112,7 +112,7 @@ export default function AiToolsPage() {
             return (
               <>
                 {parts[0]}
-                <em className="font-serif text-[1.08em] font-normal italic tracking-normal text-brand">{t("ait.heroStart")}</em>
+                <em className="font-serif text-[1.08em] font-normal italic tracking-normal text-brand-ink">{t("ait.heroStart")}</em>
                 {firstName ? `, ${firstName}` : ""}
                 {parts[1]}
               </>
@@ -214,7 +214,7 @@ export default function AiToolsPage() {
                     upgrade ? "hover:border-brand/40" : off ? "cursor-not-allowed opacity-50" : "hover:border-brand/40",
                   )}
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand-ink">
                     <Icon className="h-[18px] w-[18px]" />
                   </span>
                   <div className="min-w-0 flex-1">

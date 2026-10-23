@@ -28,7 +28,10 @@ const config: Config = {
         brand: {
           DEFAULT: "rgb(var(--brand) / <alpha-value>)",
           foreground: "rgb(var(--brand-foreground) / <alpha-value>)",
+          // Brand for text and icons — always readable on the current surface.
+          ink: "rgb(var(--brand-ink) / <alpha-value>)",
         },
+        petrol: "rgb(0 46 61 / <alpha-value>)", // Figma action/primary, surface/brand
         accent: "rgb(var(--accent) / <alpha-value>)",
         success: "rgb(var(--success) / <alpha-value>)",
         warning: "rgb(var(--warning) / <alpha-value>)",

@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono, Instrument_Sans, Instrument_Serif, Inter } from "next/font/google";
+import { Instrument_Sans, Instrument_Serif, Inter } from "next/font/google";
+import { GeistMono } from "geist/font/mono";
 import { ThemeProvider } from "@/lib/theme/theme-provider";
-import { buildClientTheme, TYLOTECH_THEME, type BrandTheme } from "@/lib/theme/themes";
+import { buildClientTheme, themeToCssVars, TYLOTECH_THEME, type BrandTheme } from "@/lib/theme/themes";
 import { getAuthUser, isStaff } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { I18nProvider } from "@/lib/i18n/provider";
@@ -13,9 +14,6 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swa
 const instrument = Instrument_Sans({ subsets: ["latin"], variable: "--font-display", display: "swap" });
 // Italic accent word in hero headings ("What *shall we start* with?").
 const instrumentSerif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "italic", variable: "--font-serif", display: "swap" });
-// Eyebrow labels, table headers and URL paths. Figma uses Geist Mono, which
-// this Next version's font list lacks; Plex Mono is the closest match.
-const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
   // Absolute URLs for link previews (og:image etc.) — the live domain.
@@ -98,8 +96,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html
       lang={locale}
       translate="no"
-      className={`notranslate ${inter.variable} ${instrument.variable} ${instrumentSerif.variable} ${plexMono.variable}`}
+      className={`notranslate ${inter.variable} ${instrument.variable} ${instrumentSerif.variable} ${GeistMono.variable}`}
       suppressHydrationWarning
+      // Brand colours in the first paint — no flash of TyloTech gold before a client's brand loads.
+      style={themeToCssVars(initialTheme ?? TYLOTECH_THEME) as React.CSSProperties}
     >
       <head>
         {/* If a translator or extension still rewrites text nodes, React's later

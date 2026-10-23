@@ -35,7 +35,7 @@ function StyledHeadline({ text }: { text: string }) {
     <>
       {parts.map((p, i) =>
         p.startsWith("*") && p.endsWith("*") ? (
-          <span key={i} className="italic" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
+          <span key={i} className="font-serif text-[1.08em] font-normal italic tracking-normal text-brand">
             {p.slice(1, -1)}
           </span>
         ) : (
@@ -67,7 +67,7 @@ export function AuthShell({
   return (
     <div className="grid min-h-screen lg:grid-cols-[1fr_1.05fr]">
       {/* ---------- Left: form ---------- */}
-      <div className="relative flex flex-col bg-bg px-5 py-8 sm:px-10 lg:px-14">
+      <div className="relative flex flex-col bg-surface px-5 py-8 sm:px-10 lg:px-14">
         {/* Top bar */}
         <div className="flex items-center justify-between">
           <BrandMark size={34} logoUrl={brand?.logoUrl} company={brand?.company} />
@@ -102,13 +102,8 @@ export function AuthShell({
       {/* ---------- Right: branded showcase ---------- */}
       <div className="relative hidden flex-col justify-between overflow-hidden p-10 xl:p-14 lg:flex">
         {/* layered brand background */}
-        <div className="absolute inset-0 -z-10 bg-[rgb(var(--accent))]" />
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(130%_120%_at_-5%_-5%,rgb(var(--brand)/0.45),transparent_52%)]" />
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(100%_100%_at_110%_110%,rgb(var(--brand)/0.22),transparent_55%)]" />
-        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-black/10 to-black/40" />
-        <div className="absolute inset-0 -z-10 bg-grid bg-[size:44px_44px] opacity-[0.18] [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]" />
-        <div className="absolute -right-24 top-1/4 -z-10 h-80 w-80 rounded-full bg-brand/30 blur-[110px]" />
-        <div className="absolute bottom-0 left-0 -z-10 h-72 w-72 rounded-full bg-brand/15 blur-[120px]" />
+        {/* Figma: a flat warm-black panel; the brand only appears in the logo and accent words. */}
+        <div className="absolute inset-0 -z-10 bg-[#0F0E0D]" />
 
         <BrandMark size={34} logoUrl={brand?.logoUrl} company={brand?.company} dark />
 
@@ -138,15 +133,15 @@ export function AuthShell({
             className="mt-8 flex gap-8"
           >
             <div>
-              <p className="text-2xl font-bold text-white">2.109&nbsp;€</p>
+              <p className="font-display text-2xl font-semibold tracking-[-0.02em] text-white">2.109&nbsp;€</p>
               <p className="mt-1 text-sm text-white/50">{t("auth.statBudget")}</p>
             </div>
             <div className="border-l border-white/10 pl-8">
-              <p className="text-2xl font-bold text-white">39</p>
+              <p className="font-display text-2xl font-semibold tracking-[-0.02em] text-white">39</p>
               <p className="mt-1 text-sm text-white/50">{t("auth.statLeads")}</p>
             </div>
             <div className="border-l border-white/10 pl-8">
-              <p className="text-2xl font-bold text-white">10</p>
+              <p className="font-display text-2xl font-semibold tracking-[-0.02em] text-white">10</p>
               <p className="mt-1 text-sm text-white/50">{t("auth.statClients")}</p>
             </div>
           </motion.div>
@@ -155,13 +150,13 @@ export function AuthShell({
         {/* Bottom row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-[13px] text-white/50">
-            <ShieldCheck className="h-4 w-4 text-brand/70" />
+            <ShieldCheck className="h-4 w-4 text-white/50" />
             {t("auth.secure")}
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-white" />
-            <span className="h-2 w-2 rounded-full bg-white/30" />
-            <span className="h-2 w-2 rounded-full bg-white/30" />
+            <span className="h-1.5 w-1.5 rounded-full bg-brand" />
+            <span className="h-1.5 w-1.5 rounded-full bg-white/30" />
+            <span className="h-1.5 w-1.5 rounded-full bg-white/30" />
           </div>
         </div>
       </div>

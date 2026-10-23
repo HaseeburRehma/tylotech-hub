@@ -3,6 +3,7 @@
 import { useTheme } from "@/lib/theme/theme-provider";
 import { BrandTheme } from "@/lib/theme/themes";
 import { cn } from "@/lib/utils";
+import { TylotechWordmark } from "./tylotech-wordmark";
 
 function Mark({ theme, size = 32 }: { theme: BrandTheme; size?: number }) {
   if (theme.logo.type === "url") {
@@ -59,6 +60,15 @@ export function Logo({
   invert?: boolean;
 }) {
   const { theme } = useTheme();
+
+  // TyloTech itself: the vector wordmark from Figma (sharp at any size, flips to white in dark mode).
+  if (showName && theme.id === "tylotech") {
+    return (
+      <div className={cn("flex items-center", invert ? "text-white" : "text-foreground", className)}>
+        <TylotechWordmark height={size} />
+      </div>
+    );
+  }
 
   if (showName && theme.fullLogo) {
     return (

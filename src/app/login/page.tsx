@@ -86,7 +86,7 @@ function LoginForm() {
         <div>
           <div className="flex items-center justify-between">
             <Label htmlFor="password">{t("auth.password")}</Label>
-            <Link href="/reset" className="mb-1.5 text-xs font-medium text-brand hover:underline">
+            <Link href="/reset" className="mb-1.5 text-xs font-medium text-brand-ink hover:underline">
               {t("auth.forgot")}
             </Link>
           </div>
@@ -105,7 +105,7 @@ function LoginForm() {
 
       <p className="mt-6 text-center text-sm text-muted">
         {t("auth.teamMemberQ")}{" "}
-        <Link href="/signup" className="font-semibold text-brand hover:underline">
+        <Link href="/signup" className="font-semibold text-brand-ink hover:underline">
           {t("auth.createAccount")}
         </Link>
       </p>
