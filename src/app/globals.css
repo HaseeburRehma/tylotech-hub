@@ -22,9 +22,10 @@
   --warning: 228 176 52;
   --danger: 220 60 60;
   --info: 59 130 246;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: var(--font-sans);
-  /* Eyebrow labels and data (Figma Mono/Eyebrow, Mono/Data). */
+  /* --font-sans, --font-display, --font-serif are injected by Next.js font
+     classes on <html>. Do NOT redeclare them here — the :root specificity
+     overrides the class-injected values and breaks font loading.
+     --font-mono bridges --font-geist-mono (Next.js) → font-mono (Tailwind). */
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
   /* Brand as text/icon colour: never the light brand tone on white (Figma rule 1). */
   --brand-ink-light: 148 113 63;
