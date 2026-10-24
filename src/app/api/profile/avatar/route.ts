@@ -25,13 +25,17 @@ export async function POST(req: Request) {
   const { error: upErr } = await admin.storage
     .from("logos")
     .upload(path, new Uint8Array(await file.arrayBuffer()), { contentType: file.type, upsert: false });
-  if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 });
+  if (upErr) {
+    console.error("avatar upload failed:", upErr.message);
+    return NextResponse.json({ error: "Could not upload the avatar." }, { status: 400 });
+  }
 
   const url = admin.storage.from("logos").getPublicUrl(path).data.publicUrl;
   const { error } = await admin.from("users").update({ avatar_url: url }).eq("id", user.id);
   if (error) {
     await admin.storage.from("logos").remove([path]);
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error("avatar db update failed:", error.message);
+    return NextResponse.json({ error: "Could not save the avatar." }, { status: 400 });
   }
 
   // Drop the previous upload so replaced avatars don't accumulate.

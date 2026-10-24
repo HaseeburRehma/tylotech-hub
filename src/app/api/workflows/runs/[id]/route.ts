@@ -21,7 +21,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const every = b.repeatEvery === null || b.repeatEvery === "" ? null : b.repeatEvery;
     if (every !== null && every !== "week" && every !== "month") return bad("repeatEvery must be week, month or null.");
     const { data, error } = await ctx.admin.from("workflow_runs").update({ repeat_every: every }).eq("id", params.id).select("id,name,client_id").maybeSingle();
-    if (error) return bad(/repeat_every/.test(error.message) ? "Repeating processes need database migration 0041." : error.message, /repeat_every/.test(error.message) ? 503 : 400);
+    if (error) {
+      console.error("workflow repeat_every update failed:", error.message);
+      return bad(/repeat_every/.test(error.message) ? "Repeating processes need database migration 0041." : "Could not update the process.", /repeat_every/.test(error.message) ? 503 : 400);
+    }
     if (!data) return bad("Process not found.", 404);
     await logAudit(ctx.user, { action: "workflow.repeat_set", clientId: data.client_id, targetType: "workflow_run", targetId: data.id, summary: `${data.name}: ${every ?? "off"}` }, ctx.admin);
     return NextResponse.json({ ok: true });
@@ -38,7 +41,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     .eq("status", from)
     .select("id,name,client_id")
     .maybeSingle();
-  if (error) return bad(error.message);
+  if (error) {
+    console.error("workflow status update failed:", error.message);
+    return bad("Could not update the process.");
+  }
   if (!data) return bad(`Only ${from} processes can be ${b.status === "paused" ? "paused" : "resumed"}.`, 409);
   await logAudit(ctx.user, { action: b.status === "paused" ? "workflow.pause" : "workflow.resume", clientId: data.client_id, targetType: "workflow_run", targetId: data.id, summary: data.name }, ctx.admin);
   return NextResponse.json({ ok: true });
@@ -54,7 +60,10 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   // filed in the partner's Documents stay.
   const { data: files } = await ctx.admin.from("workflow_step_attachments").select("path").eq("run_id", params.id).eq("kind", "file");
   const { data, error } = await ctx.admin.from("workflow_runs").delete().eq("id", params.id).select("id,name,client_id");
-  if (error) return bad(error.message);
+  if (error) {
+    console.error("workflow delete failed:", error.message);
+    return bad("Could not delete the process.");
+  }
   if (!data?.length) return bad("Process not found.", 404);
   const paths = (files ?? []).map((f) => f.path as string).filter(Boolean);
   if (paths.length) await ctx.admin.storage.from(WF_BUCKET).remove(paths);

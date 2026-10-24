@@ -44,7 +44,10 @@ export async function POST(req: Request) {
   }
   const { data, error } = res;
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("project create failed:", error.message);
+    return NextResponse.json({ error: "Could not create the project." }, { status: 400 });
+  }
   await logAudit(user, { action: "project.create", clientId: data.client_id, targetType: "project", targetId: data.id, summary: data.name });
   return NextResponse.json({ ok: true, project: data });
 }
@@ -86,7 +89,10 @@ export async function PATCH(req: Request) {
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
 
   const { data, error } = await sb.from("projects").update(patch).eq("id", b.id).select().single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("project update failed:", error.message);
+    return NextResponse.json({ error: "Could not update the project." }, { status: 400 });
+  }
   await logAudit(user, {
     action: patch.status ? "project.status" : "project.update",
     clientId: data.client_id,
@@ -105,7 +111,10 @@ export async function DELETE(req: Request) {
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Project id required." }, { status: 400 });
   const { data: gone, error } = await sb.from("projects").delete().eq("id", id).select("client_id,name");
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("project delete failed:", error.message);
+    return NextResponse.json({ error: "Could not delete the project." }, { status: 400 });
+  }
   if (gone?.length) await logAudit(user, { action: "project.delete", clientId: gone[0].client_id, targetType: "project", targetId: id, summary: gone[0].name });
   return NextResponse.json({ ok: true });
 }

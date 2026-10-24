@@ -32,7 +32,10 @@ export async function POST(req: Request) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("update create failed:", error.message);
+    return NextResponse.json({ error: "Could not create the update." }, { status: 400 });
+  }
   await logAudit(user, { action: "update.post", clientId: b.clientId, targetType: "update", targetId: data.id, summary: data.title });
 
   await notifyClientUsers(b.clientId, {
@@ -69,7 +72,10 @@ export async function PATCH(req: Request) {
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
 
   const { data, error } = await sb.from("updates").update(patch).eq("id", b.id).select().maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("update edit failed:", error.message);
+    return NextResponse.json({ error: "Could not save the update." }, { status: 400 });
+  }
   if (!data) return NextResponse.json({ error: "Update not found." }, { status: 404 });
   await logAudit(user, { action: "update.edit", clientId: data.client_id, targetType: "update", targetId: data.id, summary: data.title });
   return NextResponse.json({ ok: true, update: data });
@@ -83,7 +89,10 @@ export async function DELETE(req: Request) {
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required." }, { status: 400 });
   const { data: gone, error } = await sb.from("updates").delete().eq("id", id).select("client_id,title");
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("update delete failed:", error.message);
+    return NextResponse.json({ error: "Could not delete the update." }, { status: 400 });
+  }
   if (gone?.length) await logAudit(user, { action: "update.delete", clientId: gone[0].client_id, targetType: "update", targetId: id, summary: gone[0].title });
   return NextResponse.json({ ok: true });
 }

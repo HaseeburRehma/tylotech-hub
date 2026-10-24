@@ -38,7 +38,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     .eq("id", params.id)
     .select("id,name")
     .maybeSingle();
-  if (error) return bad(error.message);
+  if (error) {
+    console.error("template update failed:", error.message);
+    return bad("Could not update the template.");
+  }
   if (!tpl) return bad("Template not found.", 404);
 
   if (steps && "rows" in steps) {

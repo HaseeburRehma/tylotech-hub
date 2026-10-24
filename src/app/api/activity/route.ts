@@ -100,7 +100,10 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
   const { data, error } = await ctx.admin.from("activity_events").update({ hidden: b.hidden }).eq("id", b.id!).select("id").maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("activity update failed:", error.message);
+    return NextResponse.json({ error: "Could not update the event." }, { status: 400 });
+  }
   if (!data) return NextResponse.json({ error: "Event not found." }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

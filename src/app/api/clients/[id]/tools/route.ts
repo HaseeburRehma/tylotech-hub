@@ -31,7 +31,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const { error } = await admin
     .from("client_tools")
     .upsert({ client_id: params.id, tool_id: tool.id, is_unlocked: b.enabled }, { onConflict: "client_id,tool_id" });
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("tool toggle failed:", error.message);
+    return NextResponse.json({ error: "Could not update the tool." }, { status: 400 });
+  }
 
   await logAudit(user, {
     action: b.enabled ? "tool.enable" : "tool.disable",

@@ -45,7 +45,10 @@ export async function PATCH(req: Request) {
 
   if (Object.keys(row).length) {
     const { error } = await admin.from("users").update(row).eq("id", user.id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error) {
+      console.error("profile update failed:", error.message);
+      return NextResponse.json({ error: "Could not update your profile." }, { status: 400 });
+    }
   }
   if (Object.keys(meta).length) {
     const { data } = await admin.auth.admin.getUserById(user.id);

@@ -21,5 +21,5 @@ export function engineError(message: string) {
   if (/not active/.test(message)) return bad("This step can't be changed right now — refresh to see the latest state.", 409);
   if (/not finished/.test(message)) return bad("Only finished steps can be reopened.", 409);
   if (/not found/.test(message)) return bad("Step not found.", 404);
-  return bad(message, 400);
+  return bad("Something went wrong — please try again.", 400);
 }

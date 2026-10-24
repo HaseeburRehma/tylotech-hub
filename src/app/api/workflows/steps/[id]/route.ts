@@ -47,7 +47,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
     if (run?.status === "paused") return bad("This process is paused.", 409);
     const { data, error } = await ctx.admin.rpc("workflow_advance", { p_step: step.id, p_actor: ctx.user.id, p_status: b.action === "skip" ? "skipped" : "done" });
-    if (error) return engineError(error.message);
+    if (error) {
+      console.error("workflow_advance failed:", error.message);
+      return engineError(error.message);
+    }
     const result = (Array.isArray(data) ? data[0] : data) as { next_step_id: string | null; run_completed: boolean } | null;
     if (result?.next_step_id) await notifyStepActive(ctx.admin, result.next_step_id, ctx.user.id).catch(() => {});
     let nextRunId: string | null = null;
@@ -62,7 +65,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (b.action === "reopen") {
     if (!isAdmin) return bad("Only admins can reopen steps.", 403);
     const { error } = await ctx.admin.rpc("workflow_reopen", { p_step: step.id });
-    if (error) return engineError(error.message);
+    if (error) {
+      console.error("workflow_reopen failed:", error.message);
+      return engineError(error.message);
+    }
     await audit("workflow.step_reopen", step.title);
     return NextResponse.json({ ok: true });
   }
@@ -85,7 +91,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (!Object.keys(patch).length) return bad("Nothing to update.");
 
   const { error } = await ctx.admin.from("workflow_run_steps").update(patch).eq("id", step.id);
-  if (error) return bad(error.message);
+  if (error) {
+    console.error("workflow step update failed:", error.message);
+    return bad("Could not update the step.");
+  }
 
   const reassigned = "assignee_user_id" in patch && patch.assignee_user_id !== step.assignee_user_id;
   if (reassigned && step.status === "active" && patch.assignee_user_id && patch.assignee_user_id !== ctx.user.id) {

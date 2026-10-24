@@ -74,8 +74,10 @@ describe("engineError", () => {
     expect(res.status).toBe(404);
   });
 
-  it("falls back to 400 for other errors", () => {
+  it("falls back to 400 with generic message for other errors", async () => {
     const res = engineError("something else");
     expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).not.toContain("something else");
   });
 });

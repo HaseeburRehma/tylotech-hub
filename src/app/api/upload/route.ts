@@ -36,7 +36,10 @@ export async function POST(req: Request) {
     contentType: file.type,
     upsert: true,
   });
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("logo upload failed:", error.message);
+    return NextResponse.json({ error: "Could not upload the file." }, { status: 400 });
+  }
 
   const { data } = admin.storage.from("logos").getPublicUrl(path);
   return NextResponse.json({ ok: true, url: data.publicUrl });

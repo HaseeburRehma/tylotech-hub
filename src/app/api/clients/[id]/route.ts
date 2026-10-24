@@ -86,7 +86,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const { data: before } = await admin.from("clients").select("mrr").eq("id", params.id).maybeSingle();
   const { data, error } = await admin.from("clients").update(patch).eq("id", params.id).select("id").maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("client update failed:", error.message);
+    return NextResponse.json({ error: "Could not update the client." }, { status: 400 });
+  }
   if (!data) return NextResponse.json({ error: "Client not found." }, { status: 404 });
   // Record MRR changes so the revenue history stays truthful (best-effort pre-0028).
   if (patch.mrr !== undefined && Number(before?.mrr ?? 0) !== patch.mrr) {

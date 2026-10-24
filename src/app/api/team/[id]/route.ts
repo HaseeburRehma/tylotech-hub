@@ -54,7 +54,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const { deactivated_at: _d, ...rest } = row;
     error = Object.keys(rest).length ? (await admin.from("users").update(rest).eq("id", params.id)).error : null;
   }
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("team member update failed:", error.message);
+    return NextResponse.json({ error: "Could not update the team member." }, { status: 400 });
+  }
 
   if (row.role) {
     const { data } = await admin.auth.admin.getUserById(params.id);

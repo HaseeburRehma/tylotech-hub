@@ -57,11 +57,17 @@ export async function POST(req: Request) {
     let ins = await sb.from("kpis").insert(rows);
     // Pre-0027 schema: delta is NOT NULL — store "no change given" as 0 (the UI hides 0).
     if (ins.error?.code === "23502") ins = await sb.from("kpis").insert(rows.map((r) => ({ ...r, delta: r.delta ?? 0 })));
-    if (ins.error) return NextResponse.json({ error: ins.error.message }, { status: 400 });
+    if (ins.error) {
+      console.error("kpi insert failed:", ins.error.message);
+      return NextResponse.json({ error: "Could not save KPIs." }, { status: 400 });
+    }
   }
   if (old?.length) {
     const { error: delErr } = await sb.from("kpis").delete().in("id", old.map((o: { id: string }) => o.id));
-    if (delErr) return NextResponse.json({ error: delErr.message }, { status: 400 });
+    if (delErr) {
+      console.error("kpi delete failed:", delErr.message);
+      return NextResponse.json({ error: "Could not remove old KPIs." }, { status: 400 });
+    }
   }
 
   // Only tell the client when there are numbers to look at — clearing manual

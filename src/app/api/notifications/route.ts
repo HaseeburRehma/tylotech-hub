@@ -35,7 +35,10 @@ export async function PATCH(req: Request) {
     q = q.like("href", `${prefix}%`);
   }
   const { error } = await q;
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("notification mark-read failed:", error.message);
+    return NextResponse.json({ error: "Could not update notifications." }, { status: 400 });
+  }
   // Caught up on ALL notifications → let the next new message email them again.
   if (!b.id && !b.hrefPrefix) await resetEmailCooldown(user.id);
   return NextResponse.json({ ok: true });

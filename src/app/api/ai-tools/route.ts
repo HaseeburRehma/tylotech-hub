@@ -34,7 +34,10 @@ export async function PATCH(req: Request) {
   const audit = { updated_at: new Date().toISOString(), updated_by: user.id };
   let res = await sb.from("ai_tools").update({ ...patch, ...audit }).eq("slug", b.slug).select("slug");
   if (res.error && isMissingColumn(res.error)) res = await sb.from("ai_tools").update(patch).eq("slug", b.slug).select("slug");
-  if (res.error) return NextResponse.json({ error: res.error.message }, { status: 400 });
+  if (res.error) {
+    console.error("ai-tool update failed:", res.error.message);
+    return NextResponse.json({ error: "Could not update the tool." }, { status: 400 });
+  }
   // RLS silently matches zero rows when not permitted — never report that as saved.
   if (!res.data?.length) return NextResponse.json({ error: "Tool not found or not editable." }, { status: 404 });
 

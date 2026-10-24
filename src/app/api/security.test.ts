@@ -71,6 +71,38 @@ describe("Concurrent rapid-fire requests (rate limiter)", () => {
     expect(allowed).toBe(5);
     expect(blocked).toBe(5);
   });
+
+  it("different users have independent rate limits", async () => {
+    const { getRateLimiter } = await import("@/lib/rate-limit");
+    const rl = getRateLimiter();
+    const ts = Date.now();
+    const [a1, a2, a3, b1, b2, b3] = await Promise.all([
+      rl.limit(`user-a-${ts}`, { limit: 2, windowSec: 60 }),
+      rl.limit(`user-a-${ts}`, { limit: 2, windowSec: 60 }),
+      rl.limit(`user-a-${ts}`, { limit: 2, windowSec: 60 }),
+      rl.limit(`user-b-${ts}`, { limit: 2, windowSec: 60 }),
+      rl.limit(`user-b-${ts}`, { limit: 2, windowSec: 60 }),
+      rl.limit(`user-b-${ts}`, { limit: 2, windowSec: 60 }),
+    ]);
+    expect(a1.success).toBe(true);
+    expect(a2.success).toBe(true);
+    expect(a3.success).toBe(false);
+    expect(b1.success).toBe(true);
+    expect(b2.success).toBe(true);
+    expect(b3.success).toBe(false);
+  });
+
+  it("simulates 50 concurrent users hitting message API", async () => {
+    const { getRateLimiter } = await import("@/lib/rate-limit");
+    const rl = getRateLimiter();
+    const ts = Date.now();
+    const results = await Promise.all(
+      Array.from({ length: 50 }, (_, i) =>
+        rl.limit(`user-${i}-${ts}`, { limit: 120, windowSec: 60 }),
+      ),
+    );
+    expect(results.every((r) => r.success)).toBe(true);
+  });
 });
 
 describe("Input fuzzing — SQL/XSS injection attempts", () => {
