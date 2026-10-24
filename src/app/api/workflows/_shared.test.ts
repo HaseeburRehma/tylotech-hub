@@ -21,7 +21,7 @@ describe("staffContext", () => {
     const result = await staffContext();
     expect("error" in result).toBe(true);
     if ("error" in result) {
-      expect(result.error.status).toBe(403);
+      expect(result.error!.status).toBe(403);
     }
   });
 
@@ -39,7 +39,7 @@ describe("staffContext", () => {
     const result = await staffContext();
     expect("error" in result).toBe(true);
     if ("error" in result) {
-      expect(result.error.status).toBe(503);
+      expect(result.error!.status).toBe(503);
     }
   });
 
