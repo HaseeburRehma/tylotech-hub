@@ -1,23 +1,25 @@
 "use client";
 
-import { ModalShell } from "@/components/ui/modal";
 import { ClipboardList, Plus, X } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ModalShell } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
-import { Menu, MenuItem } from "@/components/ui/menu";
-import { useActiveClient } from "@/components/providers/active-client-provider";
 import { Button } from "@/components/ui/button";
+import { Menu, MenuItem } from "@/components/ui/menu";
+import { Select } from "@/components/ui/select";
+import { useActiveClient } from "@/components/providers/active-client-provider";
 import { useT } from "@/lib/i18n/provider";
+import { PROJECT_STATUS } from "@/lib/status";
+import { cn } from "@/lib/utils";
 import type { ProjectStatus } from "@/types";
 import type { TeamMember } from "@/lib/data";
 
-const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
-  { value: "planning", label: "proj.planning" },
-  { value: "in_progress", label: "proj.inProgress" },
-  { value: "review", label: "proj.review" },
-  { value: "done", label: "proj.done" },
-];
+const NEW_STATUSES: ProjectStatus[] = ["planning", "in_progress", "review", "done"];
+const label = "mb-1.5 block text-[13px] text-soft";
+const field =
+  "w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 field-focus";
 
 export function NewProjectModal({
   open,
@@ -32,212 +34,223 @@ export function NewProjectModal({
 }) {
   const t = useT();
   const router = useRouter();
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { active } = useActiveClient();
 
   const [name, setName] = useState("");
-  const { active } = useActiveClient();
-  const [clientId, setClientId] = useState(clients[0]?.id ?? "");
-
-  useEffect(() => {
-    if (open && active && clients.some((c) => c.id === active.id)) setClientId(active.id);
-  }, [open, active, clients]);
+  const [clientId, setClientId] = useState("");
   const [status, setStatus] = useState<ProjectStatus>("planning");
   const [due, setDue] = useState("");
   const [assignedIds, setAssignedIds] = useState<string[]>([]);
   const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const memberMap = Object.fromEntries(members.map((m) => [m.id, m.name]));
+  // Fresh form every time it opens, pre-selecting the client picked in the sidebar.
+  useEffect(() => {
+    if (!open) return;
+    setName("");
+    setStatus("planning");
+    setDue("");
+    setAssignedIds([]);
+    setDescription("");
+    setError(null);
+    setClientId(active && clients.some((c) => c.id === active.id) ? active.id : clients[0]?.id ?? "");
+  }, [open, active, clients]);
 
-  function toggleAssignee(id: string) {
-    setAssignedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
-  }
+  const memberName = Object.fromEntries(members.map((m) => [m.id, m.name]));
+  const available = members.filter((m) => !assignedIds.includes(m.id));
 
-  function removeAssignee(id: string) {
-    setAssignedIds((prev) => prev.filter((x) => x !== id));
-  }
-
-  async function submit() {
-    if (!name.trim() || !clientId) {
-      setError("Client and project name are required.");
-      return;
-    }
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (saving) return;
+    if (!name.trim() || !clientId) return setError(t("newProj.required"));
     setSaving(true);
     setError(null);
     const res = await fetch("/api/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId,
-        name,
-        status,
-        progress: "0",
-        assignedToId: assignedIds[0] ?? null,
-        assignedToName: assignedIds.map((id) => memberMap[id]).filter(Boolean).join(", ") || null,
-        due,
-        description,
-      }),
-    });
-    const data = await res.json();
+      body: JSON.stringify({ clientId, name, status, progress: status === "done" ? 100 : 0, assigneeIds: assignedIds, due, description }),
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => null) : null;
     setSaving(false);
-    if (!res.ok) {
-      setError(data.error ?? "Could not create project.");
-      return;
-    }
-    setName("");
-    setDescription("");
-    setDue("");
-    setAssignedIds([]);
+    if (!res?.ok) return setError(data?.error ?? t("newProj.error"));
     onClose();
     router.refresh();
   }
 
   return (
     <ModalShell open={open} onClose={onClose}>
-              {/* Header */}
-              <div className="flex items-start gap-4 border-b border-line px-6 py-5">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10">
-                  <ClipboardList className="h-5 w-5 text-brand-ink" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h2 className="font-display text-lg font-semibold tracking-[-0.01em] text-foreground">{t("newProj.title")}</h2>
-                  <p className="mt-0.5 text-sm text-muted">{t("newProj.desc")}</p>
-                </div>
-                <button type="button" aria-label={t("widget.close")} onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground transition-colors">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+      <form onSubmit={submit} noValidate>
+        <div className="flex items-start gap-4 border-b border-line px-6 py-5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10">
+            <ClipboardList className="h-5 w-5 text-brand-ink" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="font-display text-lg font-semibold tracking-[-0.01em] text-foreground">{t("newProj.title")}</h2>
+            <p className="mt-0.5 text-sm text-muted">{t("newProj.desc")}</p>
+          </div>
+          <button
+            type="button"
+            aria-label={t("common.close")}
+            onClick={onClose}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-              {/* Form */}
-              <div className="space-y-4 px-6 py-5">
-                {error && (
-                  <div className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">{error}</div>
-                )}
+        <div className="space-y-4 px-6 py-5">
+          {error && (
+            <div role="alert" className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">
+              {error}
+            </div>
+          )}
 
-                {/* Project name */}
-                <div>
-                  <label className="mb-1.5 block text-[13px] text-soft">{t("newProj.name")}</label>
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="h-11 w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 field-focus"
-                  />
-                </div>
+          {clients.length === 0 && (
+            <div className="rounded-xl border border-line bg-bg px-3 py-2.5 text-sm text-soft">
+              {t("newProj.noClients")}{" "}
+              <Link href="/internal/onboard" className="font-medium text-brand-ink hover:underline">
+                {t("newProj.addClient")}
+              </Link>
+            </div>
+          )}
 
-                {/* Client + Status */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-1.5 block text-[13px] text-soft">{t("newProj.client")}</label>
-                    <select
-                      value={clientId}
-                      onChange={(e) => setClientId(e.target.value)}
-                      className="h-11 w-full appearance-none rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none field-focus"
+          <div>
+            <label htmlFor="np-name" className={label}>{t("newProj.name")}</label>
+            <input
+              id="np-name"
+              autoFocus
+              required
+              maxLength={160}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t("newProj.namePlaceholder")}
+              className={cn(field, "h-11")}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="np-client" className={label}>{t("newProj.client")}</label>
+              <Select
+                id="np-client"
+                value={clientId}
+                onChange={setClientId}
+                disabled={clients.length === 0}
+                placeholder={t("newProj.client")}
+                searchPlaceholder={t("newProj.searchClient")}
+                emptyLabel={t("newProj.noMatch")}
+                options={clients.map((c) => ({
+                  value: c.id,
+                  label: c.company,
+                  icon: <Avatar name={c.company} size={20} className="rounded-md text-[8px]" />,
+                }))}
+              />
+            </div>
+            <div>
+              <label htmlFor="np-status" className={label}>{t("newProj.status")}</label>
+              <Select
+                id="np-status"
+                value={status}
+                onChange={setStatus}
+                options={NEW_STATUSES.map((s) => ({
+                  value: s,
+                  label: t(PROJECT_STATUS[s].label),
+                  icon: <span className={cn("h-1.5 w-1.5 rounded-full", PROJECT_STATUS[s].dot)} />,
+                }))}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="np-due" className={label}>{t("newProj.due")}</label>
+              <input id="np-due" type="date" value={due} onChange={(e) => setDue(e.target.value)} className={cn(field, "h-11")} />
+            </div>
+            <div>
+              <span id="np-assignee" className={label}>{t("newProj.assignee")}</span>
+              <div
+                role="group"
+                aria-labelledby="np-assignee"
+                className="flex min-h-[44px] flex-wrap items-center gap-1.5 rounded-xl border border-border bg-bg px-2 py-1.5"
+              >
+                {assignedIds.map((id) => (
+                  <span key={id} className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-line bg-surface py-0.5 pl-0.5 pr-1.5 text-xs text-foreground">
+                    <Avatar name={memberName[id] ?? "?"} size={20} />
+                    <span className="truncate">{memberName[id] ?? "?"}</span>
+                    <button
+                      type="button"
+                      aria-label={`${t("chat.remove")}: ${memberName[id] ?? ""}`}
+                      onClick={() => setAssignedIds((prev) => prev.filter((x) => x !== id))}
+                      className="rounded-full p-0.5 text-muted hover:bg-surface-2 hover:text-foreground"
                     >
-                      {clients.map((c) => (
-                        <option key={c.id} value={c.id} className="bg-surface">{c.company}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-[13px] text-soft">{t("newProj.status")}</label>
-                    <select
-                      value={status}
-                      onChange={(e) => setStatus(e.target.value as ProjectStatus)}
-                      className="h-11 w-full appearance-none rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none field-focus"
-                    >
-                      {STATUS_OPTIONS.map((s) => (
-                        <option key={s.value} value={s.value} className="bg-surface">{t(s.label)}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Due + Assignee */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-1.5 block text-[13px] text-soft">{t("newProj.due")}</label>
-                    <input
-                      type="date"
-                      value={due}
-                      onChange={(e) => setDue(e.target.value)}
-                      className="h-11 w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors field-focus"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-[13px] text-soft">{t("newProj.assignee")}</label>
-                    <div className="flex min-h-[44px] flex-wrap items-center gap-1.5 rounded-xl border border-border bg-bg px-3 py-2">
-                      {assignedIds.map((id) => (
-                        <span key={id} className="inline-flex items-center gap-1 rounded-full bg-surface-2 pl-1 pr-2 py-0.5">
-                          <Avatar name={memberMap[id] ?? ""} size={22} />
-                          <button type="button" aria-label={t("chat.remove")} onClick={() => removeAssignee(id)} className="text-muted hover:text-foreground">
-                            <X className="h-3 w-3" />
-                          </button>
-                        </span>
-                      ))}
-                      {members.some((m) => !assignedIds.includes(m.id)) && (
-                        <Menu
-                          width={220}
-                          trigger={({ toggle, open }) => (
-                            <button
-                              type="button"
-                              onClick={toggle}
-                              aria-expanded={open}
-                              aria-label={t("newProj.assignee")}
-                              className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-border text-muted transition-colors hover:border-brand/40 hover:text-brand-ink"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </button>
-                          )}
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+                {available.length > 0 && (
+                  <Menu
+                    width={240}
+                    trigger={({ toggle, open: menuOpen }) => (
+                      <button
+                        type="button"
+                        onClick={toggle}
+                        aria-expanded={menuOpen}
+                        aria-haspopup="menu"
+                        className="inline-flex h-7 items-center gap-1 rounded-full border border-dashed border-border px-2.5 text-xs text-muted transition-colors hover:border-brand/40 hover:text-brand-ink"
+                      >
+                        <Plus className="h-3 w-3" />
+                        {assignedIds.length === 0 && t("newProj.addPerson")}
+                      </button>
+                    )}
+                  >
+                    {(close) =>
+                      available.map((m) => (
+                        <MenuItem
+                          key={m.id}
+                          icon={<Avatar name={m.name} size={20} />}
+                          onSelect={() => {
+                            setAssignedIds((prev) => [...prev, m.id]);
+                            close();
+                          }}
                         >
-                          {(close) =>
-                            members
-                              .filter((m) => !assignedIds.includes(m.id))
-                              .map((m) => (
-                                <MenuItem
-                                  key={m.id}
-                                  icon={<Avatar name={m.name} size={20} />}
-                                  onSelect={() => {
-                                    toggleAssignee(m.id);
-                                    close();
-                                  }}
-                                >
-                                  {m.name}
-                                </MenuItem>
-                              ))
-                          }
-                        </Menu>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Description */}
-                <div>
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <label className="text-sm font-medium text-foreground">{t("newProj.descField")}</label>
-                    <span className="text-xs text-muted">{t("reqTool.optional")}</span>
-                  </div>
-                  <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={3}
-                    className="w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 field-focus resize-none"
-                  />
-                </div>
+                          <span className="block truncate">{m.name}</span>
+                          <span className="block truncate text-[11px] text-muted">{m.role}</span>
+                        </MenuItem>
+                      ))
+                    }
+                  </Menu>
+                )}
               </div>
+            </div>
+          </div>
 
-              {/* Footer */}
-              <div className="flex items-center justify-end gap-3 border-t border-line bg-bg px-6 py-4">
-                <button
-                  onClick={onClose}
-                  className="inline-flex h-10 items-center rounded-xl border border-border px-4 text-sm font-medium text-foreground transition-colors hover:bg-surface-2"
-                >
-                  {t("common.cancel")}
-                </button>
-                <Button onClick={submit} loading={saving}>
-                  {t("newProj.create")}
-                </Button>
-              </div>
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label htmlFor="np-desc" className="text-[13px] text-soft">{t("newProj.descField")}</label>
+              <span className="text-xs text-muted">{t("reqTool.optional")}</span>
+            </div>
+            <textarea
+              id="np-desc"
+              value={description}
+              maxLength={1000}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className={cn(field, "resize-none py-3")}
+            />
+            <p className="mt-1 text-xs text-muted">{t("editProj.visibleToClient")}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 border-t border-line bg-bg px-6 py-4">
+          <Button type="button" variant="secondary" size="sm" className="h-10" onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+          <Button type="submit" className="h-10" loading={saving} disabled={clients.length === 0}>
+            {t("newProj.create")}
+          </Button>
+        </div>
+      </form>
     </ModalShell>
   );
 }

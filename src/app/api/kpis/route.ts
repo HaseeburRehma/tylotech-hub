@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getAuthUser, isStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyClientUsers } from "@/lib/notify";
+import { UUID_RE } from "@/app/api/workflows/_shared";
 
 export const runtime = "nodejs";
 
@@ -21,7 +23,7 @@ export async function POST(req: Request) {
   if (!sb) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
 
   const b = (await req.json().catch(() => ({}))) as { clientId?: string; kpis?: any[] };
-  if (!b.clientId || !Array.isArray(b.kpis)) {
+  if (!b.clientId || !UUID_RE.test(b.clientId) || !Array.isArray(b.kpis)) {
     return NextResponse.json({ error: "clientId and kpis are required." }, { status: 400 });
   }
   if (b.kpis.length > 40) return NextResponse.json({ error: "Too many KPIs." }, { status: 400 });
@@ -50,26 +52,34 @@ export async function POST(req: Request) {
     });
   }
 
-  // Delete-then-insert: avoids the race where two concurrent POSTs both
-  // insert, then both delete the other's rows. A brief empty state is
-  // preferable to data loss from interleaved insert→delete.
-  const { error: delErr } = await sb
-    .from("kpis")
-    .delete()
-    .eq("client_id", b.clientId)
-    .eq("source", MANUAL);
-  if (delErr) {
-    console.error("kpi delete failed:", delErr.message);
-    return NextResponse.json({ error: "Could not remove old KPIs." }, { status: 400 });
+  // One transaction, serialised per client (0045) — concurrent saves can't
+  // interleave and a failed insert rolls the delete back.
+  const admin = createAdminClient();
+  const rpc = admin ? await admin.rpc("kpis_replace_manual", { p_client: b.clientId, p_rows: rows }) : null;
+  if (rpc?.error && rpc.error.code !== "PGRST202") {
+    console.error("kpi replace failed:", rpc.error.message);
+    return NextResponse.json({ error: "Could not save KPIs." }, { status: 400 });
   }
-
-  if (rows.length) {
-    let ins = await sb.from("kpis").insert(rows);
-    // Pre-0027 schema: delta is NOT NULL — store "no change given" as 0 (the UI hides 0).
-    if (ins.error?.code === "23502") ins = await sb.from("kpis").insert(rows.map((r) => ({ ...r, delta: r.delta ?? 0 })));
-    if (ins.error) {
-      console.error("kpi insert failed:", ins.error.message);
-      return NextResponse.json({ error: "Could not save KPIs." }, { status: 400 });
+  if (!rpc || rpc.error) {
+    // 0045 not applied yet: insert the new set before removing the old one,
+    // so a failed save can't leave the dashboard empty.
+    const { data: old, error: readErr } = await sb.from("kpis").select("id").eq("client_id", b.clientId).eq("source", MANUAL);
+    if (readErr) return NextResponse.json({ error: "Could not save KPIs." }, { status: 400 });
+    if (rows.length) {
+      let ins = await sb.from("kpis").insert(rows);
+      // Pre-0027 schema: delta is NOT NULL — store "no change given" as 0 (the UI hides 0).
+      if (ins.error?.code === "23502") ins = await sb.from("kpis").insert(rows.map((r) => ({ ...r, delta: r.delta ?? 0 })));
+      if (ins.error) {
+        console.error("kpi insert failed:", ins.error.message);
+        return NextResponse.json({ error: "Could not save KPIs." }, { status: 400 });
+      }
+    }
+    if (old?.length) {
+      const { error: delErr } = await sb.from("kpis").delete().in("id", old.map((o: { id: string }) => o.id));
+      if (delErr) {
+        console.error("kpi delete failed:", delErr.message);
+        return NextResponse.json({ error: "Could not remove old KPIs." }, { status: 400 });
+      }
     }
   }
 

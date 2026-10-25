@@ -39,6 +39,8 @@ export interface Project {
   progress: number;
   assigned_to: string;
   assigned_to_id?: string | null;
+  /** All assigned staff (0045). assigned_to_id is the first of these. */
+  assignee_ids?: string[] | null;
   due: string;
 }
 

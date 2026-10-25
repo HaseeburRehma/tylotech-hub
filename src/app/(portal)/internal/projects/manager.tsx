@@ -26,6 +26,7 @@ import { NewProjectModal } from "@/components/modals/new-project-modal";
 import { EditProjectModal } from "@/components/modals/edit-project-modal";
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from "@/components/ui/menu";
 import { useT } from "@/lib/i18n/provider";
+import { projectAssigneeIds, projectAssignees } from "@/lib/projects";
 import { PROJECT_STATUS } from "@/lib/status";
 import { cn } from "@/lib/utils";
 import type { Project, ProjectStatus } from "@/types";
@@ -71,6 +72,13 @@ export function ProjectsManager({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [editing, setEditing] = useState<Project | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const matchesAssignee = (p: Project) => {
+    if (assignee === "all") return true;
+    const ids = projectAssigneeIds(p);
+    return assignee === "none" ? ids.length === 0 && !p.assigned_to : ids.includes(assignee);
+  };
 
   const clientName = useMemo(
     () => Object.fromEntries(clients.map((c) => [c.id, c.company])),
@@ -85,10 +93,11 @@ export function ProjectsManager({
     const counts: Record<string, number> = {};
     for (const s of STATUSES) counts[s] = 0;
     for (const p of projects) {
-      if (assignee !== "all" && (assignee === "none" ? !!p.assigned_to_id : p.assigned_to_id !== assignee)) continue;
+      if (!matchesAssignee(p)) continue;
       counts[p.status] = (counts[p.status] ?? 0) + 1;
     }
     return counts;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects, assignee]);
 
   const sorted = useMemo(() => {
@@ -111,36 +120,23 @@ export function ProjectsManager({
     }
   }, [projects, sort]);
 
-  const byAssignee = sorted.filter(
-    (p) =>
-      assignee === "all" ||
-      (assignee === "none" ? !p.assigned_to_id : p.assigned_to_id === assignee),
-  );
+  const byAssignee = sorted.filter(matchesAssignee);
   const filtered = byAssignee.filter((p) => filter === "all" || p.status === filter);
 
-  async function patch(id: string, body: Record<string, unknown>) {
+  async function send(id: string, init: RequestInit, url = "/api/projects") {
     setBusy(id);
-    try {
-      await fetch("/api/projects", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, ...body }),
-      });
-      router.refresh();
-    } finally {
-      setBusy(null);
+    setActionError(null);
+    const res = await fetch(url, { headers: { "Content-Type": "application/json" }, ...init }).catch(() => null);
+    if (!res?.ok) {
+      const data = res ? await res.json().catch(() => null) : null;
+      setActionError(data?.error ?? t("proj.actionError"));
     }
+    setBusy(null);
+    router.refresh();
   }
 
-  async function remove(id: string) {
-    setBusy(id);
-    try {
-      await fetch(`/api/projects?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-      router.refresh();
-    } finally {
-      setBusy(null);
-    }
-  }
+  const patch = (id: string, body: Record<string, unknown>) => send(id, { method: "PATCH", body: JSON.stringify({ id, ...body }) });
+  const remove = (id: string) => send(id, { method: "DELETE" }, `/api/projects?id=${encodeURIComponent(id)}`);
 
   const assigneeLabel =
     assignee === "all"
@@ -196,6 +192,15 @@ export function ProjectsManager({
 
       <NewProjectModal open={open} onClose={() => setOpen(false)} clients={clients} members={members} />
       <EditProjectModal project={editing} onClose={() => setEditing(null)} />
+
+      {actionError && (
+        <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">
+          <span>{actionError}</span>
+          <button type="button" onClick={() => setActionError(null)} className="text-xs font-medium underline-offset-2 hover:underline">
+            {t("common.close")}
+          </button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -309,16 +314,14 @@ export function ProjectsManager({
                 {t("proj.col.due")}
               </th>
               <th className="w-10 px-4 py-3">
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">{t("proj.actions")}</span>
               </th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((p, i) => {
               const s = PROJECT_STATUS[p.status];
-              const assignee = p.assigned_to_id
-                ? memberName[p.assigned_to_id] ?? p.assigned_to
-                : p.assigned_to;
+              const people = projectAssignees(p, memberName);
               const cName = clientName[p.client_id] ?? "—";
               return (
                 <motion.tr
@@ -345,7 +348,7 @@ export function ProjectsManager({
                         {(processCountByProject[p.id] ?? 0) > 0 && (
                           <span className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-ink">
                             <ListChecks className="h-3 w-3" />
-                            {processCountByProject[p.id]} {processCountByProject[p.id] === 1 ? "process" : "processes"}
+                            {t(processCountByProject[p.id] === 1 ? "proj.processOne" : "proj.processMany", { n: processCountByProject[p.id] })}
                           </span>
                         )}
                       </div>
@@ -363,18 +366,7 @@ export function ProjectsManager({
                   {/* Status */}
                   <td className="px-4 py-3">
                     <Badge variant={s.variant} className="whitespace-nowrap">
-                      <span
-                        className={cn(
-                          "inline-block h-1.5 w-1.5 rounded-full",
-                          {
-                            "bg-muted/60": p.status === "planning",
-                            "bg-brand": p.status === "in_progress",
-                            "bg-positive/50": p.status === "review",
-                            "bg-positive": p.status === "done",
-                            "bg-negative": p.status === "blocked",
-                          },
-                        )}
-                      />
+                      <span className={cn("inline-block h-1.5 w-1.5 rounded-full", s.dot)} />
                       {t(STATUS_LABEL_KEY[p.status] ?? "proj.planning")}
                     </Badge>
                   </td>
@@ -395,20 +387,7 @@ export function ProjectsManager({
 
                   {/* Assignee */}
                   <td className="hidden px-4 py-3 lg:table-cell">
-                    {assignee ? (
-                      <div className="flex -space-x-1.5">
-                        {assignee.split(",").map((name) => (
-                          <Avatar
-                            key={name.trim()}
-                            name={name.trim()}
-                            size={28}
-                            className="ring-2 ring-surface"
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted">—</span>
-                    )}
+                    <AssigneeStack people={people} size={26} />
                   </td>
 
                   {/* Due date */}
@@ -438,6 +417,29 @@ export function ProjectsManager({
   );
 }
 
+/** Overlapping avatars (Figma "Person" stack), names on hover and for screen readers. */
+function AssigneeStack({ people, size, max = 4 }: { people: { key: string; name: string }[]; size: number; max?: number }) {
+  if (!people.length) return <span className="text-xs text-muted">—</span>;
+  const shown = people.slice(0, max);
+  const rest = people.length - shown.length;
+  const all = people.map((x) => x.name).join(", ");
+  return (
+    <div className="flex -space-x-1.5" title={all} aria-label={all} role="img">
+      {shown.map((x) => (
+        <Avatar key={x.key} name={x.name} size={size} className="ring-2 ring-surface" />
+      ))}
+      {rest > 0 && (
+        <span
+          style={{ width: size, height: size }}
+          className="flex items-center justify-center rounded-full bg-surface-2 font-mono text-[10px] text-soft ring-2 ring-surface"
+        >
+          +{rest}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function formatDue(due: string | null | undefined) {
   return due
     ? new Date(due).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" })
@@ -461,6 +463,8 @@ function ProjectActions({
 }) {
   const t = useT();
   const [confirm, setConfirm] = useState(false);
+  // Only ids of people still on the team, so a toggle never re-sends a removed account.
+  const assigned = projectAssigneeIds(project).filter((id) => members.some((m) => m.id === id));
 
   return (
     <Menu
@@ -524,10 +528,10 @@ function ProjectActions({
           <MenuLabel>{t("proj.col.assignee")}</MenuLabel>
           <MenuItem
             icon={<UserRound className="h-4 w-4" />}
-            selected={!project.assigned_to_id}
+            selected={assigned.length === 0}
             onSelect={() => {
               close();
-              if (project.assigned_to_id) onPatch({ assignedToId: null, assignedToName: null });
+              if (assigned.length) onPatch({ assigneeIds: [] });
             }}
           >
             {t("proj.unassigned")}
@@ -536,10 +540,10 @@ function ProjectActions({
             <MenuItem
               key={m.id}
               icon={<Avatar name={m.name} size={18} />}
-              selected={project.assigned_to_id === m.id}
+              selected={assigned.includes(m.id)}
               onSelect={() => {
                 close();
-                if (project.assigned_to_id !== m.id) onPatch({ assignedToId: m.id, assignedToName: m.name });
+                onPatch({ assigneeIds: assigned.includes(m.id) ? assigned.filter((x) => x !== m.id) : [...assigned, m.id] });
               }}
             >
               {m.name}
@@ -611,13 +615,12 @@ function ProjectBoard({
             )}
           >
             <div className="mb-2.5 flex items-center gap-2">
-              <span className={cn("h-1.5 w-1.5 rounded-full", { "bg-muted/60": status === "planning", "bg-brand": status === "in_progress", "bg-positive/60": status === "review", "bg-positive": status === "done", "bg-negative": status === "blocked" })} />
+              <span className={cn("h-1.5 w-1.5 rounded-full", s.dot)} />
               <span className="eyebrow">{t(STATUS_LABEL_KEY[status])}</span>
               <span className="ml-auto font-mono text-[10px] text-muted">{items.length}</span>
             </div>
             <div className="space-y-2.5">
               {items.map((p) => {
-                const assignee = p.assigned_to_id ? memberName[p.assigned_to_id] ?? p.assigned_to : p.assigned_to;
                 const cName = clientName[p.client_id] ?? "—";
                 return (
                   <div key={p.id} className="rounded-xl border border-line bg-surface p-3 shadow-card">
@@ -635,7 +638,7 @@ function ProjectBoard({
                     </div>
                     <div className="mt-2.5 flex items-center justify-between border-t border-line pt-2 text-[11px] text-muted">
                       <span>{formatDue(p.due)}</span>
-                      {assignee ? <Avatar name={assignee.split(",")[0].trim()} size={22} /> : <span>—</span>}
+                      <AssigneeStack people={projectAssignees(p, memberName)} size={22} max={3} />
                     </div>
                   </div>
                 );

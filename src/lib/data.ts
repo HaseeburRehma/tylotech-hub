@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeHealth, type ClientHealth } from "@/lib/health";
 import { combinePortfolio, type ProviderSeriesPoint } from "@/lib/portfolio";
+import { projectAssigneeIds } from "@/lib/projects";
 import type { ChatPeer, Client, DocItem, Kpi, Message, Project, Role, SeriesPoint, Update } from "@/types";
 
 export interface TeamMember {
@@ -620,7 +621,8 @@ export async function listClientsEnriched(): Promise<ClientListRow[]> {
         .order("provider")
         .range(from, to),
     ),
-    sb.from("projects").select("client_id,assigned_to_id"),
+    // `*` tolerates assignee_ids before migration 0045.
+    sb.from("projects").select("*"),
     fetchStaff(sb),
   ]);
 
@@ -642,11 +644,13 @@ export async function listClientsEnriched(): Promise<ClientListRow[]> {
 
   const teamByClient = new Map<string, Map<string, string>>();
   for (const p of projectRows ?? []) {
-    if (!p.assigned_to_id) continue;
     const cid = p.client_id as string;
-    if (!teamByClient.has(cid)) teamByClient.set(cid, new Map());
-    const name = staffById.get(p.assigned_to_id as string);
-    if (name) teamByClient.get(cid)!.set(p.assigned_to_id as string, name);
+    for (const id of projectAssigneeIds(p)) {
+      const name = staffById.get(id);
+      if (!name) continue;
+      if (!teamByClient.has(cid)) teamByClient.set(cid, new Map());
+      teamByClient.get(cid)!.set(id, name);
+    }
   }
 
   return clients.map((c) => {
@@ -670,9 +674,9 @@ export async function listTeamLoad(): Promise<TeamLoad[]> {
   if (!sb) return [];
   const users = await fetchStaff(sb);
   if (!users.length) return [];
-  const { data: projects } = await sb.from("projects").select("assigned_to_id,client_id,status");
+  const { data: projects } = await sb.from("projects").select("*");
   return users.map((u: any) => {
-    const open = (projects ?? []).filter((p: any) => p.assigned_to_id === u.id && p.status !== "done");
+    const open = (projects ?? []).filter((p: any) => p.status !== "done" && projectAssigneeIds(p).includes(u.id));
     return {
       id: u.id,
       name: u.name,
