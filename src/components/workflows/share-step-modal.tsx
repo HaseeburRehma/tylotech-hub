@@ -1,10 +1,9 @@
 "use client";
 
 import { Check, MessageSquare, Send, Users, X } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Label, Textarea } from "@/components/ui/input";
 import { ModalShell } from "@/components/ui/modal";
 import { useUser } from "@/components/providers/user-provider";
@@ -122,9 +121,7 @@ export function ShareStepModal({
           <p className="font-medium text-foreground">{t("wf.share.sent")}</p>
           <p className="text-sm text-muted">{notify.length ? t("wf.share.notified", { n: notify.length }) : t(target === "team" ? "wf.share.sentTeam" : "wf.share.sentDm")}</p>
           <div className="flex justify-center gap-2">
-            <Link href="/internal/team">
-              <Button size="sm" variant="secondary">{t("wf.share.openChat")}</Button>
-            </Link>
+            <ButtonLink href="/internal/team" size="sm" variant="secondary">{t("wf.share.openChat")}</ButtonLink>
             <Button size="sm" onClick={onClose}>{t("common.close")}</Button>
           </div>
         </div>

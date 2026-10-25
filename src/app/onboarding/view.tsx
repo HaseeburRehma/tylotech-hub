@@ -25,12 +25,11 @@ import {
   Users,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Logo } from "@/components/ui/logo";
 import { useI18n, useT } from "@/lib/i18n/provider";
@@ -167,11 +166,9 @@ function TourModal({ open, onClose }: { open: boolean; onClose: () => void }) {
               {t("ob.next")} <ArrowRight className="h-4 w-4" />
             </Button>
           ) : (
-            <Link href={slide.href} onClick={onClose}>
-              <Button>
+            <ButtonLink href={slide.href} onClick={onClose}>
                 {t("ob.goToDashboard")} <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
+              </ButtonLink>
           )}
         </div>
       </div>
@@ -582,13 +579,9 @@ export function OnboardingView({
                               {t("ob.connected")}
                             </span>
                           ) : isStaff ? (
-                            <Link href="/integrations">
-                              <Button variant="outline" size="sm">{t("ob.connect")}</Button>
-                            </Link>
+                            <ButtonLink href="/integrations" variant="outline" size="sm">{t("ob.connect")}</ButtonLink>
                           ) : live ? (
-                            <a href={`/api/integrations/${ch.id}/oauth/start`}>
-                              <Button variant="outline" size="sm">{t("ob.connect")}</Button>
-                            </a>
+                            <ButtonLink href={`/api/integrations/${ch.id}/oauth/start`} variant="outline" size="sm">{t("ob.connect")}</ButtonLink>
                           ) : (
                             <span className="text-xs text-muted">{t("ob.viaTeam")}</span>
                           )}

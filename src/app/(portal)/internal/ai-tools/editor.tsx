@@ -12,6 +12,7 @@ import { useUser } from "@/components/providers/user-provider";
 import { cn } from "@/lib/utils";
 import type { AiToolRow } from "@/lib/data";
 import { APP_TZ } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   PenLine,
@@ -190,29 +191,16 @@ function PromptPanel({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span className="text-sm text-muted">{t("prompts.active")}</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={active}
-            aria-label={t("prompts.active")}
+          <Switch
+            checked={active}
+            label={t("prompts.active")}
             disabled={!canEdit || state === "saving"}
-            onClick={async () => {
+            onChange={async () => {
               const next = !active;
               setActive(next);
               if (!(await save(next))) setActive(!next);
             }}
-            className={cn(
-              "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-              active ? "bg-brand" : "bg-surface-2",
-            )}
-          >
-            <span
-              className={cn(
-                "inline-block h-4 w-4 rounded-full bg-white shadow transition-transform",
-                active ? "translate-x-6" : "translate-x-1",
-              )}
-            />
-          </button>
+          />
         </div>
       </div>
 

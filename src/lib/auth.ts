@@ -3,6 +3,7 @@ import { Role } from "@/types";
 import { bearerToken, createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { isTransientAuthError } from "@/lib/supabase/session-errors";
+import { TYLOTECH_GOLD } from "@/lib/theme/themes";
 
 export interface AuthUser {
   id: string;
@@ -28,7 +29,7 @@ export const DEMO_USER: AuthUser = {
   role: "client",
   client_id: "demo",
   company: "Demo Client",
-  primaryColor: "#C9A84C",
+  primaryColor: TYLOTECH_GOLD,
   secondaryColor: "#181612",
   logoUrl: null,
   title: null,

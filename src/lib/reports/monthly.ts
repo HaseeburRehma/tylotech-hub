@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { TYLOTECH_GOLD } from "@/lib/theme/themes";
 
 /**
  * Monthly report data for one client and one calendar month, computed from the
@@ -203,7 +204,7 @@ export async function buildMonthlyReport(admin: SupabaseClient, clientId: string
   return {
     clientId,
     company: client.company,
-    brandColor: client.primary_color || "#C9A84C",
+    brandColor: client.primary_color || TYLOTECH_GOLD,
     period,
     periodLabel: `${monthName} ${year}`,
     rangeLabel: `1.–${r.days}. ${monthName} ${year}`,

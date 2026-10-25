@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Instrument_Sans, Instrument_Serif, Inter } from "next/font/google";
 import { GeistMono } from "geist/font/mono";
 import { ThemeProvider } from "@/lib/theme/theme-provider";
-import { buildClientTheme, themeToCssVars, TYLOTECH_THEME, type BrandTheme } from "@/lib/theme/themes";
+import { buildClientTheme, themeToCssVars, TYLOTECH_GOLD, TYLOTECH_THEME, type BrandTheme } from "@/lib/theme/themes";
 import { getAuthUser, isStaff } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { I18nProvider } from "@/lib/i18n/provider";
@@ -83,7 +83,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           buildClientTheme({
             id: c.id,
             company: c.company,
-            primary: c.primary_color ?? "#C9A84C",
+            primary: c.primary_color ?? TYLOTECH_GOLD,
             secondary: c.secondary_color ?? "#0A0A0A",
             logoUrl: c.logo_url,
           }),

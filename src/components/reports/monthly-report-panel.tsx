@@ -3,9 +3,10 @@
 import { Eye, FileText, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 
 export interface ReportRun {
   period: string;
@@ -93,20 +94,7 @@ export function MonthlyReportPanel({
           </h3>
           <p className="mt-0.5 text-xs text-muted">{t("report.subtitle")}</p>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={on}
-          aria-label={t("report.autoSend")}
-          disabled={busy === "toggle"}
-          onClick={toggle}
-          className={cn(
-            "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-60",
-            on ? "bg-brand" : "bg-border",
-          )}
-        >
-          <span className={cn("inline-block h-5 w-5 rounded-full bg-white shadow transition-transform", on ? "translate-x-[22px]" : "translate-x-0.5")} />
-        </button>
+        <Switch checked={on} label={t("report.autoSend")} disabled={busy === "toggle"} onChange={toggle} />
       </div>
       <p className="mb-4 text-xs text-muted">{on ? t("report.autoOn") : t("report.autoOff")}</p>
 
@@ -126,11 +114,9 @@ export function MonthlyReportPanel({
             </option>
           ))}
         </select>
-        <a href={`/api/reports/monthly?client=${clientId}&period=${period}`} target="_blank" rel="noopener noreferrer">
-          <Button size="sm" variant="outline">
+        <ButtonLink href={`/api/reports/monthly?client=${clientId}&period=${period}`} target="_blank" rel="noopener noreferrer" size="sm" variant="outline">
             <Eye className="h-4 w-4" /> {t("report.preview")}
-          </Button>
-        </a>
+          </ButtonLink>
         <Button
           size="sm"
           onClick={send}

@@ -2,7 +2,7 @@
 
 import { AlertTriangle, Check, CheckCircle2, Copy, Globe, Loader2, Plus, RefreshCw, Trash2, UserPlus, X } from "lucide-react";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Label, Textarea } from "@/components/ui/input";
 import { ModalShell } from "@/components/ui/modal";
 import { useT } from "@/lib/i18n/provider";
@@ -270,9 +270,7 @@ export function SourcesModal({
                 </Button>
               )}
               {metaReady ? (
-                <a href={`/api/leads/meta/connect${staff ? `?clientId=${clientId}` : ""}`}>
-                  <Button size="sm">{meta.length ? t("leads.src.reconnect") : t("leads.src.connectMeta")}</Button>
-                </a>
+                <ButtonLink href={`/api/leads/meta/connect${staff ? `?clientId=${clientId}` : ""}`} size="sm">{meta.length ? t("leads.src.reconnect") : t("leads.src.connectMeta")}</ButtonLink>
               ) : (
                 <span className="text-xs text-muted">{t("leads.src.metaNotConfigured")}</span>
               )}

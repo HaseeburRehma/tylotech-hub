@@ -177,7 +177,7 @@ export function NotificationsBell({ userId, variant = "topbar" }: { userId: stri
                       <span className="mt-1 block font-mono text-[10.5px] text-muted">{formatRelativeTime(i.created_at)}</span>
                     </span>
                     {!i.read && (
-                      <span className="mt-1.5 h-[7px] w-[7px] shrink-0 rounded-full bg-brand" aria-label="unread" />
+                      <span className="mt-1.5 h-[7px] w-[7px] shrink-0 rounded-full bg-brand" aria-label={t("notif.unread")} />
                     )}
                   </button>
                 );

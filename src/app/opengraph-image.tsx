@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { TYLOTECH_GOLD } from "@/lib/theme/themes";
 
 // Link previews (WhatsApp, Slack, LinkedIn, iMessage …) for tylohq.de.
 export const runtime = "edge";
@@ -6,7 +7,7 @@ export const alt = "TyloHQ — the client portal and command center by TyloTech"
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const GOLD = "#C9A84C";
+const GOLD = TYLOTECH_GOLD;
 
 /** The TyloTech block mark (same geometry as app/icon.svg), scaled. */
 function Mark({ s }: { s: number }) {

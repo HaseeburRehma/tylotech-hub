@@ -1,12 +1,11 @@
 "use client";
 
 import { Mail, Plus, UserPlus } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { useT } from "@/lib/i18n/provider";
@@ -90,11 +89,9 @@ export function MembersView({ members, currentUserId, isAdmin }: { members: Staf
     <div className="space-y-6">
       <PageHeader title={t("members.title")} subtitle={t("members.subtitle", { n: members.filter((m) => m.active).length })}>
         {isAdmin && (
-          <Link href="/internal/team/new">
-            <Button size="sm" variant="outline">
+          <ButtonLink href="/internal/team/new" size="sm" variant="outline">
               <Plus className="h-4 w-4" /> {t("members.createWithPassword")}
-            </Button>
-          </Link>
+            </ButtonLink>
         )}
       </PageHeader>
 

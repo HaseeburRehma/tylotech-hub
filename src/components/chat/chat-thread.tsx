@@ -102,6 +102,7 @@ function MentionPopup({
   onSelect: (p: ChatPeer) => void;
   position: { left: number; bottom: number };
 }) {
+  const t = useT();
   const filtered = peers.filter((p) => p.name.toLowerCase().includes(query.toLowerCase()));
   const [idx, setIdx] = useState(0);
   useEffect(() => { setIdx(0); }, [query]);
@@ -112,7 +113,7 @@ function MentionPopup({
       className="absolute z-50 w-56 overflow-hidden rounded-xl border border-border bg-surface shadow-xl"
       style={{ left: position.left, bottom: position.bottom }}
     >
-      <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">People</div>
+      <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">{t("chat.people")}</div>
       {filtered.slice(0, 8).map((p, i) => (
         <button
           key={p.id}

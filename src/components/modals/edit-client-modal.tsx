@@ -8,6 +8,7 @@ import { Input, Label } from "@/components/ui/input";
 import { ModalShell } from "@/components/ui/modal";
 import { useT } from "@/lib/i18n/provider";
 import type { Client, Plan } from "@/types";
+import { TYLOTECH_GOLD } from "@/lib/theme/themes";
 
 const PLANS: Plan[] = ["Starter", "Growth", "Scale", "Enterprise"];
 const HEX_RE = /^#[0-9a-f]{6}$/i;
@@ -37,7 +38,7 @@ export function EditClientModal({ open, onClose, client }: { open: boolean; onCl
   const [contact, setContact] = useState(client.name ?? "");
   const [plan, setPlan] = useState<Plan>(client.plan);
   const [mrr, setMrr] = useState(String(client.mrr ?? 0));
-  const [primary, setPrimary] = useState(client.primary_color ?? "#C9A84C");
+  const [primary, setPrimary] = useState(client.primary_color ?? TYLOTECH_GOLD);
   const [secondary, setSecondary] = useState(client.secondary_color ?? "#0A0A0A");
   const [logoUrl, setLogoUrl] = useState(client.logo_url ?? "");
   const [saving, setSaving] = useState(false);
@@ -50,7 +51,7 @@ export function EditClientModal({ open, onClose, client }: { open: boolean; onCl
     setContact(client.name ?? "");
     setPlan(client.plan);
     setMrr(String(client.mrr ?? 0));
-    setPrimary(client.primary_color ?? "#C9A84C");
+    setPrimary(client.primary_color ?? TYLOTECH_GOLD);
     setSecondary(client.secondary_color ?? "#0A0A0A");
     setLogoUrl(client.logo_url ?? "");
     setError(null);

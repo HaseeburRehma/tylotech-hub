@@ -4,7 +4,7 @@ import { CalendarClock, Download, Inbox, Plug, Plus, Search, Sparkles, Trophy, U
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { useUser } from "@/components/providers/user-provider";
@@ -149,11 +149,9 @@ export function LeadsView({
           <Button size="sm" variant="secondary" onClick={() => setModal("invite")}>
             <UserPlus className="h-4 w-4" /> {t("leads.inviteSales")}
           </Button>
-          <a href={`/api/leads/export${staff && clientId ? `?clientId=${clientId}` : ""}`}>
-            <Button size="sm" variant="ghost">
+          <ButtonLink href={`/api/leads/export${staff && clientId ? `?clientId=${clientId}` : ""}`} size="sm" variant="ghost">
               <Download className="h-4 w-4" /> CSV
-            </Button>
-          </a>
+            </ButtonLink>
           <Button size="sm" onClick={() => setModal("add")}>
             <Plus className="h-4 w-4" /> {t("leads.add")}
           </Button>
@@ -216,7 +214,7 @@ export function LeadsView({
               <option value="all">{t("leads.filter.allSources")}</option>
               <option value="meta">Meta</option>
               <option value="google_ads">Google Ads</option>
-              <option value="webhook">Website</option>
+              <option value="webhook">{t("leads.src.website")}</option>
               <option value="manual">{t("leads.source.manual")}</option>
             </select>
             <select value={owner} onChange={(e) => setOwner(e.target.value)} className="input-base h-10 w-auto appearance-none py-0 pr-8 text-sm" aria-label={t("leads.filter.owner")}>

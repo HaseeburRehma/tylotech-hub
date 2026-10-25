@@ -69,11 +69,13 @@ export const LIGHTOFHOPE_THEME: BrandTheme = {
   name: "Light of Hope",
   company: "Light of Hope",
   logo: { type: "url", value: `${LOGO_BASE}/light-of-hope.avif` },
-  primary: [123, 44, 255], // purple
+  primary: [123, 44, 255], // purple — white text (dark text is ~3.4:1, fails AA)
   secondary: [20, 16, 31],
-  onPrimaryDark: true,
   tagline: "Dein Leuchtturm in der Dunkelheit.",
 };
+
+/** Default brand gold as hex, for emails, PDFs, OG images and new-client defaults. */
+export const TYLOTECH_GOLD = "#D1AA71";
 
 export const THEMES: BrandTheme[] = [TYLOTECH_THEME, FAHRSCHULE_THEME, LIGHTOFHOPE_THEME];
 
@@ -159,7 +161,8 @@ export function themeToCssVars(theme: BrandTheme): Record<string, string> {
   const onPrimaryDark = theme.onPrimaryDark ?? isLight(theme.primary);
   return {
     "--brand": theme.primary.join(" "),
-    "--brand-foreground": onPrimaryDark ? "12 12 14" : "255 255 255",
+    // Figma text/on-accent #0F0E0D.
+    "--brand-foreground": onPrimaryDark ? "15 14 13" : "255 255 255",
     "--accent": theme.secondary.join(" "),
     // Text/icon variants of the brand; globals.css picks one per colour mode.
     "--brand-ink-light": (theme.primaryInk ?? readableOn(theme.primary, WHITE)).join(" "),

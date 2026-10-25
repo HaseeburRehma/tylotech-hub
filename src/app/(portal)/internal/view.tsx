@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { Activity, ArrowDownRight, ArrowUpRight, ChevronRight, Clock, KeyRound, Plus, UserPlus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, Panel, PanelHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { MrrBars } from "@/components/charts/mrr-bars";
@@ -182,19 +182,15 @@ export function InternalView({
         }
       >
         {user.role === "admin" && (
-          <Link href="/internal/team/new">
-            <Button size="sm" variant="outline">
+          <ButtonLink href="/internal/team/new" size="sm" variant="outline">
               <UserPlus className="h-4 w-4" />
               {tr("hub.newTeam")}
-            </Button>
-          </Link>
+            </ButtonLink>
         )}
-        <Link href="/internal/onboard">
-          <Button size="sm">
+        <ButtonLink href="/internal/onboard" size="sm">
             <Plus className="h-4 w-4" />
             {tr("hub.newClient")}
-          </Button>
-        </Link>
+          </ButtonLink>
       </PageHeader>
 
       {/* Stats row — two per row on phones, four from xl */}

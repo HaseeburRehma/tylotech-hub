@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { Plus, Users } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { ChatThread } from "@/components/chat/chat-thread";
 import { ChatPeer, Message, Role } from "@/types";
@@ -28,12 +27,10 @@ export function TeamChatView({
     <div className="flex h-[calc(100dvh-7rem)] flex-col">
       <div className="shrink-0 pb-4">
         <PageHeader title={t("team.title")} subtitle={t("team.subtitle")}>
-          <Link href="/internal/team/members">
-            <Button size="sm" variant="outline">
+          <ButtonLink href="/internal/team/members" size="sm" variant="outline">
               <Users className="h-4 w-4" />
               {t("members.manage")}
-            </Button>
-          </Link>
+            </ButtonLink>
           <Button
             size="sm"
             onClick={() => document.querySelector<HTMLTextAreaElement>("[data-chat-composer]")?.focus()}

@@ -2,6 +2,7 @@
 
 import { cva, type VariantProps } from "class-variance-authority";
 import { Loader2 } from "lucide-react";
+import Link from "next/link";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,8 @@ const button = cva(
         outline:
           "border border-border bg-surface text-foreground shadow-card hover:border-brand/50 hover:text-foreground",
         danger: "bg-danger/15 text-danger hover:bg-danger/25",
+        // Final step of a destructive confirmation.
+        destructive: "bg-danger text-white shadow-card hover:brightness-95",
       },
       size: {
         sm: "h-9 px-3 text-sm",
@@ -51,3 +54,28 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ),
 );
 Button.displayName = "Button";
+
+/**
+ * A link that looks like a Button — use instead of <Link><Button/></Link>
+ * (a button inside a link is invalid and gives two tab stops). Disabled renders
+ * an inert span so the click can't fall through to the URL.
+ */
+export function ButtonLink({
+  href,
+  variant,
+  size,
+  className,
+  disabled,
+  children,
+  prefetch,
+  ...rest
+}: React.AnchorHTMLAttributes<HTMLAnchorElement> &
+  VariantProps<typeof button> & { href: string; disabled?: boolean; prefetch?: boolean }) {
+  const cls = cn(button({ variant, size }), className);
+  if (disabled) return <span aria-disabled="true" className={cn(cls, "pointer-events-none opacity-50")}>{children}</span>;
+  // API routes (OAuth starts, downloads) and absolute URLs need a full navigation.
+  if (/^(https?:|mailto:|\/api\/)/.test(href) || rest.download !== undefined) {
+    return <a href={href} className={cls} {...rest}>{children}</a>;
+  }
+  return <Link href={href} prefetch={prefetch} className={cls} {...rest}>{children}</Link>;
+}

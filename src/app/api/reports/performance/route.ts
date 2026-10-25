@@ -6,6 +6,7 @@ import { getClient, getKpis } from "@/lib/data";
 import { ReportDocument, type ReportProps } from "@/lib/pdf/report-document";
 import { formatCurrency } from "@/lib/utils";
 import { APP_TZ } from "@/lib/utils";
+import { TYLOTECH_GOLD } from "@/lib/theme/themes";
 
 export const runtime = "nodejs";
 
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
 
   const props: ReportProps = {
     company: target?.company ?? user.company ?? "TyloTech Client",
-    brandColor: target?.primary_color ?? user.primaryColor ?? "#C9A84C",
+    brandColor: target?.primary_color ?? user.primaryColor ?? TYLOTECH_GOLD,
     // KPIs cover the last 30 complete days (ending yesterday), not a calendar month.
     period: (() => {
       const end = new Date();

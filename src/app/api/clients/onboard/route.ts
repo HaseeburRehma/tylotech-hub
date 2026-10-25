@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { logAudit } from "@/lib/audit";
 import { getAuthUser, isStaff } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { TYLOTECH_GOLD } from "@/lib/theme/themes";
 
 export const runtime = "nodejs";
 
@@ -55,7 +56,7 @@ export async function POST(req: Request) {
       name: company,
       company,
       slug,
-      primary_color: body.primaryColor || "#C9A84C",
+      primary_color: body.primaryColor || TYLOTECH_GOLD,
       secondary_color: body.secondaryColor || "#0A0A0A",
       plan: body.plan || "Starter",
       mrr: Number(body.mrr) || 0,

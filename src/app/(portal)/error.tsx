@@ -1,9 +1,8 @@
 "use client";
 
 import { AlertTriangle, LayoutDashboard, RefreshCw } from "lucide-react";
-import Link from "next/link";
 import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { useT } from "@/lib/i18n/provider";
 
 /**
@@ -32,11 +31,9 @@ export default function PortalError({ error, reset }: { error: Error & { digest?
           <Button onClick={() => reset()}>
             <RefreshCw className="h-4 w-4" /> {t("error.retry")}
           </Button>
-          <Link href="/dashboard">
-            <Button variant="outline">
+          <ButtonLink href="/dashboard" variant="outline">
               <LayoutDashboard className="h-4 w-4" /> {t("error.toDashboard")}
-            </Button>
-          </Link>
+            </ButtonLink>
         </div>
       </div>
     </div>

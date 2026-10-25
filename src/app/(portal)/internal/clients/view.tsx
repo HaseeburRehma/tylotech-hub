@@ -95,13 +95,21 @@ export function ClientsView({
   const user = useUser();
   const canArchive = user.role === "admin";
 
+  const [restoring, setRestoring] = useState<string | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+
   async function restore(id: string) {
+    if (restoring) return;
+    setRestoring(id);
+    setRestoreError(null);
     const res = await fetch(`/api/clients/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ archived: false }),
     }).catch(() => null);
+    setRestoring(null);
     if (res?.ok) router.refresh();
+    else setRestoreError(t("clients.restoreError"));
   }
   const extraFilters = (member !== "all" ? 1 : 0) + (activeOnly ? 1 : 0);
 
@@ -171,6 +179,12 @@ export function ClientsView({
           </Button>
         </div>
       </PageHeader>
+
+      {restoreError && (
+        <div role="alert" className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">
+          {restoreError}
+        </div>
+      )}
 
       <NewClientModal open={showNewClient} onClose={() => setShowNewClient(false)} />
 
@@ -301,7 +315,7 @@ export function ClientsView({
                 {t("clients.col.since")}
               </th>
               <th className="w-10 px-4 py-3">
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">{t("common.actions")}</span>
               </th>
             </tr>
           </thead>
@@ -402,7 +416,12 @@ export function ClientsView({
                     <button
                       type="button"
                       onClick={() => restore(client.id)}
-                      className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-surface-2"
+                      disabled={!!restoring}
+                      aria-busy={restoring === client.id}
+                      className={cn(
+                        "rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-surface-2 disabled:opacity-50",
+                        restoring === client.id && "animate-pulse",
+                      )}
                     >
                       {t("clients.restore")}
                     </button>

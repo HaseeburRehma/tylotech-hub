@@ -21,7 +21,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { RequestToolModal } from "@/components/modals/request-tool-modal";
 import { useT } from "@/lib/i18n/provider";
@@ -84,12 +84,10 @@ export default function AiToolsPage() {
       <PageHeader title={t("ai.title")} subtitle={t("ai.subtitle")}>
         <div className="flex items-center gap-2">
           {user.role !== "client" && (
-            <Link href="/internal/ai-tools">
-              <Button variant="outline" size="sm">
+            <ButtonLink href="/internal/ai-tools" variant="outline" size="sm">
                 <FileText className="h-4 w-4" />
                 {t("ait.brandRules")}
-              </Button>
-            </Link>
+              </ButtonLink>
           )}
           <Button variant="outline" size="sm" onClick={() => setShowHistory(true)}>
             <Clock className="h-4 w-4" />

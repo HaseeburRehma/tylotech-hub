@@ -13,7 +13,7 @@ import {
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useT } from "@/lib/i18n/provider";
 import type { IntegrationProvider } from "@/lib/integrations/providers";
@@ -400,11 +400,9 @@ export function IntegrationsBoard({
                         </Button>
                       </>
                     ) : liveProviders.includes(p.id) ? (
-                      <a
+                      <ButtonLink
                         href={`/api/integrations/${p.id}/oauth/start${clientId ? `?clientId=${clientId}` : ""}`}
-                      >
-                        <Button size="sm" disabled={!clientId}>{t("common.connect")}</Button>
-                      </a>
+                       size="sm" disabled={!clientId}>{t("common.connect")}</ButtonLink>
                     ) : isStaff ? (
                       <Button size="sm" loading={busy === p.id} onClick={() => act(p.id, "connect")} disabled={!clientId}>
                         {t("common.connect")}

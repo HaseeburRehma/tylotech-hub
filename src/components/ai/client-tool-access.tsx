@@ -6,6 +6,7 @@ import { useState } from "react";
 import { AI_TOOLS } from "@/lib/ai-tools";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 
 /** Staff switch individual AI tools on/off for one client (client_tools). */
 export function ClientToolAccess({ clientId, locked }: { clientId: string; locked: string[] }) {
@@ -50,20 +51,7 @@ export function ClientToolAccess({ clientId, locked }: { clientId: string; locke
           return (
             <div key={tool.slug} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2">
               <span className={cn("text-sm", !on && "text-muted")}>{t(tool.name)}</span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={on}
-                aria-label={t(tool.name)}
-                disabled={busy === tool.slug}
-                onClick={() => toggle(tool.slug)}
-                className={cn(
-                  "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-60",
-                  on ? "bg-brand" : "bg-border",
-                )}
-              >
-                <span className={cn("inline-block h-4 w-4 rounded-full bg-white shadow transition-transform", on ? "translate-x-[18px]" : "translate-x-0.5")} />
-              </button>
+              <Switch size="sm" checked={on} label={t(tool.name)} disabled={busy === tool.slug} onChange={() => toggle(tool.slug)} />
             </div>
           );
         })}

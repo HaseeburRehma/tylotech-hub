@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, Panel, PanelHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { PendingApprovalsBanner } from "@/components/approvals/approvals-list";
@@ -502,11 +502,9 @@ export function StaffDashboardView({
                       : t("dash.staff.neverSynced")}
                   </p>
                 </div>
-                <Link href={`/integrations${row.clientSlug ? `?client=${row.clientSlug}` : ""}`} className="shrink-0">
-                  <Button size="sm" variant="secondary" className="h-8">
+                <ButtonLink href={`/integrations${row.clientSlug ? `?client=${row.clientSlug}` : ""}`} size="sm" variant="secondary" className="h-8 shrink-0">
                     {t("dash.staff.reconnect")}
-                  </Button>
-                </Link>
+                  </ButtonLink>
               </motion.li>
             ))}
           </ul>

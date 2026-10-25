@@ -20,7 +20,9 @@ import {
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ModalShell } from "@/components/ui/modal";
 import { Segmented } from "@/components/ui/segmented";
 import { Menu, MenuItem } from "@/components/ui/menu";
 import { DocItem, DocType } from "@/types";
@@ -252,7 +254,7 @@ export function DocumentsPanel({
                   <th className="th hidden sm:table-cell">{t("documents.col.type")}</th>
                   <th className="th hidden text-right md:table-cell">{t("documents.col.size")}</th>
                   <th className="th hidden text-right sm:table-cell">{t("documents.col.date")}</th>
-                  <th className="w-12 px-4 py-3"><span className="sr-only">Actions</span></th>
+                  <th className="w-12 px-4 py-3"><span className="sr-only">{t("common.actions")}</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -347,40 +349,23 @@ export function DocumentsPanel({
         )}
       </Card>
 
-      {pendingDelete && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={() => !deleting && setPendingDelete(null)}
-        >
-          <Card
-            className="w-full max-w-sm space-y-4 p-5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="space-y-1.5">
-              <h3 className="text-base font-semibold text-foreground">{t("documents.deleteTitle")}</h3>
-              <p className="truncate text-sm font-medium text-foreground">{pendingDelete.name}</p>
-              <p className="text-sm text-muted">{t("documents.deleteBody")}</p>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setPendingDelete(null)}
-                disabled={deleting}
-                className="inline-flex h-9 items-center rounded-xl border border-border px-3.5 text-sm text-foreground transition-colors hover:bg-surface-2 disabled:opacity-50"
-              >
-                {t("common.cancel")}
-              </button>
-              <button
-                onClick={confirmRemove}
-                disabled={deleting}
-                className="inline-flex h-9 items-center gap-2 rounded-xl bg-danger px-3.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-              >
-                {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
-                {t("common.delete")}
-              </button>
-            </div>
-          </Card>
+      <ModalShell open={!!pendingDelete} onClose={() => !deleting && setPendingDelete(null)} className="max-w-sm">
+        <div className="space-y-4 p-5">
+          <div className="space-y-1.5">
+            <h3 className="font-display text-base font-semibold text-foreground">{t("documents.deleteTitle")}</h3>
+            <p className="truncate text-sm font-medium text-foreground">{pendingDelete?.name}</p>
+            <p className="text-sm text-muted">{t("documents.deleteBody")}</p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" size="sm" onClick={() => setPendingDelete(null)} disabled={deleting}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="destructive" size="sm" onClick={confirmRemove} loading={deleting}>
+              {t("common.delete")}
+            </Button>
+          </div>
         </div>
-      )}
+      </ModalShell>
     </div>
   );
 }

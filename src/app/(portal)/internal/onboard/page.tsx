@@ -5,12 +5,12 @@ import { ArrowLeft, ArrowRight, Building2, CheckCircle2, ImagePlus, Loader2, Pal
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
-import { buildClientTheme, themeToCssVars } from "@/lib/theme/themes";
+import { buildClientTheme, themeToCssVars, TYLOTECH_GOLD } from "@/lib/theme/themes";
 import { useT } from "@/lib/i18n/provider";
 import { cn, formatCurrency } from "@/lib/utils";
 
@@ -34,7 +34,7 @@ export default function OnboardPage() {
     company: "",
     plan: "Growth",
     mrr: "",
-    primaryColor: "#C9A84C",
+    primaryColor: TYLOTECH_GOLD,
     secondaryColor: "#0A0A0A",
     logoUrl: "",
     clientName: "",
@@ -105,9 +105,7 @@ export default function OnboardPage() {
           <p className="mt-3 text-sm text-warning">{result.warning}</p>
         )}
         <div className="mt-6 flex justify-center gap-3">
-          <Link href="/internal">
-            <Button variant="secondary">{t("onb.backToHub")}</Button>
-          </Link>
+          <ButtonLink href="/internal" variant="secondary">{t("onb.backToHub")}</ButtonLink>
           <Button
             onClick={() => {
               setResult(null);

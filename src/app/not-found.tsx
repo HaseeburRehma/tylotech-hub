@@ -8,7 +8,7 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
 import { useT } from "@/lib/i18n/provider";
 
@@ -95,15 +95,11 @@ export default function RootNotFound() {
       </div>
 
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-        <Link href="/dashboard">
-          <Button>{t("e404.toDashboard")}</Button>
-        </Link>
-        <Link href="mailto:info@tylotech.de">
-          <Button variant="outline">
+        <ButtonLink href="/dashboard">{t("e404.toDashboard")}</ButtonLink>
+        <ButtonLink href="mailto:info@tylotech.de" variant="outline">
             <Mail className="mr-1.5 h-4 w-4" />
             {t("e404.support")}
-          </Button>
-        </Link>
+          </ButtonLink>
       </div>
     </div>
   );

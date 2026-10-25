@@ -1,10 +1,9 @@
 "use client";
 
 import { AlertCircle, CheckCircle2, CheckSquare, Loader2, Square } from "lucide-react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Label } from "@/components/ui/input";
 import { PasswordInput } from "@/components/auth/password-input";
 import { AuthShell } from "@/components/auth/auth-shell";
@@ -129,9 +128,7 @@ function UpdatePasswordForm() {
           <AlertCircle className="h-12 w-12 text-warning" />
           <p className="text-lg font-semibold">{t("auth.linkInvalidTitle")}</p>
           <p className="max-w-sm text-sm text-muted">{t("auth.linkInvalidBody")}</p>
-          <Link href="/reset" className="mt-2">
-            <Button>{t("auth.requestNewLink")}</Button>
-          </Link>
+          <ButtonLink href="/reset" className="mt-2">{t("auth.requestNewLink")}</ButtonLink>
         </div>
       ) : done ? (
         <div className="flex flex-col items-center gap-3 py-10 text-center">

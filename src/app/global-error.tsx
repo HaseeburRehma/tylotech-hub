@@ -52,7 +52,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               padding: "0 18px",
               borderRadius: "12px",
               border: "none",
-              background: "#c9a84c",
+              background: "#D1AA71",
               color: "#181612",
               fontSize: "14px",
               fontWeight: 600,
