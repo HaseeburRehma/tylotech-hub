@@ -34,26 +34,43 @@ export async function GET(req: Request) {
   if (!sb) return NextResponse.json({ results: [] });
 
   const like = `%${q.replace(/[%_]/g, "")}%`;
-  // Inside .or() commas, parentheses and quotes are syntax — neutralise them.
-  const orLike = like.replace(/[,()"\\]/g, " ");
   const staff = user.role !== "client";
 
   // RLS scopes every query to what the user is allowed to see.
-  const [docs, projs, ups, clis, msgs] = await Promise.all([
+  // Messages: run two parallel ilike queries instead of string-interpolating
+  // user input into a PostgREST .or() filter (injection risk).
+  const [docs, projs, ups, clis, msgContent, msgTranslated] = await Promise.all([
     sb.from("documents").select("id,name,client_id,clients(slug)").ilike("name", like).limit(5),
     sb.from("projects").select("id,name,client_id").ilike("name", like).limit(5),
     sb.from("updates").select("id,title,client_id,clients(slug)").ilike("title", like).limit(5),
     staff
       ? sb.from("clients").select("*").ilike("company", like).limit(8)
       : Promise.resolve({ data: [] as any[] }),
-    // Chat messages (text or translation) the user can read — every partner for staff.
     sb
       .from("messages")
       .select("id,client_id,sender_name,content,content_translated,created_at,clients(company,slug)")
-      .or(`content.ilike."${orLike}",content_translated.ilike."${orLike}"`)
+      .ilike("content", like)
+      .order("created_at", { ascending: false })
+      .limit(8),
+    sb
+      .from("messages")
+      .select("id,client_id,sender_name,content,content_translated,created_at,clients(company,slug)")
+      .ilike("content_translated", like)
       .order("created_at", { ascending: false })
       .limit(8),
   ]);
+
+  // Merge and deduplicate message results by id.
+  const seenIds = new Set<string>();
+  const msgs = { data: [] as any[] };
+  for (const m of [...(msgContent.data ?? []), ...(msgTranslated.data ?? [])]) {
+    if (!seenIds.has(m.id)) {
+      seenIds.add(m.id);
+      msgs.data.push(m);
+    }
+  }
+  msgs.data.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  msgs.data = msgs.data.slice(0, 8);
 
   const results: SearchHit[] = [];
   for (const d of docs.data ?? [])

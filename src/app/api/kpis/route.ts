@@ -50,8 +50,18 @@ export async function POST(req: Request) {
     });
   }
 
-  const { data: old, error: readErr } = await sb.from("kpis").select("id").eq("client_id", b.clientId).eq("source", MANUAL);
-  if (readErr) return NextResponse.json({ error: readErr.message }, { status: 400 });
+  // Delete-then-insert: avoids the race where two concurrent POSTs both
+  // insert, then both delete the other's rows. A brief empty state is
+  // preferable to data loss from interleaved insert→delete.
+  const { error: delErr } = await sb
+    .from("kpis")
+    .delete()
+    .eq("client_id", b.clientId)
+    .eq("source", MANUAL);
+  if (delErr) {
+    console.error("kpi delete failed:", delErr.message);
+    return NextResponse.json({ error: "Could not remove old KPIs." }, { status: 400 });
+  }
 
   if (rows.length) {
     let ins = await sb.from("kpis").insert(rows);
@@ -60,13 +70,6 @@ export async function POST(req: Request) {
     if (ins.error) {
       console.error("kpi insert failed:", ins.error.message);
       return NextResponse.json({ error: "Could not save KPIs." }, { status: 400 });
-    }
-  }
-  if (old?.length) {
-    const { error: delErr } = await sb.from("kpis").delete().in("id", old.map((o: { id: string }) => o.id));
-    if (delErr) {
-      console.error("kpi delete failed:", delErr.message);
-      return NextResponse.json({ error: "Could not remove old KPIs." }, { status: 400 });
     }
   }
 

@@ -29,12 +29,12 @@ export async function POST(req: Request) {
   }
 
   const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
-  const path = `client-${Date.now()}-${Math.floor(file.size % 100000)}.${ext}`;
+  const path = `client-${crypto.randomUUID()}.${ext}`;
   const bytes = new Uint8Array(await file.arrayBuffer());
 
   const { error } = await admin.storage.from("logos").upload(path, bytes, {
     contentType: file.type,
-    upsert: true,
+    upsert: false,
   });
   if (error) {
     console.error("logo upload failed:", error.message);
