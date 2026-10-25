@@ -115,7 +115,7 @@ function ProgressBar({ step, t }: { step: number; t: (k: string, v?: Record<stri
           <Clock className="h-3.5 w-3.5" />
           {t("ob.progress", { pct })}
         </div>
-        <span className="font-mono text-[11px]">{t("ob.stepOf", { n: step, total: STEPS.length })}</span>
+        <span className="font-mono text-caption">{t("ob.stepOf", { n: step, total: STEPS.length })}</span>
       </div>
       <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
         <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${pct}%` }} />
@@ -147,7 +147,7 @@ function TourModal({ open, onClose }: { open: boolean; onClose: () => void }) {
         <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/15 text-brand-ink">
           <Icon className="h-7 w-7" />
         </span>
-        <p className="mt-5 text-xs font-semibold uppercase tracking-widest text-muted">
+        <p className="eyebrow mt-5">
           {i + 1} / {TOUR.length}
         </p>
         <h2 className="mt-2 font-display text-xl font-semibold">{t(slide.title)}</h2>
@@ -304,7 +304,7 @@ export function OnboardingView({
           <Logo size={34} showName />
         </div>
         <div className="flex flex-1 flex-col items-center justify-center px-4 pb-16 text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-line bg-surface py-1.5 pl-1.5 pr-4 text-[13px] text-soft shadow-card">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-line bg-surface py-1.5 pl-1.5 pr-4 text-body-sm text-soft shadow-card">
             <Avatar name={workspace} size={26} />
             {t("ob.workspaceBadge", { name: workspace })}
           </div>
@@ -312,7 +312,7 @@ export function OnboardingView({
           <h1 className="font-display text-[28px] font-semibold tracking-[-0.03em] sm:text-[34px]">
             {t("ob.welcomeTitle", { name: userName })}
           </h1>
-          <p className="mt-3 max-w-lg text-[14px] text-soft">
+          <p className="mt-3 max-w-lg text-body text-soft">
             {t("ob.welcomeSubtitle")}
           </p>
 
@@ -331,10 +331,10 @@ export function OnboardingView({
                     i === STEPS.length - 1 && "col-span-2 sm:col-span-1",
                   )}
                 >
-                  <span className={cn("flex h-[34px] w-[34px] items-center justify-center rounded-lg", current ? "bg-brand/10 text-brand-ink" : "bg-bg text-muted")}>
+                  <span className={cn("flex h-[34px] w-[34px] items-center justify-center rounded-lg", current ? "bg-brand-subtle text-brand-icon" : "bg-bg text-muted")}>
                     <Icon className="h-4 w-4" />
                   </span>
-                  <span className={cn("font-display text-[13px]", current ? "font-medium text-foreground" : "text-soft")}>{t(key)}</span>
+                  <span className={cn("font-display text-body-sm", current ? "font-medium text-foreground" : "text-soft")}>{t(key)}</span>
                 </li>
               );
             })}
@@ -390,15 +390,15 @@ export function OnboardingView({
 
           <div className="mt-8 grid grid-cols-1 divide-y divide-border overflow-hidden rounded-xl border border-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             <div className="px-6 py-4 text-center sm:px-8">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">{t("ob.profile")}</p>
+              <p className="eyebrow">{t("ob.profile")}</p>
               <p className="mt-1 text-sm font-bold">{t("ob.profileStatus")}</p>
             </div>
             <div className="px-6 py-4 text-center sm:px-8">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">{t("ob.sources")}</p>
+              <p className="eyebrow">{t("ob.sources")}</p>
               <p className="mt-1 text-sm font-bold">{t("ob.sourcesStatus", { n: connectedCount, total: CHANNELS.length })}</p>
             </div>
             <div className="px-6 py-4 text-center sm:px-8">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">{t("ob.invitations")}</p>
+              <p className="eyebrow">{t("ob.invitations")}</p>
               <p className="mt-1 text-sm font-bold">{t("ob.invitesStatus", { n: invitesSent })}</p>
             </div>
           </div>
@@ -569,7 +569,7 @@ export function OnboardingView({
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-semibold">{ch.name}</span>
-                              <Badge variant="neutral" className="text-[9px]">{ch.category}</Badge>
+                              <Badge variant="neutral" className="text-eyebrow">{ch.category}</Badge>
                             </div>
                             <p className="text-xs text-muted">{desc}</p>
                           </div>

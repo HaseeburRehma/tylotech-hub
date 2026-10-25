@@ -36,7 +36,7 @@ function DeltaBadge({ value, goodWhenDown = false }: { value: number; goodWhenDo
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-0.5 rounded-md py-0.5 pl-1.5 pr-2 font-mono text-[11px] font-medium leading-[14px]",
+        "inline-flex items-center gap-0.5 rounded-md py-0.5 pl-1.5 pr-2 font-mono text-caption font-medium leading-[14px]",
         good ? "bg-positive/10 text-positive" : "bg-negative/10 text-negative",
       )}
     >
@@ -74,13 +74,13 @@ function KpiCell({
         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
         <p className="eyebrow truncate">{label}</p>
       </div>
-      <p className="mt-2 truncate font-display text-[22px] font-semibold leading-8 tracking-[-0.03em] text-foreground sm:text-[28px]">
+      <p className="mt-2 truncate font-display text-h1 font-semibold leading-8 tracking-[-0.03em] text-foreground sm:text-kpi">
         {value}
       </p>
       {delta !== undefined && (
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
           <DeltaBadge value={delta} goodWhenDown={goodWhenDown} />
-          <span className="text-[11.5px] text-muted">{suffix}</span>
+          <span className="text-caption text-muted">{suffix}</span>
         </div>
       )}
     </motion.div>
@@ -105,8 +105,8 @@ function DashHeader({ title, subtitle, period, action }: { title: string; subtit
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <h1 className="font-display text-[22px] font-semibold tracking-[-0.02em] text-foreground animate-fade-up md:text-2xl">{title}</h1>
-        <p className="mt-1 text-[13px] text-muted">{subtitle}</p>
+        <h1 className="font-display text-h1 font-semibold tracking-[-0.02em] text-foreground animate-fade-up md:text-2xl">{title}</h1>
+        <p className="mt-1 text-body-sm text-muted">{subtitle}</p>
       </div>
       <div className="flex items-center gap-2">
         <span className="inline-flex h-9 min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-surface px-3 text-sm text-soft shadow-card sm:flex-none">
@@ -250,7 +250,7 @@ export function ClientDashboardView({
               </span>
             ))}
           </div>
-          {seriesKind !== "ads" && <span className="text-[11px] text-muted">{t(seriesKind === "ga4" ? "dash.chartGa4" : "dash.chartSeo")}</span>}
+          {seriesKind !== "ads" && <span className="text-caption text-muted">{t(seriesKind === "ga4" ? "dash.chartGa4" : "dash.chartSeo")}</span>}
         </div>
         {series.length > 0 ? (
           <PerfArea data={series} keys={chartKeys} labels={chartLabels} />
@@ -293,10 +293,10 @@ export function ClientDashboardView({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <p className="eyebrow">{t(meta.label)}</p>
-                      <span className="ml-auto text-[11px] text-muted">{formatRelativeTime(u.created_at)}</span>
+                      <span className="ml-auto text-caption text-muted">{formatRelativeTime(u.created_at)}</span>
                     </div>
                     <p className="mt-1 font-display text-sm font-medium text-foreground">{u.title}</p>
-                    <p className="mt-0.5 line-clamp-2 text-[13px] text-soft">{u.description}</p>
+                    <p className="mt-0.5 line-clamp-2 text-body-sm text-soft">{u.description}</p>
                   </div>
                 </motion.li>
               );
@@ -342,21 +342,21 @@ function TaskRow({ done, name, meta, due, status }: { done: boolean; name: strin
       <span
         className={cn(
           "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border",
-          done ? "border-brand bg-brand text-brand-foreground" : "border-border bg-surface",
+          done ? "border-brand bg-brand text-brand-foreground" : "border-border-strong bg-surface",
         )}
       >
         {done && <Check className="h-3 w-3" strokeWidth={3} />}
       </span>
       <div className="min-w-0 flex-1">
-        <p className={cn("truncate font-display text-[13.5px]", done ? "text-muted line-through" : "font-medium text-foreground")}>{name}</p>
+        <p className={cn("truncate font-display text-body", done ? "text-muted line-through" : "font-medium text-foreground")}>{name}</p>
         <div className="mt-0.5 flex min-w-0 items-center gap-2">
-          {meta && <span className="truncate text-[11.5px] text-muted">{meta}</span>}
+          {meta && <span className="truncate text-caption text-muted">{meta}</span>}
           {status === "blocked" && (
-            <span className="shrink-0 rounded bg-negative/10 px-1.5 font-mono text-[10px] text-negative">{t(s.label)}</span>
+            <span className="shrink-0 rounded bg-negative/10 px-1.5 font-mono text-eyebrow text-negative">{t(s.label)}</span>
           )}
         </div>
       </div>
-      <span className="shrink-0 text-right text-[11.5px] text-muted">
+      <span className="shrink-0 text-right text-caption text-muted">
         {due
           ? new Date(due).toLocaleDateString("de-DE", { timeZone: APP_TZ, weekday: "short", day: "numeric", month: "short" })
           : t(s.label)}
@@ -492,9 +492,9 @@ export function StaffDashboardView({
               >
                 <span className="w-0.5 shrink-0 self-stretch rounded-full bg-negative" />
                 <div className="min-w-0 flex-1">
-                  <p className="font-mono text-[10px] font-medium uppercase tracking-[0.07em] text-negative">{row.providerLabel}</p>
+                  <p className="eyebrow text-negative">{row.providerLabel}</p>
                   <p className="mt-1 truncate font-display text-sm font-medium text-foreground">{row.clientName}</p>
-                  <p className="mt-0.5 text-[12.5px] text-soft">
+                  <p className="mt-0.5 text-body-sm text-soft">
                     {row.lastSyncedAt
                       ? t("dash.staff.lastSynced", {
                           date: new Date(row.lastSyncedAt).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short" }),
@@ -554,13 +554,13 @@ export function StaffDashboardView({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <p className="min-w-0 truncate font-display text-sm font-medium text-foreground">{u.title}</p>
-                  <Badge variant="outline" className="shrink-0 px-2 py-0 text-[10.5px]">
+                  <Badge variant="outline" className="shrink-0 px-2 py-0 text-caption">
                     {u.clientName}
                   </Badge>
                 </div>
-                <p className="mt-0.5 line-clamp-2 text-[12.5px] text-soft">{u.description}</p>
+                <p className="mt-0.5 line-clamp-2 text-body-sm text-soft">{u.description}</p>
               </div>
-              <span className="shrink-0 text-[11px] text-muted">{formatRelativeTime(u.created_at)}</span>
+              <span className="shrink-0 text-caption text-muted">{formatRelativeTime(u.created_at)}</span>
             </motion.li>
           ))}
         </ul>

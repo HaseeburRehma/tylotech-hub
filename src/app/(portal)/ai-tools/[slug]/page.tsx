@@ -149,7 +149,7 @@ function ClientChip({ fallbackCompany }: { fallbackCompany: string }) {
   const badge = active ? (
     <ClientLogo client={active} size={24} />
   ) : (
-    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand/15 text-[10px] font-bold text-brand-ink">
+    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand/15 text-eyebrow font-bold text-brand-ink">
       {initialsOf(company)}
     </span>
   );
@@ -356,17 +356,17 @@ export default function ToolPage() {
 
       {/* Figma header: back link, tool tile + title, client on the right */}
       <div>
-        <Link href="/ai-tools" className="inline-flex items-center gap-1.5 text-[13px] text-soft hover:text-foreground">
+        <Link href="/ai-tools" className="inline-flex items-center gap-1.5 text-body-sm text-soft hover:text-foreground">
           <ArrowLeft className="h-3.5 w-3.5" /> {t("ait.allTools")}
         </Link>
         <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3.5">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand-ink">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-subtle text-brand-icon">
               <Icon className="h-5 w-5" />
             </span>
             <div className="min-w-0">
-              <h1 className="font-display text-[22px] font-semibold tracking-[-0.02em] md:text-2xl">{t(config.name)}</h1>
-              <p className="text-[13px] text-muted">{t(config.blurb)}</p>
+              <h1 className="font-display text-h1 font-semibold tracking-[-0.02em] md:text-2xl">{t(config.name)}</h1>
+              <p className="text-body-sm text-muted">{t(config.blurb)}</p>
             </div>
           </div>
           <ClientChip fallbackCompany={theme.company} />
@@ -440,7 +440,7 @@ export default function ToolPage() {
         {/* Output */}
         <Panel className="flex min-h-[420px] flex-col">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line py-3 pl-5 pr-4">
-            <h2 className="font-display text-[15px] font-semibold">{t("ait.result")}</h2>
+            <h2 className="font-display text-title font-semibold">{t("ait.result")}</h2>
             {output && !isError ? (
               <div className="flex items-center gap-2">
                 <button
@@ -478,7 +478,7 @@ export default function ToolPage() {
               <button
                 type="button"
                 onClick={() => setShowHistory(true)}
-                className="text-[12.5px] font-medium text-soft hover:text-foreground"
+                className="text-body-sm font-medium text-soft hover:text-foreground"
               >
                 {t("ait.history")}
               </button>
@@ -516,7 +516,7 @@ export default function ToolPage() {
                 animate={{ opacity: 1 }}
                 className="rounded-xl border border-line bg-bg/60 p-5"
               >
-                <pre className="whitespace-pre-wrap font-sans text-[14px] leading-[22px] text-foreground">
+                <pre className="whitespace-pre-wrap font-sans text-body leading-[22px] text-foreground">
                   {output}
                 </pre>
               </motion.div>
@@ -525,8 +525,8 @@ export default function ToolPage() {
                 <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-line bg-bg">
                   <Sparkles className="h-5 w-5 text-muted" />
                 </span>
-                <p className="font-display text-[15px] font-semibold text-foreground">{t("ait.noResult")}</p>
-                <p className="mx-auto mt-1.5 max-w-[320px] text-[13px] leading-relaxed text-soft">
+                <p className="font-display text-title font-semibold text-foreground">{t("ait.noResult")}</p>
+                <p className="mx-auto mt-1.5 max-w-[320px] text-body-sm leading-relaxed text-soft">
                   {t("ait.noResultDesc")}
                 </p>
               </div>

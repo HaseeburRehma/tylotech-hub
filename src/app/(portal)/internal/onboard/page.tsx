@@ -322,7 +322,7 @@ export default function OnboardPage() {
 
         {/* Live brand preview */}
         <div>
-          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted/60">{t("onb.livePreview")}</p>
+          <p className="eyebrow mb-2 text-muted/60">{t("onb.livePreview")}</p>
           <div style={previewVars} className="overflow-hidden rounded-2xl border border-border bg-bg p-4">
             <div className="mb-4 flex items-center gap-2.5">
               {form.logoUrl ? (
@@ -337,7 +337,7 @@ export default function OnboardPage() {
             </div>
             <div className="space-y-3">
               <div className="rounded-xl border border-border bg-surface p-3">
-                <p className="text-[11px] text-muted">{t("onb.monthlyFee")}</p>
+                <p className="text-caption text-muted">{t("onb.monthlyFee")}</p>
                 <p className="font-display text-lg font-semibold text-foreground">{formatCurrency(Number(form.mrr) || 0)}</p>
                 <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
                   <div className="h-full w-2/3 rounded-full bg-brand" />

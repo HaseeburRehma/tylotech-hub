@@ -173,7 +173,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
   const [done, setDone] = useState(false);
   return (
     <div>
-      <p className="mb-1 text-[11px] text-muted">{label}</p>
+      <p className="mb-1 text-caption text-muted">{label}</p>
       <div className="flex items-center gap-1.5">
         <code className="min-w-0 flex-1 truncate rounded-lg bg-surface-2 px-2.5 py-1.5 text-xs text-foreground">{value}</code>
         <button
@@ -244,7 +244,7 @@ export function SourcesModal({
   }
 
   const statusLine = (s: LeadSourceView) => (
-    <p className={cn("text-[11px]", s.status === "error" ? "text-danger" : "text-muted")}>
+    <p className={cn("text-caption", s.status === "error" ? "text-danger" : "text-muted")}>
       {s.status === "error" ? s.last_error ?? t("leads.src.error") : s.last_received_at ? t("leads.src.lastLead", { when: fmtDateTime(s.last_received_at) }) : t("leads.src.waiting")}
     </p>
   );
@@ -330,7 +330,7 @@ export function SourcesModal({
               </div>
               {s.hookUrl && <CopyField label={t("leads.src.url")} value={s.kind === "google_ads" ? s.hookUrl : `${s.hookUrl}?key=${s.key}`} />}
               {s.kind === "google_ads" && s.key && <CopyField label={t("leads.src.key")} value={s.key} />}
-              <p className="text-[11px] leading-relaxed text-muted">{s.kind === "google_ads" ? t("leads.src.googleSteps") : t("leads.src.webhookSteps")}</p>
+              <p className="text-caption leading-relaxed text-muted">{s.kind === "google_ads" ? t("leads.src.googleSteps") : t("leads.src.webhookSteps")}</p>
             </div>
           ))}
         </section>

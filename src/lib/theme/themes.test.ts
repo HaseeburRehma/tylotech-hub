@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildClientTheme, contrast, DARK_SURFACE, hexToRgb, isLight, readableOn, themeToCssVars, TYLOTECH_THEME } from "./themes";
+import { buildClientTheme, contrast, DARK_SURFACE, hexToRgb, isLight, readableOn, themeToCssVars, tint, TYLOTECH_THEME } from "./themes";
 
 describe("hexToRgb", () => {
   it("parses 6-digit hex", () => {
@@ -52,6 +52,26 @@ describe("brand ink — gold is never text on white", () => {
       expect(contrast(rgb(vars["--brand-ink-dark"]), DARK_SURFACE)).toBeGreaterThanOrEqual(4.5);
     },
   );
+
+  it("TyloTech pins Figma's icon/accent and surface/accent-subtle", () => {
+    const vars = themeToCssVars(TYLOTECH_THEME);
+    expect(vars["--brand-icon-light"]).toBe("185 143 83");
+    expect(vars["--brand-subtle-light"]).toBe("251 246 238");
+  });
+
+  it.each(["#D1AA71", "#01FE21", "#FFBF00", "#38BDF8", "#7B2CFF", "#FFFFFF"])(
+    "client colour %s gets an icon shade with 3:1 on white and on dark petrol",
+    (hex) => {
+      const vars = themeToCssVars(buildClientTheme({ id: "c", company: "C", primary: hex, secondary: "#000" }));
+      expect(contrast(rgb(vars["--brand-icon-light"]), [255, 255, 255])).toBeGreaterThanOrEqual(3);
+      expect(contrast(rgb(vars["--brand-icon-dark"]), DARK_SURFACE)).toBeGreaterThanOrEqual(3);
+    },
+  );
+
+  it("derives a faint brand tint for subtle surfaces", () => {
+    expect(tint([123, 44, 255], [255, 255, 255], 0.1)).toEqual([242, 234, 255]);
+    expect(tint([209, 170, 113], DARK_SURFACE, 0.1)).toEqual([21, 48, 55]);
+  });
 
   it("leaves colours that already read alone", () => {
     expect(readableOn([123, 44, 255], [255, 255, 255])).toEqual([123, 44, 255]);

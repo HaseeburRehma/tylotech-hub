@@ -142,9 +142,9 @@ export function NotificationsBell({ userId, variant = "topbar" }: { userId: stri
         >
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between border-b border-line px-[18px] py-3.5">
-            <p className="font-display text-[15px] font-semibold text-foreground">{t("notif.title")}</p>
+            <p className="font-display text-title font-semibold text-foreground">{t("notif.title")}</p>
             {unread > 0 && (
-              <button onClick={markAll} className="text-[13px] font-medium text-brand-ink hover:underline">
+              <button onClick={markAll} className="text-body-sm font-medium text-brand-ink hover:underline">
                 {t("notif.markAll")}
               </button>
             )}
@@ -172,9 +172,9 @@ export function NotificationsBell({ userId, variant = "topbar" }: { userId: stri
                       <Icon className="h-[15px] w-[15px]" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block font-display text-[13.5px] font-medium text-foreground">{i.title}</span>
-                      {i.body && <span className="mt-0.5 block text-[12.5px] leading-[18px] text-soft line-clamp-2">{i.body}</span>}
-                      <span className="mt-1 block font-mono text-[10.5px] text-muted">{formatRelativeTime(i.created_at)}</span>
+                      <span className="block font-display text-body font-medium text-foreground">{i.title}</span>
+                      {i.body && <span className="mt-0.5 block text-body-sm leading-[18px] text-soft line-clamp-2">{i.body}</span>}
+                      <span className="mt-1 block font-mono text-caption text-muted">{formatRelativeTime(i.created_at)}</span>
                     </span>
                     {!i.read && (
                       <span className="mt-1.5 h-[7px] w-[7px] shrink-0 rounded-full bg-brand" aria-label={t("notif.unread")} />
@@ -190,7 +190,7 @@ export function NotificationsBell({ userId, variant = "topbar" }: { userId: stri
             <Link
               href="/settings?tab=notifications"
               onClick={() => setOpen(false)}
-              className="flex items-center justify-center gap-1.5 text-[13px] text-soft transition-colors hover:text-foreground"
+              className="flex items-center justify-center gap-1.5 text-body-sm text-soft transition-colors hover:text-foreground"
             >
               {t("notif.settingsLink")}
             </Link>
@@ -218,7 +218,7 @@ export function NotificationsBell({ userId, variant = "topbar" }: { userId: stri
           (variant === "sidebar" ? (
             <span className="absolute right-[3px] top-[4px] h-[7px] w-[7px] rounded-full bg-negative ring-2 ring-surface" />
           ) : (
-            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-brand-foreground ring-2 ring-bg">
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-eyebrow font-semibold text-brand-foreground ring-2 ring-bg">
               {unread > 9 ? "9+" : unread}
             </span>
           ))}

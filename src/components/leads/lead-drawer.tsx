@@ -189,7 +189,7 @@ export function LeadDrawer({
               <span className="font-mono">#{lead.lead_no}</span>
               <SourceBadge lead={lead} />
               <span>{fmtDateTime(lead.created_at)}</span>
-              {lead.is_test && <span className="rounded bg-warning/15 px-1 text-[10px] font-semibold text-warning">TEST</span>}
+              {lead.is_test && <span className="rounded bg-warning/15 px-1 text-eyebrow font-semibold text-warning">TEST</span>}
             </p>
             <h2 className="mt-1 truncate text-lg font-semibold text-foreground">{lead.name ?? lead.email ?? lead.phone ?? t("leads.noName")}</h2>
           </div>
@@ -247,7 +247,7 @@ export function LeadDrawer({
 
           {/* Status pipeline */}
           <section>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">{t("leads.statusLabel")}</p>
+            <p className="eyebrow mb-2">{t("leads.statusLabel")}</p>
             <div className="flex flex-wrap gap-1.5">
               {LEAD_STATUSES.map((s: LeadStatus) => (
                 <button
@@ -322,7 +322,7 @@ export function LeadDrawer({
 
           {/* Every answer from the form */}
           <section>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">{t("leads.answers")}</p>
+            <p className="eyebrow mb-2">{t("leads.answers")}</p>
             {lead.fields.length === 0 ? (
               <p className="text-sm text-muted">—</p>
             ) : (
@@ -339,7 +339,7 @@ export function LeadDrawer({
 
           {/* Where it came from */}
           <section>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">{t("leads.origin")}</p>
+            <p className="eyebrow mb-2">{t("leads.origin")}</p>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
               {[
                 [t("leads.f.campaign"), lead.campaign],
@@ -361,7 +361,7 @@ export function LeadDrawer({
 
           {/* Timeline */}
           <section>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">{t("leads.timeline")}</p>
+            <p className="eyebrow mb-2">{t("leads.timeline")}</p>
             <div className="mb-3 space-y-2">
               <Textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={4000} placeholder={t("leads.notePh")} className="min-h-[70px] text-sm" />
               <div className="flex justify-end">

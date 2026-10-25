@@ -148,7 +148,7 @@ export default function AiToolsPage() {
             aria-label={t("ait.heroSubtitle")}
             placeholder={t("ait.heroSubtitle")}
             rows={3}
-            className="block w-full resize-none bg-transparent px-5 pt-4 text-[15px] text-white placeholder:text-white/45 focus:outline-none"
+            className="block w-full resize-none bg-transparent px-5 pt-4 text-title text-white placeholder:text-white/45 focus:outline-none"
           />
           <div className="flex items-center justify-between border-t border-white/10 px-4 py-3">
             <div className="flex min-w-0 items-center gap-2">
@@ -173,12 +173,12 @@ export default function AiToolsPage() {
       <div className="mx-auto max-w-3xl">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
-            <h3 className="font-mono text-[11px] text-muted">{t("ait.readyTools")}</h3>
-            <span className="rounded bg-positive/10 px-1.5 py-px font-mono text-[10px] text-positive">
+            <h3 className="font-mono text-caption text-muted">{t("ait.readyTools")}</h3>
+            <span className="rounded bg-positive/10 px-1.5 py-px font-mono text-eyebrow text-positive">
               {t("ait.toolsAvailable", { n: unlocked, total: AI_TOOLS.length })}
             </span>
           </div>
-          <button onClick={() => { setRequestPrefill(undefined); setShowRequestTool(true); }} className="text-[13px] text-soft transition-colors hover:text-foreground">
+          <button onClick={() => { setRequestPrefill(undefined); setShowRequestTool(true); }} className="text-body-sm text-soft transition-colors hover:text-foreground">
             {t("ait.requestOwnTool")}
           </button>
         </div>
@@ -212,19 +212,19 @@ export default function AiToolsPage() {
                     upgrade ? "hover:border-brand/40" : off ? "cursor-not-allowed opacity-50" : "hover:border-brand/40",
                   )}
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand-ink">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-subtle text-brand-icon">
                     <Icon className="h-[18px] w-[18px]" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                       <span className="font-display text-sm font-semibold text-foreground">{t(tool.name)}</span>
                       {upgrade ? (
-                        <span className="inline-flex items-center gap-1 rounded bg-brand/15 px-1.5 py-px font-mono text-[9px] uppercase tracking-wide text-foreground">
+                        <span className="eyebrow inline-flex items-center gap-1 rounded bg-brand/15 px-1.5 py-px text-foreground">
                           <Lock className="h-2.5 w-2.5" />
                           {t("ait.upgrade")}
                         </span>
                       ) : (
-                        <span className="rounded bg-line px-1.5 py-px font-mono text-[9px] uppercase tracking-wide text-muted">
+                        <span className="eyebrow rounded bg-line px-1.5 py-px">
                           {off ? t("prompts.inactive") : t(tool.category)}
                         </span>
                       )}
@@ -242,8 +242,8 @@ export default function AiToolsPage() {
       {/* Recently created */}
       <div className="mx-auto max-w-3xl">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-mono text-[11px] text-muted">{t("ait.recentlyCreated")}</h3>
-          <button type="button" onClick={() => setShowHistory(true)} className="text-[13px] text-soft hover:text-foreground">
+          <h3 className="font-mono text-caption text-muted">{t("ait.recentlyCreated")}</h3>
+          <button type="button" onClick={() => setShowHistory(true)} className="text-body-sm text-soft hover:text-foreground">
             {t("ait.history")}
           </button>
         </div>
@@ -262,11 +262,11 @@ export default function AiToolsPage() {
                   href={`/ai-tools/${e.tool}?h=${e.id}`}
                   className="card flex flex-col p-4 transition-all hover:border-brand/40"
                 >
-                  <span className="w-fit rounded bg-brand/10 px-1.5 py-px font-mono text-[9.5px] uppercase tracking-wide text-foreground">
+                  <span className="eyebrow w-fit rounded bg-brand/10 px-1.5 py-px text-foreground">
                     {def ? t(def.name) : e.tool}
                   </span>
-                  <p className="mt-2 line-clamp-3 flex-1 text-[13px] leading-relaxed text-soft">{e.output}</p>
-                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2.5 text-[11.5px] text-muted">
+                  <p className="mt-2 line-clamp-3 flex-1 text-body-sm leading-relaxed text-soft">{e.output}</p>
+                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2.5 text-caption text-muted">
                     <span className="truncate">{e.brand}</span>
                     <span className="shrink-0">
                       {new Date(e.at).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short" })}

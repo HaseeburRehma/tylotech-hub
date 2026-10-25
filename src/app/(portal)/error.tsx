@@ -25,7 +25,7 @@ export default function PortalError({ error, reset }: { error: Error & { digest?
         <div className="space-y-1.5">
           <h1 className="text-lg font-semibold text-foreground">{t("error.title")}</h1>
           <p className="text-sm text-muted">{t("error.body")}</p>
-          {error.digest && <p className="font-mono text-[11px] text-muted/60">Ref: {error.digest}</p>}
+          {error.digest && <p className="font-mono text-caption text-muted/60">Ref: {error.digest}</p>}
         </div>
         <div className="flex flex-wrap justify-center gap-2">
           <Button onClick={() => reset()}>

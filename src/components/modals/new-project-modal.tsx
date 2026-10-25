@@ -17,7 +17,7 @@ import type { ProjectStatus } from "@/types";
 import type { TeamMember } from "@/lib/data";
 
 const NEW_STATUSES: ProjectStatus[] = ["planning", "in_progress", "review", "done"];
-const label = "mb-1.5 block text-[13px] text-soft";
+const label = "mb-1.5 block text-body-sm text-soft";
 const field =
   "w-full rounded-xl border border-border bg-bg px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted/50 field-focus";
 
@@ -82,8 +82,8 @@ export function NewProjectModal({
     <ModalShell open={open} onClose={onClose}>
       <form onSubmit={submit} noValidate>
         <div className="flex items-start gap-4 border-b border-line px-6 py-5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10">
-            <ClipboardList className="h-5 w-5 text-brand-ink" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-subtle">
+            <ClipboardList className="h-5 w-5 text-brand-icon" />
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="font-display text-lg font-semibold tracking-[-0.01em] text-foreground">{t("newProj.title")}</h2>
@@ -143,7 +143,7 @@ export function NewProjectModal({
                 options={clients.map((c) => ({
                   value: c.id,
                   label: c.company,
-                  icon: <Avatar name={c.company} size={20} className="rounded-md text-[8px]" />,
+                  icon: <Avatar name={c.company} size={20} className="rounded-md text-eyebrow" />,
                 }))}
               />
             </div>
@@ -215,7 +215,7 @@ export function NewProjectModal({
                           }}
                         >
                           <span className="block truncate">{m.name}</span>
-                          <span className="block truncate text-[11px] text-muted">{m.role}</span>
+                          <span className="block truncate text-caption text-muted">{m.role}</span>
                         </MenuItem>
                       ))
                     }
@@ -227,7 +227,7 @@ export function NewProjectModal({
 
           <div>
             <div className="mb-1.5 flex items-center justify-between">
-              <label htmlFor="np-desc" className="text-[13px] text-soft">{t("newProj.descField")}</label>
+              <label htmlFor="np-desc" className="text-body-sm text-soft">{t("newProj.descField")}</label>
               <span className="text-xs text-muted">{t("reqTool.optional")}</span>
             </div>
             <textarea

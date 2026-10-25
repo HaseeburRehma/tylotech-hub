@@ -242,7 +242,7 @@ export function CommandPalette() {
                   placeholder={t("cmd.placeholder")}
                   className="flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted/60"
                 />
-                <kbd className="hidden rounded-md border border-border bg-surface px-1.5 py-0.5 text-[10px] font-medium text-muted sm:inline-block">
+                <kbd className="hidden rounded-md border border-border bg-surface px-1.5 py-0.5 text-eyebrow font-medium text-muted sm:inline-block">
                   esc
                 </kbd>
               </div>
@@ -254,7 +254,7 @@ export function CommandPalette() {
                   if (groupItems.length === 0) return null;
                   return (
                     <div key={group} className="mb-2 last:mb-0">
-                      <p className="px-3 pb-1.5 pt-2 text-[10px] font-semibold uppercase tracking-widest text-muted/70">
+                      <p className="eyebrow px-3 pb-1.5 pt-2">
                         {groupLabels[group]}
                       </p>
                       {groupItems.map((item) => {
@@ -297,7 +297,7 @@ export function CommandPalette() {
               </div>
 
               {/* Footer */}
-              <div className="flex items-center gap-4 border-t border-border px-4 py-2.5 text-[11px] text-muted">
+              <div className="flex items-center gap-4 border-t border-border px-4 py-2.5 text-caption text-muted">
                 <span className="flex items-center gap-1">
                   <ArrowUp className="h-3 w-3" />
                   <ArrowDown className="h-3 w-3" />

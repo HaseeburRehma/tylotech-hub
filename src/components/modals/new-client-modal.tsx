@@ -92,8 +92,8 @@ export function NewClientModal({
     <ModalShell open={open} onClose={onClose}>
               {/* Header */}
               <div className="flex items-start gap-4 border-b border-line px-6 py-5">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10">
-                  <Building2 className="h-5 w-5 text-brand-ink" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-subtle">
+                  <Building2 className="h-5 w-5 text-brand-icon" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <h2 className="font-display text-lg font-semibold tracking-[-0.01em] text-foreground">{t("newClient.title")}</h2>
@@ -113,7 +113,7 @@ export function NewClientModal({
                 {/* Company + Industry */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="mb-1.5 block text-[13px] text-soft">{t("newClient.company")}</label>
+                    <label className="mb-1.5 block text-body-sm text-soft">{t("newClient.company")}</label>
                     <input
                       value={company}
                       onChange={(e) => setCompany(e.target.value)}
@@ -121,7 +121,7 @@ export function NewClientModal({
                     />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-[13px] text-soft">{t("newClient.industry")}</label>
+                    <label className="mb-1.5 block text-body-sm text-soft">{t("newClient.industry")}</label>
                     <input
                       value={industry}
                       onChange={(e) => setIndustry(e.target.value)}
@@ -132,7 +132,7 @@ export function NewClientModal({
 
                 {/* Plan */}
                 <div>
-                  <label className="mb-1.5 block text-[13px] text-soft">{t("newClient.plan")}</label>
+                  <label className="mb-1.5 block text-body-sm text-soft">{t("newClient.plan")}</label>
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
@@ -184,7 +184,7 @@ export function NewClientModal({
                 {/* MRR + Since */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="mb-1.5 block text-[13px] text-soft">{t("newClient.mrr")}</label>
+                    <label className="mb-1.5 block text-body-sm text-soft">{t("newClient.mrr")}</label>
                     <input
                       value={mrr}
                       onChange={(e) => setMrr(e.target.value)}
@@ -193,7 +193,7 @@ export function NewClientModal({
                     />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-[13px] text-soft">{t("newClient.since")}</label>
+                    <label className="mb-1.5 block text-body-sm text-soft">{t("newClient.since")}</label>
                     <input
                       value={since}
                       onChange={(e) => setSince(e.target.value)}
@@ -205,7 +205,7 @@ export function NewClientModal({
 
                 {/* Contact email */}
                 <div>
-                  <label className="mb-1.5 block text-[13px] text-soft">{t("newClient.contactEmail")}</label>
+                  <label className="mb-1.5 block text-body-sm text-soft">{t("newClient.contactEmail")}</label>
                   <input
                     type="email"
                     value={email}

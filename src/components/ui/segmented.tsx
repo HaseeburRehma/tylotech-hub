@@ -32,12 +32,12 @@ export function Segmented<K extends string>({
             aria-selected={active}
             onClick={() => onChange(o.key)}
             className={cn(
-              "shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-[13px] transition-colors",
+              "shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-body-sm transition-colors",
               active ? "bg-surface font-medium text-foreground shadow-card" : "text-soft hover:text-foreground",
             )}
           >
             {o.label}
-            {o.count !== undefined && <span className="ml-1.5 font-mono text-[10px] text-muted">{o.count}</span>}
+            {o.count !== undefined && <span className="ml-1.5 font-mono text-eyebrow text-muted">{o.count}</span>}
           </button>
         );
       })}

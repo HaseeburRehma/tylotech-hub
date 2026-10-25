@@ -178,7 +178,7 @@ export function LiveFeedPanel({ clientId }: { clientId: string }) {
             </div>
             <Input value={title} maxLength={80} placeholder={t("lf.titlePh")} onChange={(e) => setTitle(e.target.value)} />
             <Input value={detail} maxLength={80} placeholder={label || t("lf.detailPh")} onChange={(e) => setDetail(e.target.value)} />
-            <p className="text-[11px] text-muted">{t("lf.privacy")}</p>
+            <p className="text-caption text-muted">{t("lf.privacy")}</p>
 
             {/* preview: how the website bar will show it */}
             <div className="flex items-center gap-3 rounded-full bg-[#002e3d] py-2 pl-2 pr-4">
@@ -186,13 +186,13 @@ export function LiveFeedPanel({ clientId }: { clientId: string }) {
                 <PreviewIcon className="h-4 w-4" />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-[13px] font-semibold text-white">{title || "…"}</span>
-                <span className="block truncate text-[11px] text-[#8cc0d1]">
+                <span className="block truncate text-body-sm font-semibold text-white">{title || "…"}</span>
+                <span className="block truncate text-caption text-[#8cc0d1]">
                   {[previewDetail, ago === 0 ? "gerade eben" : relative(ago * 60_000)].filter(Boolean).join(" · ")}
                 </span>
               </span>
             </div>
-            {!optIn && <p className="text-[11px] text-warning">{t("lf.notPublic")}</p>}
+            {!optIn && <p className="text-caption text-warning">{t("lf.notPublic")}</p>}
             <Button size="sm" loading={posting} disabled={!title.trim()} onClick={record}>
               {t("lf.recordBtn")}
             </Button>
@@ -219,7 +219,7 @@ export function LiveFeedPanel({ clientId }: { clientId: string }) {
                           {[e.detail, relative(Date.now() - new Date(e.occurred_at).getTime())].filter(Boolean).join(" · ")}
                         </p>
                       </div>
-                      <Badge className="text-[10px]">{e.source}</Badge>
+                      <Badge className="text-eyebrow">{e.source}</Badge>
                       <button
                         type="button"
                         onClick={() => toggleHidden(e)}

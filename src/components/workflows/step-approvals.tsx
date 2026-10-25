@@ -51,7 +51,7 @@ export function StepApprovals({ step, staff, partner }: { step: RunStep; staff: 
   return (
     <div className="rounded-xl border border-border p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted">
+        <p className="eyebrow flex items-center gap-1.5">
           <ShieldCheck className="h-3.5 w-3.5" /> {t("approval.title")}
         </p>
         <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
@@ -74,7 +74,7 @@ export function StepApprovals({ step, staff, partner }: { step: RunStep; staff: 
                   </Button>
                 )}
               </div>
-              <p className="mt-1 text-[11px] text-muted">
+              <p className="mt-1 text-caption text-muted">
                 {t("approval.askedBy", { name: nameOf(a.requested_by), when: stamp(a.requested_at) })}
                 {a.decided_at && a.status !== "cancelled" ? ` · ${t("approval.decidedBy", { name: nameOf(a.decided_by), when: stamp(a.decided_at) })}` : ""}
               </p>

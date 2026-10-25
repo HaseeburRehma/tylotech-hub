@@ -174,7 +174,7 @@ export function ProjectsManager({
                 aria-pressed={view === key}
                 onClick={() => setView(key)}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors",
+                  "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-body-sm transition-colors",
                   view === key ? "bg-surface font-medium text-foreground shadow-card" : "text-soft hover:text-foreground",
                 )}
               >
@@ -334,7 +334,7 @@ export function ProjectsManager({
                   {/* Project name */}
                   <td className="px-4 py-3 sm:max-w-[280px]">
                     <div className="min-w-0">
-                      <p className="line-clamp-2 font-display text-[13.5px] font-medium text-foreground">
+                      <p className="line-clamp-2 font-display text-body font-medium text-foreground">
                         {p.name}
                       </p>
                       {p.description && (
@@ -346,7 +346,7 @@ export function ProjectsManager({
                           {p.due ? ` · ${formatDue(p.due)}` : ""}
                         </p>
                         {(processCountByProject[p.id] ?? 0) > 0 && (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-ink">
+                          <span className="inline-flex items-center gap-1 text-caption font-medium text-brand-ink">
                             <ListChecks className="h-3 w-3" />
                             {t(processCountByProject[p.id] === 1 ? "proj.processOne" : "proj.processMany", { n: processCountByProject[p.id] })}
                           </span>
@@ -358,7 +358,7 @@ export function ProjectsManager({
                   {/* Client */}
                   <td className="hidden px-4 py-3 sm:table-cell">
                     <div className="flex items-center gap-2">
-                      <Avatar name={cName} size={22} className="rounded-md text-[9px]" />
+                      <Avatar name={cName} size={22} className="rounded-md text-eyebrow" />
                       <span className="truncate text-soft">{cName}</span>
                     </div>
                   </td>
@@ -379,7 +379,7 @@ export function ProjectsManager({
                         tone={s.tone}
                         className="w-32 bg-line"
                       />
-                      <span className="w-9 font-mono text-[11px] text-soft">
+                      <span className="w-9 font-mono text-caption text-soft">
                         {p.progress}%
                       </span>
                     </div>
@@ -431,7 +431,7 @@ function AssigneeStack({ people, size, max = 4 }: { people: { key: string; name:
       {rest > 0 && (
         <span
           style={{ width: size, height: size }}
-          className="flex items-center justify-center rounded-full bg-surface-2 font-mono text-[10px] text-soft ring-2 ring-surface"
+          className="flex items-center justify-center rounded-full bg-surface-2 font-mono text-eyebrow text-soft ring-2 ring-surface"
         >
           +{rest}
         </span>
@@ -617,7 +617,7 @@ function ProjectBoard({
             <div className="mb-2.5 flex items-center gap-2">
               <span className={cn("h-1.5 w-1.5 rounded-full", s.dot)} />
               <span className="eyebrow">{t(STATUS_LABEL_KEY[status])}</span>
-              <span className="ml-auto font-mono text-[10px] text-muted">{items.length}</span>
+              <span className="ml-auto font-mono text-eyebrow text-muted">{items.length}</span>
             </div>
             <div className="space-y-2.5">
               {items.map((p) => {
@@ -625,7 +625,7 @@ function ProjectBoard({
                 return (
                   <div key={p.id} className="rounded-xl border border-line bg-surface p-3 shadow-card">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="font-display text-[13px] font-medium leading-snug text-foreground">{p.name}</p>
+                      <p className="font-display text-body-sm font-medium leading-snug text-foreground">{p.name}</p>
                       {actions(p)}
                     </div>
                     <div className="mt-2 flex items-center gap-1.5 text-xs text-muted">
@@ -634,9 +634,9 @@ function ProjectBoard({
                     </div>
                     <div className="mt-3 flex items-center gap-2">
                       <Progress value={p.progress} tone={s.tone} className="flex-1 bg-line" />
-                      <span className="font-mono text-[10.5px] text-soft">{p.progress}%</span>
+                      <span className="font-mono text-caption text-soft">{p.progress}%</span>
                     </div>
-                    <div className="mt-2.5 flex items-center justify-between border-t border-line pt-2 text-[11px] text-muted">
+                    <div className="mt-2.5 flex items-center justify-between border-t border-line pt-2 text-caption text-muted">
                       <span>{formatDue(p.due)}</span>
                       <AssigneeStack people={projectAssignees(p, memberName)} size={22} max={3} />
                     </div>

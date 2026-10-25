@@ -42,7 +42,7 @@ export function Donut({
         </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="font-display text-xl font-semibold">100%</span>
-          <span className="text-[10px] text-muted">channels</span>
+          <span className="text-eyebrow text-muted">channels</span>
         </div>
       </div>
       <ul className="flex-1 space-y-2.5">

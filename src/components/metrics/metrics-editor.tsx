@@ -88,7 +88,7 @@ export function MetricsEditor({ clientId, initialKpis }: { clientId: string; ini
               </span>
             ))}
           </div>
-          <p className="mt-2 text-[11px] text-muted">{t("kpiEd.syncedHint")}</p>
+          <p className="mt-2 text-caption text-muted">{t("kpiEd.syncedHint")}</p>
         </div>
       )}
 

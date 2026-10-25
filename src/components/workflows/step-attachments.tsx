@@ -208,9 +208,9 @@ export function StepAttachments({ step, staff, hasPartner }: { step: RunStep; st
       }}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted">
+        <p className="eyebrow flex items-center gap-1.5">
           <Paperclip className="h-3.5 w-3.5" /> {t("wf.att.title")}
-          {items.length > 0 && <span className="rounded-full bg-surface-2 px-1.5 text-[10px] text-foreground">{items.length}</span>}
+          {items.length > 0 && <span className="rounded-full bg-surface-2 px-1.5 text-eyebrow text-foreground">{items.length}</span>}
         </p>
         <div className="flex flex-wrap items-center gap-1.5">
           <input ref={fileRef} type="file" multiple accept={ACCEPT} className="hidden" onChange={(e) => e.target.files && upload(e.target.files).then(() => (e.target.value = ""))} />
@@ -281,7 +281,7 @@ export function StepAttachments({ step, staff, hasPartner }: { step: RunStep; st
                 </span>
                 <button type="button" onClick={() => open(a)} className="min-w-0 flex-1 text-left">
                   <p className="truncate text-sm font-medium text-foreground hover:underline">{a.name}</p>
-                  <p className="truncate text-[11px] text-muted">
+                  <p className="truncate text-caption text-muted">
                     {[a.kind === "link" ? safeHost(a.url) : humanSize(a.size), nameOf(a.uploaded_by), fmt(a.created_at)].filter(Boolean).join(" · ")}
                     {a.document_id && <span className="ml-1.5 text-success">· {t("wf.att.inDocuments")}</span>}
                   </p>

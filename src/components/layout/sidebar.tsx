@@ -84,7 +84,7 @@ export function ClientLogo({ client, size }: { client: SidebarClient; size: numb
 function UnreadPill({ n, className }: { n: number; className?: string }) {
   if (!n) return null;
   return (
-    <span className={cn("min-w-[20px] rounded-full bg-brand px-1.5 py-px text-center text-[10px] font-bold leading-4 text-brand-foreground", className)}>
+    <span className={cn("min-w-[20px] rounded-full bg-brand px-1.5 py-px text-center text-eyebrow font-bold leading-4 text-brand-foreground", className)}>
       {n > 99 ? "99+" : n}
     </span>
   );
@@ -97,7 +97,7 @@ function WaitingClock({ since }: { since: string | null }) {
   if (!since || Date.now() - new Date(since).getTime() < WAITING_ALERT_HOURS * 3_600_000) return null;
   const label = t("inbox.waiting", { time: waitedFor(since, locale) });
   return (
-    <span title={label} aria-label={label} className="flex items-center gap-0.5 text-[10px] font-semibold text-danger">
+    <span title={label} aria-label={label} className="flex items-center gap-0.5 text-eyebrow font-semibold text-danger">
       <Clock className="h-3 w-3" />
       {waitedFor(since, locale)}
     </span>
@@ -164,7 +164,7 @@ function ClientSwitcher({ onNavigate }: { onNavigate?: () => void }) {
       >
         <ClientLogo client={active} size={26} />
         <span className="min-w-0 flex-1 text-left">
-          <span className="block font-mono text-[9.5px] font-medium uppercase leading-3 tracking-[0.05em] text-muted">{t("nav.client")}</span>
+          <span className="eyebrow block">{t("nav.client")}</span>
           <span className="block truncate font-display text-sm font-medium leading-[19px] text-foreground">{active.name}</span>
         </span>
         {otherWaiting > 0 && (
@@ -205,7 +205,7 @@ function ClientSwitcher({ onNavigate }: { onNavigate?: () => void }) {
                     onClick={() => pick(c)}
                     className={cn(
                       "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-bg",
-                      selected ? "bg-brand/10 font-medium text-foreground" : "text-soft hover:text-foreground",
+                      selected ? "bg-brand-subtle font-medium text-foreground" : "text-soft hover:text-foreground",
                     )}
                   >
                     <ClientLogo client={c} size={24} />
@@ -262,27 +262,27 @@ function NavList({
           href={item.href}
           onClick={onNavigate}
           className={cn(
-            "group relative flex h-10 shrink-0 items-center gap-[11px] rounded-[10px] px-3 font-display text-[14.5px] font-medium tracking-[-0.01em] transition-colors ring-focus",
+            "group relative flex h-10 shrink-0 items-center gap-[11px] rounded-[10px] px-3 font-display text-title font-medium tracking-[-0.01em] transition-colors ring-focus",
             active ? "text-foreground" : "text-soft hover:bg-bg hover:text-foreground",
           )}
         >
           {active && (
             <motion.span
               layoutId="nav-active"
-              className="absolute inset-0 -z-10 rounded-[10px] bg-brand/10"
+              className="absolute inset-0 -z-10 rounded-[10px] bg-brand-subtle"
               transition={{ type: "spring", stiffness: 400, damping: 32 }}
             />
           )}
-          <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-brand-ink" : "text-muted group-hover:text-soft")} strokeWidth={1.75} />
+          <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-brand-icon" : "text-muted group-hover:text-soft")} strokeWidth={1.75} />
           <span className="flex-1 truncate">{t(item.label)}</span>
           {item.href === "/chat" && <UnreadPill n={activeUnread} />}
           {navBadges[item.href] != null && navBadges[item.href]! > 0 && (
-            <span className="min-w-[20px] rounded-full bg-surface-2 px-1.5 py-px text-center text-[10px] font-bold leading-4 text-muted">
+            <span className="min-w-[20px] rounded-full bg-surface-2 px-1.5 py-px text-center text-eyebrow font-bold leading-4 text-muted">
               {navBadges[item.href]}
             </span>
           )}
           {item.href === "/internal" && inbox.overdue.length > 0 && (
-            <span title={t("inbox.waitingCount", { n: inbox.overdue.length })} className="flex items-center gap-0.5 text-[10px] font-semibold text-danger">
+            <span title={t("inbox.waitingCount", { n: inbox.overdue.length })} className="flex items-center gap-0.5 text-eyebrow font-semibold text-danger">
               <Clock className="h-3 w-3" />
               {inbox.overdue.length}
             </span>
@@ -293,12 +293,12 @@ function NavList({
 
   return (
     <nav className="-mx-1 flex flex-1 flex-col gap-0.5 overflow-y-auto px-1">
-      <p className="pb-2 pt-[22px] font-display text-[11.5px] font-medium leading-4 text-muted">{t("nav.workspace")}</p>
+      <p className="pb-2 pt-[22px] font-display text-caption font-medium leading-4 text-muted">{t("nav.workspace")}</p>
       {render(CLIENT_NAV)}
 
       {canSeeInternal && (
         <>
-          <p className="pb-2 pt-[22px] font-display text-[11.5px] font-medium leading-4 text-muted">{t("nav.tylotech")}</p>
+          <p className="pb-2 pt-[22px] font-display text-caption font-medium leading-4 text-muted">{t("nav.tylotech")}</p>
           {render(INTERNAL_NAV)}
         </>
       )}
@@ -360,7 +360,7 @@ function UserProfileDropdown() {
   }
 
   const itemClass =
-    "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] text-foreground transition-colors hover:bg-bg";
+    "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-body text-foreground transition-colors hover:bg-bg";
   const iconClass = "h-4 w-4 shrink-0 text-muted";
   const role = ROLE_LABEL[user.role] ?? user.role;
 
@@ -413,7 +413,7 @@ function UserProfileDropdown() {
             >
               <Keyboard className={iconClass} />
               <span className="flex-1 text-left">{t("account.shortcuts")}</span>
-              <kbd className="rounded border border-line bg-bg px-1.5 py-px font-mono text-[10px] text-muted">⌘K</kbd>
+              <kbd className="rounded border border-line bg-bg px-1.5 py-px font-mono text-eyebrow text-muted">⌘K</kbd>
             </button>
             <a href="mailto:info@tylotech.de" role="menuitem" className={itemClass}>
               <LifeBuoy className={iconClass} />
@@ -425,7 +425,7 @@ function UserProfileDropdown() {
               type="button"
               role="menuitem"
               onClick={signOut}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] text-negative transition-colors hover:bg-negative/10"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-body text-negative transition-colors hover:bg-negative/10"
             >
               <LogOut className="h-4 w-4" />
               <span className="flex-1 text-left">{t("account.signOut")}</span>
@@ -444,8 +444,8 @@ function UserProfileDropdown() {
       >
         <Avatar name={user.name} src={user.avatarUrl} size={28} />
         <div className="min-w-0 flex-1 text-left">
-          <p className="truncate font-display text-[13.5px] font-medium leading-[18px] text-foreground">{user.name}</p>
-          <p className="truncate text-[11.5px] leading-[15px] text-muted">{role}</p>
+          <p className="truncate font-display text-body font-medium leading-[18px] text-foreground">{user.name}</p>
+          <p className="truncate text-caption leading-[15px] text-muted">{role}</p>
         </div>
         <MoreHorizontal className="h-[15px] w-[15px] shrink-0 text-muted" />
       </button>

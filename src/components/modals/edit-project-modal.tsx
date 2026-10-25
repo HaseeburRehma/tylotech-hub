@@ -49,8 +49,8 @@ export function EditProjectModal({ project, onClose }: { project: Project | null
   return (
     <ModalShell open={!!project} onClose={onClose}>
       <div className="flex items-start gap-4 border-b border-line px-6 py-5">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10">
-          <Pencil className="h-5 w-5 text-brand-ink" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-subtle">
+          <Pencil className="h-5 w-5 text-brand-icon" />
         </div>
         <div className="min-w-0 flex-1">
           <h2 className="font-display text-lg font-semibold tracking-[-0.01em] text-foreground">{t("editProj.title")}</h2>
@@ -69,15 +69,15 @@ export function EditProjectModal({ project, onClose }: { project: Project | null
       <div className="space-y-4 px-6 py-5">
         {error && <div className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">{error}</div>}
         <div>
-          <label htmlFor="ep-name" className="mb-1.5 block text-[13px] text-soft">{t("newProj.name")}</label>
+          <label htmlFor="ep-name" className="mb-1.5 block text-body-sm text-soft">{t("newProj.name")}</label>
           <input id="ep-name" value={name} maxLength={160} onChange={(e) => setName(e.target.value)} className={`${field} h-11`} />
         </div>
         <div>
-          <label htmlFor="ep-due" className="mb-1.5 block text-[13px] text-soft">{t("newProj.due")}</label>
+          <label htmlFor="ep-due" className="mb-1.5 block text-body-sm text-soft">{t("newProj.due")}</label>
           <input id="ep-due" type="date" value={due} onChange={(e) => setDue(e.target.value)} className={`${field} h-11`} />
         </div>
         <div>
-          <label htmlFor="ep-desc" className="mb-1.5 block text-[13px] text-soft">{t("newProj.descField")}</label>
+          <label htmlFor="ep-desc" className="mb-1.5 block text-body-sm text-soft">{t("newProj.descField")}</label>
           <textarea
             id="ep-desc"
             value={description}

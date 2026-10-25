@@ -31,7 +31,7 @@ export function HealthBadge({ health, className }: { health: ClientHealth | unde
   return (
     <span
       title={title}
-      className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums", LEVEL_STYLE[level], className)}
+      className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-caption font-semibold tabular-nums", LEVEL_STYLE[level], className)}
     >
       <HeartPulse className="h-3 w-3" />
       {health?.score ?? "—"}
@@ -67,11 +67,11 @@ export function HealthCard({ health }: { health: ClientHealth | undefined }) {
             <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
               <div className={cn("h-full rounded-full", BAR_STYLE(s.score))} style={{ width: `${Math.max(4, s.score)}%` }} />
             </div>
-            <p className="mt-1 text-[11px] text-muted">{text.reason(s)}</p>
+            <p className="mt-1 text-caption text-muted">{text.reason(s)}</p>
           </li>
         ))}
       </ul>
-      <p className="mt-4 text-[11px] leading-relaxed text-muted/80">{t("health.explain")}</p>
+      <p className="mt-4 text-caption leading-relaxed text-muted/80">{t("health.explain")}</p>
     </div>
   );
 }

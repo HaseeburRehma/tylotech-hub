@@ -106,7 +106,7 @@ export function AiToolsEditor({
                 </div>
                 <Badge
                   variant={tool.is_active ? "success" : "neutral"}
-                  className="shrink-0 text-[10px]"
+                  className="shrink-0 text-eyebrow"
                 >
                   <span
                     className={cn(

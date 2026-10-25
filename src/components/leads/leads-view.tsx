@@ -179,7 +179,7 @@ export function LeadsView({
         ].map((s) => (
           <button key={s.label} type="button" onClick={s.onClick} className="text-left">
             <Card className="flex items-center gap-3 p-4 transition-colors hover:border-brand/40">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand-ink">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-subtle text-brand-icon">
                 <s.icon className="h-5 w-5" />
               </span>
               <span className="min-w-0">
@@ -252,7 +252,7 @@ export function LeadsView({
                   <span className="min-w-0">
                     <span className={cn("block truncate text-sm text-foreground", l.status === "new" && "font-semibold")}>
                       {l.name ?? l.email ?? l.phone ?? t("leads.noName")}
-                      {l.is_test && <span className="ml-2 rounded bg-warning/15 px-1 text-[10px] font-semibold text-warning">TEST</span>}
+                      {l.is_test && <span className="ml-2 rounded bg-warning/15 px-1 text-eyebrow font-semibold text-warning">TEST</span>}
                     </span>
                     <span className="block truncate text-xs text-muted">{[l.phone, l.email].filter(Boolean).join(" · ") || "—"}</span>
                   </span>

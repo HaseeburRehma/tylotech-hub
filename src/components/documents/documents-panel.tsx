@@ -273,14 +273,14 @@ export function DocumentsPanel({
                         <div className="flex items-center gap-3">
                           <span
                             className={cn(
-                              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line font-mono text-[8.5px] font-medium",
+                              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line font-mono text-eyebrow font-medium",
                               d.type === "report" ? "bg-positive/5 text-positive" : d.type === "contract" ? "bg-brand/10 text-brand-ink" : "bg-bg text-muted",
                             )}
                           >
                             {extOf(d.name)}
                           </span>
                           <div className="min-w-0">
-                            <p className="line-clamp-2 font-display text-[13.5px] font-medium text-foreground sm:line-clamp-1">{d.name}</p>
+                            <p className="line-clamp-2 font-display text-body font-medium text-foreground sm:line-clamp-1">{d.name}</p>
                             <p className="text-xs text-muted sm:hidden">
                               {t(m.label)} · {date}
                             </p>
@@ -290,8 +290,8 @@ export function DocumentsPanel({
                       <td className="hidden px-4 py-3 sm:table-cell">
                         <Badge variant={m.variant}>{t(m.label)}</Badge>
                       </td>
-                      <td className="hidden whitespace-nowrap px-4 py-3 text-right font-mono text-[12.5px] text-soft md:table-cell">{d.size || "—"}</td>
-                      <td className="hidden whitespace-nowrap px-4 py-3 text-right text-[12.5px] text-muted sm:table-cell">{date}</td>
+                      <td className="hidden whitespace-nowrap px-4 py-3 text-right font-mono text-body-sm text-soft md:table-cell">{d.size || "—"}</td>
+                      <td className="hidden whitespace-nowrap px-4 py-3 text-right text-body-sm text-muted sm:table-cell">{date}</td>
                       <td className="px-4 py-3 text-right">
                         {(downloadable(d) || canDelete(d)) && (
                         <Menu

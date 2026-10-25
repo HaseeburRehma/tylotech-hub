@@ -63,7 +63,7 @@ function DeltaChip({ up, children }: { up: boolean; children: React.ReactNode })
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-0.5 rounded-md py-0.5 pl-1.5 pr-2 font-mono text-[11px] font-medium leading-[14px]",
+        "inline-flex items-center gap-0.5 rounded-md py-0.5 pl-1.5 pr-2 font-mono text-caption font-medium leading-[14px]",
         up ? "bg-positive/10 text-positive" : "bg-negative/10 text-negative",
       )}
     >
@@ -75,7 +75,7 @@ function DeltaChip({ up, children }: { up: boolean; children: React.ReactNode })
 
 function LiveChip({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-[5px] bg-positive/10 py-px pl-1.5 pr-[7px] font-mono text-[9px] font-medium leading-3 text-positive">
+    <span className="inline-flex items-center gap-1 rounded-[5px] bg-positive/10 py-px pl-1.5 pr-[7px] font-mono text-eyebrow font-medium leading-3 text-positive">
       <span className="h-[5px] w-[5px] rounded-full bg-positive" />
       {label}
     </span>
@@ -137,7 +137,7 @@ export function InternalView({
       live: true,
       extra:
         mrrDeltaPct === null ? (
-          <span className="text-[11.5px] text-muted">{tr("hub.noPrevMonth")}</span>
+          <span className="text-caption text-muted">{tr("hub.noPrevMonth")}</span>
         ) : (
           <DeltaChip up={mrrDeltaPct >= 0}>{pct.format(mrrDeltaPct)}%</DeltaChip>
         ),
@@ -150,20 +150,20 @@ export function InternalView({
         newClientsThisMonth > 0 ? (
           <DeltaChip up>+{newClientsThisMonth} {tr("hub.thisMonth")}</DeltaChip>
         ) : (
-          <span className="text-[11.5px] text-muted">{tr("hub.noNewClients")}</span>
+          <span className="text-caption text-muted">{tr("hub.noNewClients")}</span>
         ),
     },
     {
       label: tr("hub.activeProjects"),
       value: String(activeProjects),
       live: false,
-      extra: <span className="text-[11.5px] text-muted">{tr("hub.projectsTotal", { n: projectCount })}</span>,
+      extra: <span className="text-caption text-muted">{tr("hub.projectsTotal", { n: projectCount })}</span>,
     },
     {
       label: tr("hub.activeProcesses"),
       value: String(activeProcesses),
       live: false,
-      extra: <span className="text-[11.5px] text-muted">{tr("hub.processesTotal", { n: processCount })}</span>,
+      extra: <span className="text-caption text-muted">{tr("hub.processesTotal", { n: processCount })}</span>,
     },
   ];
 
@@ -208,7 +208,7 @@ export function InternalView({
               {s.live && <LiveChip label={tr("hub.live")} />}
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
-              <p className="font-display text-[22px] font-semibold leading-8 tracking-[-0.03em] text-foreground sm:text-[27px]">
+              <p className="font-display text-h1 font-semibold leading-8 tracking-[-0.03em] text-foreground sm:text-kpi">
                 {s.value}
               </p>
               {s.extra}
@@ -253,8 +253,8 @@ export function InternalView({
                 <li key={t.id} className="flex items-center gap-3 px-5 py-2">
                   <Avatar name={t.name} size={28} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-display text-[13px] font-medium leading-[18px] text-foreground">{t.name}</p>
-                    <p className="truncate text-[11px] leading-[15px] text-muted">
+                    <p className="truncate font-display text-body-sm font-medium leading-[18px] text-foreground">{t.name}</p>
+                    <p className="truncate text-caption leading-[15px] text-muted">
                       {t.role} · {t.clients} {tr("hub.accounts")}
                     </p>
                   </div>
@@ -298,27 +298,27 @@ export function InternalView({
               <div className="flex items-center gap-2 pb-0.5">
                 <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STAGE_DOT[col.stageKey] ?? "bg-muted")} />
                 <span className="eyebrow">{tr(STAGE_I18N[col.stageKey] ?? col.stage)}</span>
-                <span className="ml-auto font-mono text-[10px] text-muted">{col.projects.length}</span>
+                <span className="ml-auto font-mono text-eyebrow text-muted">{col.projects.length}</span>
               </div>
               {col.projects.map((p, i) => (
                 <div key={`${p.name}-${i}`} className="rounded-xl border border-line bg-surface px-3 pb-2 pt-2.5 shadow-card">
-                  <p className="font-display text-[13px] font-medium leading-[18px] text-foreground">{p.name}</p>
+                  <p className="font-display text-body-sm font-medium leading-[18px] text-foreground">{p.name}</p>
                   <div className="mt-1.5 flex items-center gap-2">
                     {p.clientLogo ? (
                       <Avatar name={p.client} src={p.clientLogo} logo size={20} className="rounded-md" />
                     ) : (
                       <span
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[8.5px] font-semibold text-white"
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-eyebrow font-semibold text-white"
                         style={{ background: p.clientColor }}
                       >
                         {p.client.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
                       </span>
                     )}
-                    <span className="min-w-0 flex-1 truncate text-[11px] text-muted">{p.client}</span>
-                    {p.assignee && <Avatar name={p.assignee} size={20} className="text-[8px]" />}
+                    <span className="min-w-0 flex-1 truncate text-caption text-muted">{p.client}</span>
+                    {p.assignee && <Avatar name={p.assignee} size={20} className="text-eyebrow" />}
                   </div>
                   {p.due && (
-                    <div className="mt-2 flex items-center gap-1.5 border-t border-line pt-1.5 text-[11px] text-muted">
+                    <div className="mt-2 flex items-center gap-1.5 border-t border-line pt-1.5 text-caption text-muted">
                       <Clock className="h-3 w-3" />
                       {new Date(p.due).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short" })}
                     </div>
@@ -363,12 +363,12 @@ export function InternalView({
                       r.status === "active" ? "bg-brand" : r.status === "paused" ? "bg-warning" : "bg-positive",
                     )}
                   />
-                  <p className="min-w-0 flex-1 truncate font-display text-[13px] font-medium leading-[18px] text-foreground">
+                  <p className="min-w-0 flex-1 truncate font-display text-body-sm font-medium leading-[18px] text-foreground">
                     {r.name}
                   </p>
                 </div>
                 {r.currentStep && (
-                  <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted">
+                  <div className="mt-1.5 flex items-center gap-1.5 text-caption text-muted">
                     <Activity className="h-3 w-3 shrink-0 text-brand-ink" />
                     <span className="truncate">{r.currentStep}</span>
                   </div>
@@ -378,21 +378,21 @@ export function InternalView({
                     <Avatar name={r.client} src={r.clientLogo} logo size={20} className="rounded-md" />
                   ) : (
                     <span
-                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[8.5px] font-semibold text-white"
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-eyebrow font-semibold text-white"
                       style={{ background: r.clientColor }}
                     >
                       {r.client.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
                     </span>
                   )}
-                  <span className="min-w-0 flex-1 truncate text-[11px] text-muted">{r.client}</span>
-                  {r.assignee && <Avatar name={r.assignee} size={20} className="text-[8px]" />}
+                  <span className="min-w-0 flex-1 truncate text-caption text-muted">{r.client}</span>
+                  {r.assignee && <Avatar name={r.assignee} size={20} className="text-eyebrow" />}
                 </div>
                 <div className="mt-2 border-t border-line pt-1.5">
                   <div className="flex items-center gap-2">
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
                       <div className="h-full rounded-full bg-brand" style={{ width: `${r.progress}%` }} />
                     </div>
-                    <span className="font-mono text-[10px] text-muted">
+                    <span className="font-mono text-eyebrow text-muted">
                       {r.finishedSteps}/{r.totalSteps}
                     </span>
                   </div>

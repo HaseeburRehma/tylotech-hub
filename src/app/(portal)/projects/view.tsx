@@ -47,7 +47,7 @@ export function ProjectsView({ projects, staff }: { projects: Project[]; staff: 
               <Card key={p.id} className="flex flex-col gap-3 p-5">
                 <div className="flex items-start justify-between gap-3">
                   <h3 className={cn("text-base font-semibold", p.status === "done" && "text-muted line-through")}>{p.name}</h3>
-                  <Badge variant={s.variant} className="shrink-0 text-[11px]">
+                  <Badge variant={s.variant} className="shrink-0 text-caption">
                     {t(s.label)}
                   </Badge>
                 </div>

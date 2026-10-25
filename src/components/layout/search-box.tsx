@@ -99,7 +99,7 @@ export function SearchBox() {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm text-foreground">{h.label}</span>
-                      <span className={cn("block truncate text-[11px] text-muted")}>{h.meta ?? h.type}</span>
+                      <span className={cn("block truncate text-caption text-muted")}>{h.meta ?? h.type}</span>
                     </span>
                   </button>
                 );

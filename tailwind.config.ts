@@ -18,7 +18,10 @@ const config: Config = {
         bg: "rgb(var(--bg) / <alpha-value>)",
         surface: "rgb(var(--surface) / <alpha-value>)",
         "surface-2": "rgb(var(--surface-2) / <alpha-value>)",
-        border: "rgb(var(--border) / <alpha-value>)",
+        border: {
+          DEFAULT: "rgb(var(--border) / <alpha-value>)",
+          strong: "rgb(var(--border-strong) / <alpha-value>)",
+        },
         line: "rgb(var(--line) / <alpha-value>)",
         foreground: "rgb(var(--foreground) / <alpha-value>)",
         soft: "rgb(var(--soft) / <alpha-value>)",
@@ -28,8 +31,10 @@ const config: Config = {
         brand: {
           DEFAULT: "rgb(var(--brand) / <alpha-value>)",
           foreground: "rgb(var(--brand-foreground) / <alpha-value>)",
-          // Brand for text and icons — always readable on the current surface.
+          // Brand for text (AA on the current surface); icon = 3:1 icon/accent, subtle = surface/accent-subtle.
           ink: "rgb(var(--brand-ink) / <alpha-value>)",
+          icon: "rgb(var(--brand-icon) / <alpha-value>)",
+          subtle: "rgb(var(--brand-subtle) / <alpha-value>)",
         },
         petrol: "rgb(0 46 61 / <alpha-value>)", // Figma action/primary, surface/brand
         accent: "rgb(var(--accent) / <alpha-value>)",
@@ -43,6 +48,17 @@ const config: Config = {
         display: ["var(--font-display)", "var(--font-sans)", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
         serif: ["var(--font-serif)", "Georgia", "serif"],
+      },
+      // Figma text styles (size / line height). Styles without a line height
+      // inherit it, like the arbitrary sizes they replaced.
+      fontSize: {
+        eyebrow: ["10px", { lineHeight: "13px" }],
+        caption: "11px",
+        "body-sm": "13px",
+        body: "14px",
+        title: "15px",
+        h1: ["22px", { lineHeight: "24px" }],
+        kpi: ["28px", { lineHeight: "34px" }],
       },
       borderRadius: {
         xl: "0.75rem",

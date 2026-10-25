@@ -183,7 +183,7 @@ export function IntegrationsBoard({
             <a
               key={c.id}
               href={`/integrations?client=${c.slug ?? c.id}`}
-              className={`h-8 shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-[12.5px] transition-colors ${
+              className={`h-8 shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-body-sm transition-colors ${
                 c.id === clientId
                   ? "border-brand bg-brand/10 font-medium text-foreground"
                   : "border-border bg-surface text-soft shadow-card hover:text-foreground"
@@ -239,8 +239,8 @@ export function IntegrationsBoard({
                     </span>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-display text-[15px] font-semibold">{p.name}</h3>
-                        <span className="rounded bg-line px-1.5 py-px font-mono text-[9px] uppercase tracking-wide text-muted">{p.category}</span>
+                        <h3 className="font-display text-title font-semibold">{p.name}</h3>
+                        <span className="eyebrow rounded bg-line px-1.5 py-px">{p.category}</span>
                       </div>
                     </div>
                   </div>
@@ -259,19 +259,19 @@ export function IntegrationsBoard({
                   )}
                 </div>
 
-                <p className="mt-2 text-[13px] text-soft">{p.description}</p>
+                <p className="mt-2 text-body-sm text-soft">{p.description}</p>
                 {notLive && (
-                  <p className="mt-2 rounded-lg bg-warning/10 px-2.5 py-1.5 text-[11px] text-warning">
+                  <p className="mt-2 rounded-lg bg-warning/10 px-2.5 py-1.5 text-caption text-warning">
                     {t(row?.has_token ? "integ.notLiveDevToken" : "integ.notLiveNoToken")}
                   </p>
                 )}
                 {isStaff && row?.meta?.lastErrorDetail && (
-                  <p className="mt-2 rounded-lg bg-danger/10 px-2.5 py-1.5 text-[11px] text-danger">
+                  <p className="mt-2 rounded-lg bg-danger/10 px-2.5 py-1.5 text-caption text-danger">
                     {t("integ.lastErrorDetail", { detail: row.meta.lastErrorDetail })}
                   </p>
                 )}
                 {isStaff && row?.meta?.tokenExpiresAt && (
-                  <p className={`mt-2 text-[11px] ${Date.parse(row.meta.tokenExpiresAt) - Date.now() < 7 * 86_400_000 ? "text-warning" : "text-muted"}`}>
+                  <p className={`mt-2 text-caption ${Date.parse(row.meta.tokenExpiresAt) - Date.now() < 7 * 86_400_000 ? "text-warning" : "text-muted"}`}>
                     {t("integ.tokenExpires", {
                       date: new Date(row.meta.tokenExpiresAt).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" }),
                     })}
@@ -281,10 +281,10 @@ export function IntegrationsBoard({
                 {connected && (
                   <div className="mt-3">
                     {!canEditTarget && (
-                      <p className="mb-2 text-[11px] text-muted/80">{t("integrations.managedByTeam")}</p>
+                      <p className="mb-2 text-caption text-muted/80">{t("integrations.managedByTeam")}</p>
                     )}
                     {p.id === "meta_ads" && (
-                      <label className="block font-mono text-[10px] text-muted">
+                      <label className="block font-mono text-eyebrow text-muted">
                         {t("integrations.metaAccountId")}
                         <input
                           defaultValue={row?.meta?.accountId ?? ""}
@@ -294,12 +294,12 @@ export function IntegrationsBoard({
                           data-lpignore="true"
                           onBlur={(e) => canEditTarget && e.target.value !== (row?.meta?.accountId ?? "") && configure(p.id, "accountId", e.target.value)}
                           placeholder="act_1234567890"
-                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-[12px] text-foreground outline-none field-focus read-only:opacity-70"
+                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-xs text-foreground outline-none field-focus read-only:opacity-70"
                         />
                       </label>
                     )}
                     {p.id === "google_ads" && (
-                      <label className="block font-mono text-[10px] text-muted">
+                      <label className="block font-mono text-eyebrow text-muted">
                         {t("integrations.googleCustomerId")}
                         <input
                           defaultValue={row?.meta?.accountId ?? ""}
@@ -309,12 +309,12 @@ export function IntegrationsBoard({
                           data-lpignore="true"
                           onBlur={(e) => canEditTarget && e.target.value !== (row?.meta?.accountId ?? "") && configure(p.id, "accountId", e.target.value)}
                           placeholder="123-456-7890"
-                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-[12px] text-foreground outline-none field-focus read-only:opacity-70"
+                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-xs text-foreground outline-none field-focus read-only:opacity-70"
                         />
                       </label>
                     )}
                     {p.id === "ga4" && (
-                      <label className="block font-mono text-[10px] text-muted">
+                      <label className="block font-mono text-eyebrow text-muted">
                         {t("integrations.ga4PropertyId")} <span className="text-muted/60">{t("integrations.ga4Hint")}</span>
                         <input
                           defaultValue={row?.meta?.propertyId ?? ""}
@@ -324,12 +324,12 @@ export function IntegrationsBoard({
                           data-lpignore="true"
                           onBlur={(e) => canEditTarget && e.target.value !== (row?.meta?.propertyId ?? "") && configure(p.id, "propertyId", e.target.value)}
                           placeholder="123456789"
-                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-[12px] text-foreground outline-none field-focus read-only:opacity-70"
+                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-xs text-foreground outline-none field-focus read-only:opacity-70"
                         />
                       </label>
                     )}
                     {p.id === "search_console" && (
-                      <label className="block font-mono text-[10px] text-muted">
+                      <label className="block font-mono text-eyebrow text-muted">
                         {t("integrations.siteUrl")}
                         <input
                           defaultValue={row?.meta?.siteUrl ?? ""}
@@ -339,12 +339,12 @@ export function IntegrationsBoard({
                           data-lpignore="true"
                           onBlur={(e) => canEditTarget && e.target.value !== (row?.meta?.siteUrl ?? "") && configure(p.id, "siteUrl", e.target.value)}
                           placeholder="https://example.com/"
-                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-[12px] text-foreground outline-none field-focus"
+                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-xs text-foreground outline-none field-focus"
                         />
                       </label>
                     )}
                     {isStaff && (
-                      <label className="mt-3 block font-mono text-[10px] text-muted">
+                      <label className="mt-3 block font-mono text-eyebrow text-muted">
                         {t("integ.apiToken")} {row?.has_token ? <span className="text-success">· {t("integ.tokenSet")}</span> : null}
                         {/* Saved only on Enter — never on blur: browsers autofill password-type
                             fields with the user's login, which must never become an API token. */}
@@ -365,9 +365,9 @@ export function IntegrationsBoard({
                             }
                           }}
                           placeholder={row?.has_token ? t("integ.tokenReplacePh") : t("integ.tokenPh")}
-                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-[12px] text-foreground outline-none field-focus"
+                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-xs text-foreground outline-none field-focus"
                         />
-                        <span className="mt-1 block text-[10px] text-muted/70">{t("integ.tokenEnterHint")}</span>
+                        <span className="mt-1 block text-eyebrow text-muted/70">{t("integ.tokenEnterHint")}</span>
                       </label>
                     )}
                   </div>
@@ -408,7 +408,7 @@ export function IntegrationsBoard({
                         {t("common.connect")}
                       </Button>
                     ) : (
-                      <span className="text-[11px] text-muted">{t("ob.viaTeam")}</span>
+                      <span className="text-caption text-muted">{t("ob.viaTeam")}</span>
                     )}
                   </div>
                 </div>

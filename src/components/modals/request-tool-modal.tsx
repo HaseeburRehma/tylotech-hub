@@ -63,8 +63,8 @@ export function RequestToolModal({
     <ModalShell open={open} onClose={onClose}>
               {/* Header */}
               <div className="flex items-start gap-4 border-b border-line px-6 py-5">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10">
-                  <Sparkles className="h-5 w-5 text-brand-ink" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-subtle">
+                  <Sparkles className="h-5 w-5 text-brand-icon" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <h2 className="font-display text-lg font-semibold tracking-[-0.01em] text-foreground">{t("reqTool.title")}</h2>
@@ -79,7 +79,7 @@ export function RequestToolModal({
               <div className="space-y-4 px-6 pb-2">
                 {/* What */}
                 <div>
-                  <label className="mb-1.5 block text-[13px] text-soft">{t("reqTool.whatLabel")}</label>
+                  <label className="mb-1.5 block text-body-sm text-soft">{t("reqTool.whatLabel")}</label>
                   <textarea
                     value={what}
                     onChange={(e) => setWhat(e.target.value)}
@@ -92,7 +92,7 @@ export function RequestToolModal({
                 <div className={clients.length ? "grid grid-cols-1 gap-4 sm:grid-cols-2" : "grid grid-cols-1 gap-4"}>
                   {clients.length > 0 && (
                   <div>
-                    <label className="mb-1.5 block text-[13px] text-soft">{t("reqTool.forClients")}</label>
+                    <label className="mb-1.5 block text-body-sm text-soft">{t("reqTool.forClients")}</label>
                     <select
                       value={forClients}
                       onChange={(e) => setForClients(e.target.value)}
@@ -108,7 +108,7 @@ export function RequestToolModal({
                   </div>
                   )}
                   <div>
-                    <label className="mb-1.5 block text-[13px] text-soft">{t("reqTool.frequency")}</label>
+                    <label className="mb-1.5 block text-body-sm text-soft">{t("reqTool.frequency")}</label>
                     <select
                       value={frequency}
                       onChange={(e) => setFrequency(e.target.value)}

@@ -72,7 +72,7 @@ export function AiHistoryModal({ open, onClose, tool }: { open: boolean; onClose
             >
               <div className="flex items-center justify-between gap-3">
                 <span className="truncate text-sm font-medium text-foreground">{toolName(e.tool)}</span>
-                <span className="shrink-0 text-[11px] text-muted">
+                <span className="shrink-0 text-caption text-muted">
                   {new Date(e.at).toLocaleString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                 </span>
               </div>

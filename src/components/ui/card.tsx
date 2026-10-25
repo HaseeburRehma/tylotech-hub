@@ -19,7 +19,7 @@ export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDiv
 }
 
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn("font-display text-[15px] font-semibold leading-5 tracking-[-0.015em] text-foreground", className)} {...props} />;
+  return <h3 className={cn("font-display text-title font-semibold leading-5 tracking-[-0.015em] text-foreground", className)} {...props} />;
 }
 
 export function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
@@ -48,11 +48,11 @@ export function PanelHeader({
   return (
     <div className={cn("flex items-center gap-3 border-b border-line py-3 pl-5 pr-4", className)}>
       <div className="min-w-0 flex-1">
-        <h3 className="font-display text-[15px] font-semibold leading-5 tracking-[-0.015em] text-foreground sm:truncate">{title}</h3>
+        <h3 className="font-display text-title font-semibold leading-5 tracking-[-0.015em] text-foreground sm:truncate">{title}</h3>
         {/* Wraps on phones, one line from sm up. */}
         {subtitle && <p className="mt-0.5 text-xs text-muted sm:truncate">{subtitle}</p>}
       </div>
-      {action && <div className="flex shrink-0 items-center gap-2 text-[12.5px] font-medium text-soft">{action}</div>}
+      {action && <div className="flex shrink-0 items-center gap-2 text-body-sm font-medium text-soft">{action}</div>}
     </div>
   );
 }

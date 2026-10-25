@@ -9,7 +9,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex gap-0.5 rounded-lg bg-line/80 p-[3px] font-mono text-[10.5px] font-medium",
+        "inline-flex gap-0.5 rounded-lg bg-line/80 p-[3px] font-mono text-caption font-medium",
         className,
       )}
       role="group"

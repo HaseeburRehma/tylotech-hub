@@ -96,7 +96,7 @@ export function RunSteps({ run, staff, partner = "—" }: { run: Run; staff: Sta
                     <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
                       {s.status === "done" && (
                         <>
-                          <span className="font-semibold uppercase tracking-wide text-success">{t("wf.state.done")}</span>
+                          <span className="eyebrow text-success">{t("wf.state.done")}</span>
                           <span className="text-muted">
                             {t("wf.by")} {nameOf(s.completed_by) ?? "—"}
                             {s.completed_at ? ` · ${fmtStamp(s.completed_at)}` : ""}
@@ -105,7 +105,7 @@ export function RunSteps({ run, staff, partner = "—" }: { run: Run; staff: Sta
                       )}
                       {s.status === "skipped" && (
                         <>
-                          <span className="font-semibold uppercase tracking-wide text-muted">{t("wf.state.skipped")}</span>
+                          <span className="eyebrow">{t("wf.state.skipped")}</span>
                           <span className="text-muted">
                             {t("wf.by")} {nameOf(s.completed_by) ?? "—"}
                             {s.completed_at ? ` · ${fmtStamp(s.completed_at)}` : ""}
@@ -114,7 +114,7 @@ export function RunSteps({ run, staff, partner = "—" }: { run: Run; staff: Sta
                       )}
                       {s.status === "active" && (
                         <>
-                          <span className={cn("font-semibold uppercase tracking-wide", run.status === "paused" ? "text-warning" : "text-info")}>
+                          <span className={cn("eyebrow", run.status === "paused" ? "text-warning" : "text-info")}>
                             ● {run.status === "paused" ? t("wf.state.paused") : t("wf.state.active")}
                             {mine && run.status === "active" ? ` · ${t("wf.yourTurn")}` : ""}
                           </span>
@@ -130,7 +130,7 @@ export function RunSteps({ run, staff, partner = "—" }: { run: Run; staff: Sta
                       )}
                       {s.status === "locked" && (
                         <>
-                          <span className="font-semibold uppercase tracking-wide text-muted/70">{t("wf.state.locked")}</span>
+                          <span className="eyebrow text-muted/70">{t("wf.state.locked")}</span>
                           <span className="text-muted">
                             {t("wf.responsible")}: {nameOf(s.assignee_user_id) ?? t("wf.unassigned")}
                             {s.id === firstLocked && run.status !== "completed" ? ` · ${t("wf.autoActivates")}` : ""}

@@ -70,7 +70,7 @@ export function ConnectionsMatrix({
                   })}
                   <td className="px-4 py-2.5 text-right">
                     {missing > 0 ? (
-                      <span className="rounded-md bg-brand/10 px-1.5 py-0.5 font-mono text-[11px] text-foreground">
+                      <span className="rounded-md bg-brand/10 px-1.5 py-0.5 font-mono text-caption text-foreground">
                         {t("integ.matrixOf", { n: missing, total: providers.length })}
                       </span>
                     ) : (

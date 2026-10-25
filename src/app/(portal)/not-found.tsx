@@ -72,7 +72,7 @@ export default function NotFound() {
         <StyledHeadline text={t("e404.headline")} />
       </h1>
 
-      <p className="mt-3 max-w-md text-[14px] text-soft">
+      <p className="mt-3 max-w-md text-body text-soft">
         {t("e404.body")}
       </p>
 

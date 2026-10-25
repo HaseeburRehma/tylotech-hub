@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 const badge = cva(
   // Figma status chip: small tinted pill, 11px.
-  "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium leading-4",
+  "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-caption font-medium leading-4",
   {
     variants: {
       variant: {

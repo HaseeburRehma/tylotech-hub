@@ -168,7 +168,7 @@ export function MenuItem({
 }
 
 export function MenuLabel({ children }: { children: React.ReactNode }) {
-  return <p className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-muted/70">{children}</p>;
+  return <p className="eyebrow px-2.5 pb-1 pt-2">{children}</p>;
 }
 
 export function MenuSeparator() {

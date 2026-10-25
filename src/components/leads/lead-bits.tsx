@@ -39,5 +39,5 @@ export function SourceBadge({ lead }: { lead: Pick<Lead, "source" | "platform"> 
   const t = useT();
   const name = lead.source === "meta" && lead.platform === "instagram" ? "Instagram" : lead.source === "meta" ? "Facebook" : SOURCE_NAME[lead.source] || t("leads.source.manual");
   const color = lead.source === "meta" ? "bg-[#1877F2]/15 text-[#5b9bff]" : lead.source === "google_ads" ? "bg-[#34A853]/15 text-[#4cc46f]" : "bg-surface-2 text-muted";
-  return <span className={cn("inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11px] font-semibold", color)}>{name}</span>;
+  return <span className={cn("inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-caption font-semibold", color)}>{name}</span>;
 }

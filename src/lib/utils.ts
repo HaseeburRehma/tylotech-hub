@@ -1,5 +1,15 @@
 import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { extendTailwindMerge } from "tailwind-merge";
+
+// Teach tailwind-merge the Figma font sizes from tailwind.config.ts — otherwise it
+// reads `text-caption` as a colour and drops it next to `text-muted` (or vice versa).
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: {
+      "font-size": [{ text: ["eyebrow", "caption", "body-sm", "body", "title", "h1", "kpi"] }],
+    },
+  },
+});
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));

@@ -170,7 +170,7 @@ export function PinnedBar({
           className="min-w-0 flex-1 text-left"
           title={t("chat.pin.jump")}
         >
-          <span className="block text-[11px] font-semibold text-brand-ink">
+          <span className="block text-caption font-semibold text-brand-ink">
             {t("chat.pin.title")}
             {list.length > 1 ? ` · ${idx + 1}/${list.length}` : ""}
           </span>
@@ -197,7 +197,7 @@ export function PinnedBar({
                 }}
                 className="min-w-0 flex-1 text-left"
               >
-                <span className="block text-[11px] text-muted">{m.sender_name}</span>
+                <span className="block text-caption text-muted">{m.sender_name}</span>
                 <span className="block truncate text-xs text-foreground">{snippetOf(m)}</span>
               </button>
               <button type="button" onClick={() => onUnpin(m)} aria-label={t("chat.pin.unpin")} className="flex h-6 w-6 items-center justify-center rounded text-muted hover:text-foreground">
@@ -278,10 +278,10 @@ export function QuickReplyPopup({
   return (
     <div className="absolute bottom-full left-5 right-5 z-40 mb-2 overflow-hidden rounded-xl border border-border bg-surface shadow-float" role="listbox" aria-label={t("chat.qr.title")}>
       <div className="flex items-center justify-between px-3 py-1.5">
-        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
+        <span className="eyebrow flex items-center gap-1.5">
           <Zap className="h-3 w-3" /> {t("chat.qr.title")}
         </span>
-        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={onManage} className="text-[11px] font-medium text-brand-ink hover:underline">
+        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={onManage} className="text-caption font-medium text-brand-ink hover:underline">
           {t("chat.qr.manage")}
         </button>
       </div>
@@ -300,7 +300,7 @@ export function QuickReplyPopup({
                 onClick={() => onPick(r)}
                 className={cn("flex w-full items-start gap-3 px-3 py-2 text-left", i === active ? "bg-brand/10" : "hover:bg-surface-2")}
               >
-                <span className="shrink-0 rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-brand-ink">/{r.shortcut}</span>
+                <span className="shrink-0 rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-caption text-brand-ink">/{r.shortcut}</span>
                 <span className="line-clamp-2 min-w-0 flex-1 text-xs text-foreground">{r.body}</span>
               </button>
             </li>
@@ -427,7 +427,7 @@ export function QuickRepliesModal({ open, onClose, items, onChanged, ready }: { 
             <ul className="max-h-72 space-y-1.5 overflow-y-auto">
               {items.map((r) => (
                 <li key={r.id} className="flex items-start gap-3 rounded-lg border border-border px-3 py-2">
-                  <span className="shrink-0 rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-brand-ink">/{r.shortcut}</span>
+                  <span className="shrink-0 rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-caption text-brand-ink">/{r.shortcut}</span>
                   <span className="line-clamp-3 min-w-0 flex-1 whitespace-pre-line text-xs text-foreground">{r.body}</span>
                   <button
                     type="button"

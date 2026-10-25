@@ -9,6 +9,7 @@
   --surface: 255 255 255; /* surface/default */
   --surface-2: 241 240 237;
   --border: 226 224 220; /* border/default */
+  --border-strong: 203 200 194; /* border/strong — checkboxes, controls */
   --line: 238 237 234; /* border/subtle — card outlines, dividers */
   --foreground: 26 25 23; /* text/primary */
   --soft: 92 89 84; /* text/secondary */
@@ -31,6 +32,13 @@
   --brand-ink-light: 148 113 63;
   --brand-ink-dark: 216 182 130;
   --brand-ink: var(--brand-ink-light);
+  /* icon/accent and surface/accent-subtle; light/dark pairs come from themeToCssVars. */
+  --brand-icon-light: 185 143 83;
+  --brand-icon-dark: 209 170 113;
+  --brand-icon: var(--brand-icon-light);
+  --brand-subtle-light: 251 246 238;
+  --brand-subtle-dark: 21 48 55;
+  --brand-subtle: var(--brand-subtle-light);
   /* Figma Focus/Ring — one focus style everywhere. */
   --focus: 1 71 92;
   --focus-alpha: 0.35;
@@ -42,6 +50,7 @@
   --surface: 0 34 48; /* surface/default #002230 */
   --surface-2: 0 46 61; /* surface/subtle #002E3D */
   --border: 1 71 92; /* border/default #01475C */
+  --border-strong: 22 99 122; /* one step above border/default */
   --line: 0 46 61; /* border/subtle */
   --foreground: 255 255 255; /* text/primary */
   --soft: 179 214 226; /* text/secondary #B3D6E2 */
@@ -54,6 +63,8 @@
   --danger: 240 100 90;
   --info: 127 186 205;
   --brand-ink: var(--brand-ink-dark);
+  --brand-icon: var(--brand-icon-dark);
+  --brand-subtle: var(--brand-subtle-dark);
   /* Focus/Ring Accent: gold ring on dark surfaces. */
   --focus: 209 170 113;
   --focus-alpha: 0.45;
@@ -139,7 +150,7 @@ body {
 
   /* Small mono uppercase label above numbers / board columns (Figma "Kopf"). */
   .eyebrow {
-    @apply font-mono text-[10px] font-medium uppercase leading-[13px] tracking-[0.07em] text-muted;
+    @apply font-mono text-eyebrow font-medium uppercase tracking-[0.07em] text-muted;
   }
 
   .card-hover {
@@ -170,7 +181,7 @@ body {
 
   /* Toolbar button next to filters ("Filter", "Sort: Budget", "Assignee: All"). */
   .tool-btn {
-    @apply inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border bg-surface px-3 text-[13px] text-soft shadow-card transition-colors hover:text-foreground;
+    @apply inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border bg-surface px-3 text-body-sm text-soft shadow-card transition-colors hover:text-foreground;
   }
 
   .ring-focus {

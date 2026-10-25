@@ -181,7 +181,7 @@ export function ShareStepModal({
                 );
               })}
             </div>
-            <div className="mt-1.5 flex gap-3 text-[11px]">
+            <div className="mt-1.5 flex gap-3 text-caption">
               <button type="button" className="text-muted hover:text-foreground" onClick={() => setNotify(others.map((o) => o.id))}>
                 {t("wf.share.all")}
               </button>

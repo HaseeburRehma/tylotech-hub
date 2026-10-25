@@ -159,8 +159,8 @@ export function SettingsView({
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-[22px] font-semibold tracking-[-0.02em] md:text-2xl">{t("settings.title")}</h1>
-          <p className="mt-1 text-[13px] text-muted">{t("settings.subtitle")}</p>
+          <h1 className="font-display text-h1 font-semibold tracking-[-0.02em] md:text-2xl">{t("settings.title")}</h1>
+          <p className="mt-1 text-body-sm text-muted">{t("settings.subtitle")}</p>
         </div>
         {tab === "profile" && (
           <Button onClick={saveProfile} loading={saving} disabled={!dirty} className="w-full sm:w-auto">

@@ -182,7 +182,7 @@ export function ClientDetail({
         {/* Back link */}
         <Link
           href="/internal/clients"
-          className="inline-flex items-center gap-1.5 text-[13px] text-soft hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-body-sm text-soft hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           {t("cd.allClients")}
@@ -200,7 +200,7 @@ export function ClientDetail({
             <Avatar name={client.company} src={client.logo_url} logo size={46} className="rounded-xl" />
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="truncate font-display text-[22px] font-semibold tracking-[-0.02em] md:text-2xl">
+                <h1 className="truncate font-display text-h1 font-semibold tracking-[-0.02em] md:text-2xl">
                   {client.company}
                 </h1>
                 <Badge variant={client.plan === "Scale" ? "brand" : "positive"}>
@@ -209,7 +209,7 @@ export function ClientDetail({
                 </Badge>
                 <HealthBadge health={health} />
               </div>
-              <p className="mt-0.5 text-[13px] text-muted">
+              <p className="mt-0.5 text-body-sm text-muted">
                 {formatCurrency(client.mrr)} {t("cd.perMonth", { amount: "" }).trim()} · {t("cd.clientSince", { date: clientSince })}
               </p>
             </div>
@@ -289,7 +289,7 @@ export function ClientDetail({
             ].map((st) => (
               <div key={st.label} className="card min-w-0 px-4 py-4 sm:px-5">
                 <p className="eyebrow truncate">{st.label}</p>
-                <p className="mt-2 truncate font-display text-[22px] font-semibold leading-8 tracking-[-0.03em] sm:text-[27px]">{st.value}</p>
+                <p className="mt-2 truncate font-display text-h1 font-semibold leading-8 tracking-[-0.03em] sm:text-kpi">{st.value}</p>
                 <p className="mt-1 truncate text-xs text-muted">{st.sub || "\u00a0"}</p>
               </div>
             ))}
@@ -311,11 +311,11 @@ export function ClientDetail({
                   return (
                     <li key={p.id} className="flex items-center gap-3 px-5 py-3.5">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-display text-[13.5px] font-medium text-foreground">{p.name}</p>
+                        <p className="truncate font-display text-body font-medium text-foreground">{p.name}</p>
                         <div className="mt-2 flex items-center gap-2.5">
                           <Progress value={p.progress} tone={s.tone} className="w-24 sm:w-36" />
-                          <span className="font-mono text-[10.5px] text-soft">{p.progress}%</span>
-                          <span className="truncate text-[11.5px] text-muted">
+                          <span className="font-mono text-caption text-soft">{p.progress}%</span>
+                          <span className="truncate text-caption text-muted">
                             {p.due
                               ? t("cd.due", {
                                   date: new Date(p.due).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" }),
@@ -349,8 +349,8 @@ export function ClientDetail({
                     <li key={m.id} className="flex items-center gap-3 px-5 py-2.5">
                       <Avatar name={m.name} size={30} />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-display text-[13px] font-medium text-foreground">{m.name}</p>
-                        <p className="truncate text-[11.5px] text-muted">{m.role}</p>
+                        <p className="truncate font-display text-body-sm font-medium text-foreground">{m.name}</p>
+                        <p className="truncate text-caption text-muted">{m.role}</p>
                       </div>
                       <Link
                         href={`/internal/team?dm=${m.id}`}
@@ -379,7 +379,7 @@ export function ClientDetail({
                     return (
                       <li key={prov.id} className="flex items-center gap-2.5 px-5 py-2.5">
                         <span className={cn("h-1.5 w-1.5 rounded-full", isConnected ? "bg-positive" : "bg-muted/40")} />
-                        <span className="flex-1 text-[13px] text-foreground">{prov.name}</span>
+                        <span className="flex-1 text-body-sm text-foreground">{prov.name}</span>
                         <span className={cn("text-xs", isConnected ? "text-positive" : "text-muted")}>
                           {isConnected ? t("cd.connected") : t("cd.open")}
                         </span>
@@ -407,17 +407,17 @@ export function ClientDetail({
               {updates.slice(0, 4).map((u, i, arr) => (
                 <li key={u.id} className="relative flex gap-3 py-3">
                   {i < arr.length - 1 && <span className="absolute bottom-0 left-[15px] top-12 w-px bg-line" />}
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand-ink">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-subtle text-brand-icon">
                     <ChevronRight className="h-4 w-4" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                       <p className="font-display text-sm font-medium text-foreground">{u.title}</p>
-                      <span className="text-[11.5px] text-muted">
+                      <span className="text-caption text-muted">
                         {new Date(u.created_at).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short" })}
                       </span>
                     </div>
-                    <p className="mt-0.5 text-[12.5px] text-soft">{u.description}</p>
+                    <p className="mt-0.5 text-body-sm text-soft">{u.description}</p>
                   </div>
                 </li>
               ))}
@@ -450,7 +450,7 @@ export function ClientDetail({
                     {kpis.map((k) => (
                       <tr key={k.id}>
                         <td className="px-4 py-3 font-medium text-foreground">{k.label}</td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-[13px]">
+                        <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-body-sm">
                           {k.unit === "currency" ? formatCurrency(k.value) : k.value}
                         </td>
                         <td className="hidden px-4 py-3 text-right text-muted sm:table-cell">{k.unit}</td>
@@ -489,7 +489,7 @@ export function ClientDetail({
 
           {/* This client's data sources: connect, configure, sync */}
           <div>
-            <h3 className="mb-1 font-display text-[15px] font-semibold">{t("cd.dataSources")}</h3>
+            <h3 className="mb-1 font-display text-title font-semibold">{t("cd.dataSources")}</h3>
             <IntegrationsBoard
               providers={PROVIDERS}
               rows={integrations}

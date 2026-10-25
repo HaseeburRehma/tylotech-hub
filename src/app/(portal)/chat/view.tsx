@@ -123,8 +123,8 @@ export function ChatView({
         {/* Updates column (Figma "This month at TyloTech") */}
         <section className="card hidden w-[300px] shrink-0 flex-col overflow-hidden lg:flex">
           <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-3.5">
-            <p className="font-display text-[15px] font-semibold text-foreground">{t("chat.thisMonthAt")}</p>
-            <span className="rounded-md bg-line px-1.5 font-mono text-[10.5px] text-muted">{updates.length}</span>
+            <p className="font-display text-title font-semibold text-foreground">{t("chat.thisMonthAt")}</p>
+            <span className="rounded-md bg-line px-1.5 font-mono text-caption text-muted">{updates.length}</span>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             <UpdatesList updates={updates} />
@@ -151,13 +151,13 @@ function UpdatesList({ updates }: { updates: Update[] }) {
         return (
           <li key={u.id} className="px-5 py-4">
             <div className="flex items-center justify-between gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand/10 text-brand-ink">
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-subtle text-brand-icon">
                 <Icon className="h-3.5 w-3.5" />
               </span>
-              <span className="text-[11.5px] text-muted">{formatRelativeTime(u.created_at)}</span>
+              <span className="text-caption text-muted">{formatRelativeTime(u.created_at)}</span>
             </div>
-            <p className="mt-2.5 font-display text-[14px] font-semibold leading-snug text-foreground">{u.title}</p>
-            {u.description && <p className="mt-1 text-[12.5px] leading-[19px] text-soft">{u.description}</p>}
+            <p className="mt-2.5 font-display text-body font-semibold leading-snug text-foreground">{u.title}</p>
+            {u.description && <p className="mt-1 text-body-sm leading-[19px] text-soft">{u.description}</p>}
           </li>
         );
       })}

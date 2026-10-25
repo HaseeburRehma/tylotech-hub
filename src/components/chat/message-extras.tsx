@@ -63,7 +63,7 @@ export function EmojiPicker({
           <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
             {EMOJI_GROUPS.map((g) => (
               <div key={g.key}>
-                <p className="px-1 pb-1 text-[10px] font-medium uppercase tracking-wider text-muted">{t(`chat.emoji.${g.key}`)}</p>
+                <p className="eyebrow px-1 pb-1">{t(`chat.emoji.${g.key}`)}</p>
                 <div className="grid grid-cols-8 gap-0.5">
                   {g.emojis.map((e) => (
                     <button
@@ -188,7 +188,7 @@ export function ReactionChips({
               mine ? "border-brand/50 bg-brand/10 text-foreground" : "border-border bg-surface-2/60 text-muted hover:text-foreground",
             )}
           >
-            <span className="text-[13px] leading-none">{emoji}</span>
+            <span className="text-body-sm leading-none">{emoji}</span>
             <span className="tabular-nums">{users.length}</span>
           </button>
         );
@@ -563,7 +563,7 @@ export function TypingLine({ names }: { names: string[] }) {
   if (!names.length) return null;
   const label = names.length === 1 ? t("chat.typingOne", { name: names[0]! }) : t("chat.typingMany", { names: names.slice(0, 2).join(", ") });
   return (
-    <div className="flex items-center gap-2 px-5 pb-1 text-[11px] text-muted" aria-live="polite">
+    <div className="flex items-center gap-2 px-5 pb-1 text-caption text-muted" aria-live="polite">
       <span className="flex gap-0.5">
         {[0, 1, 2].map((i) => (
           <span key={i} className="h-1 w-1 animate-bounce rounded-full bg-muted" style={{ animationDelay: `${i * 120}ms` }} />
@@ -598,7 +598,7 @@ export function SeenLine({
         names: seenBy.slice(0, 2).map((r) => nameOf(r.user_id)).join(", ") + (seenBy.length > 2 ? ` +${seenBy.length - 2}` : ""),
       });
   return (
-    <p className="mt-1 text-right text-[11px] text-muted" title={title}>
+    <p className="mt-1 text-right text-caption text-muted" title={title}>
       ✓✓ {label}
     </p>
   );

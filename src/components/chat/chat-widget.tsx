@@ -58,7 +58,7 @@ export function ChatWidget() {
                 <Avatar name="TyloTech" size={34} />
                 <div className="leading-tight">
                   <p className="text-sm font-semibold">{t("widget.team")}</p>
-                  <Link href="/chat" onClick={() => setOpen(false)} className="text-[11px] text-muted hover:text-foreground hover:underline">
+                  <Link href="/chat" onClick={() => setOpen(false)} className="text-caption text-muted hover:text-foreground hover:underline">
                     {t("widget.openChat")}
                   </Link>
                 </div>
@@ -76,7 +76,7 @@ export function ChatWidget() {
             <div className="flex-1 space-y-3 overflow-y-auto p-4">
               {msgs.map((m, i) =>
                 m.system ? (
-                  <p key={i} role="status" className={cn("text-center text-[11px]", m.error ? "text-danger" : "text-muted")}>
+                  <p key={i} role="status" className={cn("text-center text-caption", m.error ? "text-danger" : "text-muted")}>
                     {m.text}
                   </p>
                 ) : (
@@ -103,7 +103,7 @@ export function ChatWidget() {
                   type="button"
                   disabled={sending}
                   onClick={() => send(q)}
-                  className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted transition-colors hover:border-brand/40 hover:text-foreground"
+                  className="rounded-full border border-border px-2.5 py-1 text-caption text-muted transition-colors hover:border-brand/40 hover:text-foreground"
                 >
                   {q}
                 </button>

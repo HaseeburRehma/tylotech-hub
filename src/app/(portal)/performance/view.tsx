@@ -194,7 +194,7 @@ function Chip({ active, onClick, children }: { active?: boolean; onClick?: () =>
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "h-8 shrink-0 whitespace-nowrap rounded-full border px-3 text-[12.5px] transition-all duration-200",
+        "h-8 shrink-0 whitespace-nowrap rounded-full border px-3 text-body-sm transition-all duration-200",
         active
           ? "border-brand bg-brand/10 font-medium text-foreground"
           : "border-border bg-surface text-soft shadow-card hover:border-brand/40 hover:text-foreground",
@@ -215,7 +215,7 @@ function Segmented<T extends string>({ value, options, onChange, label }: { valu
           aria-pressed={value === o.id}
           onClick={() => onChange(o.id)}
           className={cn(
-            "shrink-0 rounded-lg px-3 py-1.5 text-[13px] transition-all duration-200",
+            "shrink-0 rounded-lg px-3 py-1.5 text-body-sm transition-all duration-200",
             value === o.id ? "bg-surface font-medium text-foreground shadow-card" : "text-soft hover:text-foreground",
           )}
         >
@@ -257,7 +257,7 @@ function DeltaPill({ delta, lowerIsBetter, fmt }: { delta: number | null; lowerI
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 font-mono text-[11px] font-medium",
+        "inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 font-mono text-caption font-medium",
         good ? "bg-positive/10 text-positive" : "bg-negative/10 text-negative",
       )}
     >
@@ -410,8 +410,8 @@ export function PerformanceView({
       {/* Header */}
       <Reveal i={reveal++} className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h1 className="font-display text-[22px] font-semibold tracking-[-0.02em] text-foreground md:text-2xl">{t("perf.title")}</h1>
-          <p className="mt-1 text-[13px] text-muted">{t("perf.subtitle")}</p>
+          <h1 className="font-display text-h1 font-semibold tracking-[-0.02em] text-foreground md:text-2xl">{t("perf.title")}</h1>
+          <p className="mt-1 text-body-sm text-muted">{t("perf.subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Segmented
@@ -542,13 +542,13 @@ export function PerformanceView({
                 <Card key={m.id} className="group relative overflow-hidden p-4 transition-shadow hover:shadow-float">
                   <div className="flex items-start justify-between gap-3">
                     <Eyebrow className="truncate">{t(m.label)}</Eyebrow>
-                    <span className="shrink-0 whitespace-nowrap text-[10px] text-muted">
+                    <span className="shrink-0 whitespace-nowrap text-eyebrow text-muted">
                       {GROUP_NAME[g]} · {t(rangeDef.label)}.
                     </span>
                   </div>
                   <div className="mt-3 flex items-end justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-display text-[27px] font-semibold leading-none tracking-[-0.03em] tabular-nums text-foreground">{fmt.value(v, m.unit)}</p>
+                      <p className="font-display text-kpi font-semibold leading-none tracking-[-0.03em] tabular-nums text-foreground">{fmt.value(v, m.unit)}</p>
                       <div className="mt-2 h-5">
                         <DeltaPill delta={delta} lowerIsBetter={m.lowerIsBetter} fmt={fmt} />
                       </div>
@@ -608,7 +608,7 @@ export function PerformanceView({
                           content={({ active, payload, label }) =>
                             active && payload?.length ? (
                               <div className="rounded-xl border border-border bg-surface px-3 py-2 text-xs shadow-float">
-                                <p className="font-mono text-[10px] uppercase tracking-wider text-muted">{fmt.dayMonth(String(label))}</p>
+                                <p className="eyebrow">{fmt.dayMonth(String(label))}</p>
                                 <p className="mt-0.5 font-semibold tabular-nums text-foreground">
                                   {t(chartMetric.label)}: {fmt.value(Number(payload[0]!.value), chartMetric.unit)}
                                 </p>
@@ -670,11 +670,11 @@ export function PerformanceView({
                             className="border-b border-border/50 last:border-0 hover:bg-surface-2/40"
                           >
                             <td className="max-w-[340px] px-5 py-3">
-                              <a href={p.page} target="_blank" rel="noopener noreferrer" className="block truncate font-mono text-[13px] text-foreground hover:text-brand-ink" title={p.page}>
+                              <a href={p.page} target="_blank" rel="noopener noreferrer" className="block truncate font-mono text-body-sm text-foreground hover:text-brand-ink" title={p.page}>
                                 {portfolio && <span className="text-muted">{host}</span>}
                                 {path === "/" ? `/ (${t("perf.homepage")})` : path}
                               </a>
-                              {portfolio && p.company && <span className="text-[11px] text-muted">{p.company}</span>}
+                              {portfolio && p.company && <span className="text-caption text-muted">{p.company}</span>}
                             </td>
                             <td className="px-3 py-3">
                               <div className="flex items-center justify-end gap-3">

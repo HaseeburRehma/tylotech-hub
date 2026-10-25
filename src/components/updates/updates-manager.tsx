@@ -137,7 +137,7 @@ export function UpdatesManager({
                 <span className="absolute -left-[18px] top-1 h-3.5 w-3.5 rounded-full border-2 border-bg bg-brand" />
                 <div className="flex items-center gap-2">
                   <Badge variant={meta.variant}>{t(meta.label)}</Badge>
-                  <span className="text-[11px] text-muted/60">{formatRelativeTime(u.created_at)}</span>
+                  <span className="text-caption text-muted/60">{formatRelativeTime(u.created_at)}</span>
                   {canPost && (
                     <button
                       type="button"

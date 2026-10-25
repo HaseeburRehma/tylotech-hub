@@ -15,7 +15,7 @@ function BrandMark({ size = 34, showName = true, logoUrl, company, dark }: { siz
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={logoUrl} alt={company ?? ""} width={size} height={size} className="rounded-lg" />
         {showName && company && (
-          <span className={cn("text-[15px] font-semibold tracking-tight", dark ? "text-white" : "text-foreground")}>{company}</span>
+          <span className={cn("text-title font-semibold tracking-tight", dark ? "text-white" : "text-foreground")}>{company}</span>
         )}
       </div>
     );
@@ -120,7 +120,7 @@ export function AuthShell({
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.6 }}
-            className="mt-5 max-w-md text-[15px] leading-relaxed text-white/65"
+            className="mt-5 max-w-md text-title leading-relaxed text-white/65"
           >
             {panelTagline ?? brand?.tagline ?? t("auth.tagline")}
           </motion.p>
@@ -149,7 +149,7 @@ export function AuthShell({
 
         {/* Bottom row */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[13px] text-white/50">
+          <div className="flex items-center gap-2 text-body-sm text-white/50">
             <ShieldCheck className="h-4 w-4 text-white/50" />
             {t("auth.secure")}
           </div>

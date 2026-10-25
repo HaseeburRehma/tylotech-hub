@@ -25,6 +25,10 @@ export interface BrandTheme {
    * `primary` so it reads on white (WCAG AA). TyloTech pins Figma's text/accent.
    */
   primaryInk?: RGB;
+  /** Brand colour for icons (3:1 on white). Optional: derived like `primaryInk`. */
+  primaryIcon?: RGB;
+  /** Brand-tinted surface (active nav, selected rows). Optional: derived from `primary`. */
+  primarySubtle?: RGB;
   /** Secondary / accent color (replaces Dark accent) */
   secondary: RGB;
   /** Whether brand color is light enough that text on it should be dark */
@@ -45,6 +49,8 @@ export const TYLOTECH_THEME: BrandTheme = {
   logo: { type: "mark", value: "tylotech" },
   primary: [209, 170, 113], // #D1AA71 gold (Figma surface/accent)
   primaryInk: [148, 113, 63], // #94713F (Figma text/accent) — gold is never text on white
+  primaryIcon: [185, 143, 83], // #B98F53 (Figma icon/accent)
+  primarySubtle: [251, 246, 238], // #FBF6EE (Figma surface/accent-subtle)
   secondary: [24, 22, 18],
   onPrimaryDark: true,
   tagline: "Growth, engineered.",
@@ -156,6 +162,11 @@ export function readableOn(color: RGB, bg: RGB, ratio = 4.5): RGB {
   return towardDark ? [0, 0, 0] : WHITE;
 }
 
+/** `color` laid over `bg` at `amount` opacity — an opaque tint. */
+export function tint(color: RGB, bg: RGB, amount: number): RGB {
+  return color.map((v, i) => Math.round(bg[i] + (v - bg[i]) * amount)) as unknown as RGB;
+}
+
 /** Produce the CSS variable map for a given theme (light mode only — brand/accent). */
 export function themeToCssVars(theme: BrandTheme): Record<string, string> {
   const onPrimaryDark = theme.onPrimaryDark ?? isLight(theme.primary);
@@ -167,5 +178,10 @@ export function themeToCssVars(theme: BrandTheme): Record<string, string> {
     // Text/icon variants of the brand; globals.css picks one per colour mode.
     "--brand-ink-light": (theme.primaryInk ?? readableOn(theme.primary, WHITE)).join(" "),
     "--brand-ink-dark": readableOn(theme.primary, DARK_SURFACE).join(" "),
+    // Icons only need 3:1 (WCAG non-text contrast), so they stay closer to the brand.
+    "--brand-icon-light": (theme.primaryIcon ?? readableOn(theme.primary, WHITE, 3)).join(" "),
+    "--brand-icon-dark": readableOn(theme.primary, DARK_SURFACE, 3).join(" "),
+    "--brand-subtle-light": (theme.primarySubtle ?? tint(theme.primary, WHITE, 0.1)).join(" "),
+    "--brand-subtle-dark": tint(theme.primary, DARK_SURFACE, 0.1).join(" "),
   };
 }

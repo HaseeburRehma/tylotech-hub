@@ -169,7 +169,7 @@ export function ClientsView({
               placeholder={t("clients.search")}
               className="input-base h-10 w-full pl-9 pr-3 text-sm sm:w-[200px] sm:pr-10"
             />
-            <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted sm:block">
+            <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-eyebrow text-muted sm:block">
               ⌘K
             </kbd>
           </div>
@@ -217,7 +217,7 @@ export function ClientsView({
                 <SlidersHorizontal className="h-3.5 w-3.5" />
                 {t("clients.filter")}
                 {extraFilters > 0 && (
-                  <span className="rounded-full bg-brand px-1.5 text-[10px] font-semibold text-brand-foreground">
+                  <span className="rounded-full bg-brand px-1.5 text-eyebrow font-semibold text-brand-foreground">
                     {extraFilters}
                   </span>
                 )}
@@ -336,7 +336,7 @@ export function ClientsView({
                   >
                     <Avatar name={client.company} src={client.logo_url} logo size={36} />
                     <div className="min-w-0">
-                      <p className="truncate font-display text-[13.5px] font-medium text-foreground">
+                      <p className="truncate font-display text-body font-medium text-foreground">
                         {client.company}
                       </p>
                       <p className="truncate text-xs text-muted">
@@ -344,7 +344,7 @@ export function ClientsView({
                       </p>
                       {/* Plan + health move under the name on phones. */}
                       <span className="mt-1 flex items-center gap-1.5 sm:hidden">
-                        <Badge variant={PLAN_VARIANT[client.plan] ?? "neutral"} className="px-1.5 py-0 text-[10px]">{client.plan}</Badge>
+                        <Badge variant={PLAN_VARIANT[client.plan] ?? "neutral"} className="px-1.5 py-0 text-eyebrow">{client.plan}</Badge>
                         <HealthBadge health={health[client.id]} />
                       </span>
                     </div>
@@ -367,19 +367,19 @@ export function ClientsView({
                 </td>
 
                 {/* MRR */}
-                <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-[13px] text-foreground">
+                <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-body-sm text-foreground">
                   {client.mrr > 0
                     ? formatCurrency(client.mrr)
                     : t("clients.na")}
                 </td>
 
                 {/* Ad budget 30d */}
-                <td className="hidden whitespace-nowrap px-4 py-3 text-right font-mono text-[13px] text-soft lg:table-cell">
+                <td className="hidden whitespace-nowrap px-4 py-3 text-right font-mono text-body-sm text-soft lg:table-cell">
                   {formatCurrency(client.spend30d)}
                 </td>
 
                 {/* Leads */}
-                <td className="hidden px-4 py-3 text-right font-mono text-[13px] text-soft md:table-cell">
+                <td className="hidden px-4 py-3 text-right font-mono text-body-sm text-soft md:table-cell">
                   {client.leads30d}
                 </td>
 

@@ -97,7 +97,7 @@ export function Logo({
     <div className={cn("flex items-center gap-2.5", className)}>
       <Mark theme={theme} size={size} />
       {showName && (
-        <span className={cn("text-[15px] font-semibold tracking-tight", invert ? "text-white" : "text-foreground")}>
+        <span className={cn("text-title font-semibold tracking-tight", invert ? "text-white" : "text-foreground")}>
           {theme.company}
         </span>
       )}
