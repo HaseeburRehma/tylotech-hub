@@ -267,3 +267,63 @@ export async function sendStepAssignedEmail(
   </body></html>`;
   return send(to, `Du bist dran: ${e.step} bei ${e.partner}`, html);
 }
+
+export interface LeadEmail {
+  partner: string;
+  leadNo: number;
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  source: string;
+  campaign: string | null;
+  form: string | null;
+  fields: { label: string; value: string }[];
+  isTest: boolean;
+  /** App path that opens the lead (e.g. /leads?client=…&lead=…). */
+  path: string;
+}
+
+/**
+ * New lead → "call within 60 seconds". Sent right away (no cooldown): speed is
+ * the point. Carries the contact details and every form answer so the lead can
+ * be called straight from the email.
+ */
+export async function sendLeadEmail(to: string, e: LeadEmail): Promise<boolean> {
+  if (!emailConfigured) return false;
+  const link = `${APP_URL}${e.path}`;
+  const who = e.name ?? e.email ?? e.phone ?? "Unbekannt";
+  const tel = e.phone ? e.phone.replace(/[^\d+]/g, "") : "";
+  const rows = e.fields
+    .filter((f) => f.value)
+    .slice(0, 25)
+    .map(
+      (f) =>
+        `<tr><td style="padding:6px 0;font-size:13px;color:#888;vertical-align:top;width:40%">${esc(f.label)}</td><td style="padding:6px 0;font-size:13px;color:#111">${esc(f.value)}</td></tr>`,
+    )
+    .join("");
+  const meta = [e.source, e.campaign, e.form].filter(Boolean).map((s) => esc(s!)).join(" · ");
+  const html = `<!doctype html><html><body style="margin:0;background:#f4f4f5;padding:24px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+    <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e5e5">
+      <tr><td style="padding:20px 28px;border-bottom:1px solid #eee">
+        <span style="font-size:17px;font-weight:700;color:#111">Tylo<span style="color:#D1AA71">Tech</span></span>
+        ${e.isTest ? `<span style="margin-left:8px;font-size:11px;font-weight:700;color:#b45309;background:#fef3c7;padding:2px 8px;border-radius:999px">TEST</span>` : ""}
+      </td></tr>
+      <tr><td style="padding:24px 28px">
+        <p style="margin:0 0 6px;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:#999">Neuer Lead #${e.leadNo} · ${esc(e.partner)}</p>
+        <p style="margin:0 0 4px;font-size:20px;font-weight:700;color:#111">${esc(who)}</p>
+        ${meta ? `<p style="margin:0 0 16px;font-size:13px;color:#777">${meta}</p>` : ""}
+        <p style="margin:0 0 18px;font-size:14px;color:#b91c1c;font-weight:600">⏱ Jetzt innerhalb von 60 Sekunden anrufen · Call within 60 seconds</p>
+        ${tel ? `<a href="tel:${esc(tel)}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-weight:600;padding:11px 22px;border-radius:10px;font-size:14px;margin:0 8px 8px 0">📞 ${esc(e.phone!)}</a>` : ""}
+        <a href="${link}" style="display:inline-block;background:#D1AA71;color:#111;text-decoration:none;font-weight:600;padding:11px 22px;border-radius:10px;font-size:14px;margin:0 0 8px">Lead öffnen →</a>
+        ${e.email ? `<p style="margin:10px 0 0;font-size:13px;color:#555">✉ <a href="mailto:${esc(e.email)}" style="color:#555">${esc(e.email)}</a></p>` : ""}
+        ${rows ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:18px;border-top:1px solid #eee">${rows}</table>` : ""}
+      </td></tr>
+      <tr><td style="padding:16px 28px;background:#fafafa;border-top:1px solid #eee">
+        <p style="margin:0;font-size:12px;color:#999">Automatische Benachrichtigung aus TyloHQ · Leads</p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+  </body></html>`;
+  return send(to, `${e.isTest ? "[TEST] " : ""}🔥 Neuer Lead #${e.leadNo} – ${who} (${e.partner}) – jetzt anrufen`, html);
+}

@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { getAuthUser, isStaff, type AuthUser } from "@/lib/auth";
-import { notifyClientUsers } from "@/lib/notify";
+import { inBackground } from "@/lib/background";
+import { alertNewLead } from "@/lib/lead-alerts";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pickContact, type LeadField, type LeadSource } from "@/lib/leads-shared";
 
@@ -139,12 +140,9 @@ export async function ingestLead(admin: SupabaseClient, l: IncomingLead): Promis
   });
   if (l.sourceId) await admin.from("lead_sources").update({ last_received_at: new Date().toISOString(), status: "active", last_error: null }).eq("id", l.sourceId);
   if (l.notify !== false) {
-    await notifyClientUsers(l.clientId, {
-      title: `${row.is_test ? "Test-Lead" : "Neuer Lead"} #${data.lead_no}: ${row.name ?? row.email ?? row.phone ?? "Unbekannt"}`,
-      body: [SOURCE_LABEL[l.source], row.campaign ?? row.form].filter(Boolean).join(" · "),
-      href: `/leads?lead=${data.id}`,
-      type: "lead",
-    }).catch(() => {});
+    // Partner + TyloTech team: in-app, urgent push (60 s countdown), email — in
+    // the background so the webhook answers Meta fast.
+    inBackground("lead-alert", () => alertNewLead(admin, { ...row, id: data.id, lead_no: data.lead_no }));
   }
   return { id: data.id, lead_no: data.lead_no };
 }

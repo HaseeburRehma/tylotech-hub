@@ -70,6 +70,13 @@ export function LeadsView({
       setNotice(meta === "connected" ? t("leads.meta.connected", { n: sp.get("pages") ?? "1" }) : t(`leads.meta.err.${meta}`));
       if (meta !== "connected") setModal("sources");
     }
+    // Read once — drop them (and Facebook's "#_=_") so a reload or a client
+    // switch doesn't replay the connect result. ?client= stays as the page's scope.
+    if (id || meta || window.location.hash) {
+      for (const k of ["lead", "meta", "pages"]) sp.delete(k);
+      const qs = sp.toString();
+      window.history.replaceState(window.history.state, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

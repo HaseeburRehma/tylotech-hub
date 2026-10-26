@@ -2,7 +2,8 @@
  * Mobile push via the Expo push service (→ APNs / FCM) for users who have the
  * TyloHQ app installed (user_devices, migration 0035).
  *
- * Who: clients get every push; staff only workflow ("Du bist dran") pushes.
+ * Who: clients get every push; staff only workflow ("Du bist dran") and new-lead
+ * (Speed-to-Lead, 60 s) pushes.
  * Privacy: chat pushes carry only the title ("New message from …"), never the
  * message text, so client conversations don't pass through third-party push
  * infrastructure. Other notifications include their short body.
@@ -16,13 +17,20 @@ export interface PushInput {
   body?: string;
   href?: string;
   type?: string;
+  /** Extra fields for the app (e.g. leadId, createdAt for the countdown). */
+  data?: Record<string, string | number | boolean | null>;
+  /** Time-critical (new lead): high priority, Android "leads" channel, short TTL. */
+  urgent?: boolean;
 }
+
+/** Push types a staff phone gets; everything else stays in-app + email for staff. */
+const STAFF_PUSH_TYPES = new Set(["workflow", "lead"]);
 
 export async function sendPush(admin: any, userIds: string[], n: PushInput) {
   if (!userIds.length) return;
-  // The staff app only shows process steps ("Meine Aufgaben"), so staff phones
-  // get workflow pushes only; chat etc. stays in-app + email for them.
-  if (n.type !== "workflow") {
+  // The staff app shows process steps and the lead alert, so staff phones get
+  // those pushes only; chat etc. stays in-app + email for them.
+  if (!STAFF_PUSH_TYPES.has(n.type ?? "")) {
     const { data: people } = await admin.from("users").select("id,role").in("id", userIds);
     userIds = ((people ?? []) as { id: string; role: string }[]).filter((p) => p.role === "client").map((p) => p.id);
     if (!userIds.length) return;
@@ -35,8 +43,9 @@ export async function sendPush(admin: any, userIds: string[], n: PushInput) {
     to: d.expo_token,
     title: n.title.slice(0, 120),
     ...(body ? { body } : {}),
-    data: { href: n.href ?? "/dashboard" },
+    data: { ...(n.data ?? {}), href: n.href ?? "/dashboard", type: n.type ?? "info" },
     sound: "default",
+    ...(n.urgent ? { priority: "high", channelId: "leads", ttl: 300 } : {}),
   }));
 
   const dead: string[] = [];

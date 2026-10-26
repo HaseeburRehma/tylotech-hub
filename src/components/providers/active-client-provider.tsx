@@ -7,6 +7,8 @@ import type { SidebarClient } from "@/components/layout/app-shell";
 
 // Pages whose server component reads ?client= — switching re-navigates them.
 const URL_SCOPED_PATHS = ["/performance", "/integrations"];
+// Per-visit params (a connect result, a lead to open) that mustn't carry over to another client.
+const TRANSIENT_PARAMS = ["meta", "pages", "lead", "error", "connected", "provider"];
 
 interface ActiveClientValue {
   clients: SidebarClient[];
@@ -52,13 +54,18 @@ export function ActiveClientProvider({
     (client: SidebarClient) => {
       setActiveId(client.id);
       writeActiveClientCookie(refOf(client));
-      if (URL_SCOPED_PATHS.some((p) => pathname === p)) {
-        router.push(`${pathname}?client=${encodeURIComponent(refOf(client))}`);
+      // A ?client= in the URL wins over the cookie on the server, so it must
+      // follow the switch (leads/chat/… links carry it); one-off params go.
+      if (URL_SCOPED_PATHS.some((p) => pathname === p) || searchParams.has("client")) {
+        const qs = new URLSearchParams(searchParams.toString());
+        for (const k of TRANSIENT_PARAMS) qs.delete(k);
+        qs.set("client", refOf(client));
+        router.push(`${pathname}?${qs}`);
       } else {
         router.refresh();
       }
     },
-    [pathname, router],
+    [pathname, router, searchParams],
   );
 
   const value = useMemo<ActiveClientValue>(
