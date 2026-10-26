@@ -26,7 +26,7 @@ import { Panel, PanelHeader } from "@/components/ui/card";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/lib/theme/theme-provider";
-import { useT } from "@/lib/i18n/provider";
+import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { useActiveClient } from "@/components/providers/active-client-provider";
 import { ClientLogo } from "@/components/layout/sidebar";
 import { AiHistoryModal } from "@/components/modals/ai-history-modal";
@@ -211,6 +211,7 @@ export default function ToolPage() {
   const { theme } = useTheme();
   const { active } = useActiveClient();
   const t = useT();
+  const dl = useIntlLocale();
   const config = CONFIG[slug];
   if (!config) notFound();
 
@@ -541,8 +542,8 @@ export default function ToolPage() {
                 {generatedAt && (
                   <>
                     {" · "}
-                    {generatedAt.toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "numeric" })},{" "}
-                    {generatedAt.toLocaleTimeString("de-DE", { timeZone: APP_TZ, hour: "2-digit", minute: "2-digit" })}
+                    {generatedAt.toLocaleDateString(dl, { timeZone: APP_TZ, day: "numeric", month: "numeric" })},{" "}
+                    {generatedAt.toLocaleTimeString(dl, { timeZone: APP_TZ, hour: "2-digit", minute: "2-digit" })}
                   </>
                 )}
               </p>

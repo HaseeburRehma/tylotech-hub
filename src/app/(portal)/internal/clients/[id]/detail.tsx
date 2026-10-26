@@ -33,7 +33,7 @@ import { useTheme } from "@/lib/theme/theme-provider";
 import { buildClientTheme } from "@/lib/theme/themes";
 import { PROVIDERS } from "@/lib/integrations/providers";
 import { LOWER_IS_BETTER, PROJECT_STATUS } from "@/lib/status";
-import { useT } from "@/lib/i18n/provider";
+import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { useUser } from "@/components/providers/user-provider";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { ChatPeer, Client, DocItem, Kpi, Message, Project, Role, Update } from "@/types";
@@ -101,6 +101,7 @@ export function ClientDetail({
   locale?: string;
 }) {
   const t = useT();
+  const dl = useIntlLocale();
   const [tab, setTabState] = useState<TabKey>(
     TABS.some((x) => x.key === initialTab) ? (initialTab as TabKey) : "overview",
   );
@@ -171,7 +172,7 @@ export function ClientDetail({
   const doneProjects = projects.filter((p) => p.status === "done");
   const costPerLead = leads30d > 0 ? spend30d / leads30d : 0;
 
-  const clientSince = new Date(client.created_at).toLocaleDateString("de-DE", { timeZone: APP_TZ,
+  const clientSince = new Date(client.created_at).toLocaleDateString(dl, { timeZone: APP_TZ,
     month: "long",
     year: "numeric",
   });
@@ -210,7 +211,7 @@ export function ClientDetail({
                 <HealthBadge health={health} />
               </div>
               <p className="mt-0.5 text-body-sm text-muted">
-                {formatCurrency(client.mrr)} {t("cd.perMonth", { amount: "" }).trim()} · {t("cd.clientSince", { date: clientSince })}
+                {[t("cd.perMonth", { amount: formatCurrency(client.mrr) }), t("cd.clientSince", { date: clientSince }), client.public_feed_label].filter(Boolean).join(" · ")}
               </p>
             </div>
           </div>
@@ -280,7 +281,7 @@ export function ClientDetail({
                 sub:
                   portfolioSpend30d > 0 && spend30d > 0
                     ? t("cd.shareOfBudget", {
-                        pct: new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 }).format((spend30d / portfolioSpend30d) * 100),
+                        pct: new Intl.NumberFormat(dl, { maximumFractionDigits: 1 }).format((spend30d / portfolioSpend30d) * 100),
                       })
                     : "",
               },
@@ -318,7 +319,7 @@ export function ClientDetail({
                           <span className="truncate text-caption text-muted">
                             {p.due
                               ? t("cd.due", {
-                                  date: new Date(p.due).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" }),
+                                  date: new Date(p.due).toLocaleDateString(dl, { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" }),
                                 })
                               : t("cd.dueOpen")}
                           </span>
@@ -414,7 +415,7 @@ export function ClientDetail({
                     <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                       <p className="font-display text-sm font-medium text-foreground">{u.title}</p>
                       <span className="text-caption text-muted">
-                        {new Date(u.created_at).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short" })}
+                        {new Date(u.created_at).toLocaleDateString(dl, { timeZone: APP_TZ, day: "numeric", month: "short" })}
                       </span>
                     </div>
                     <p className="mt-0.5 text-body-sm text-soft">{u.description}</p>

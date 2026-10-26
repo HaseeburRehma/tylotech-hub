@@ -27,7 +27,7 @@ import { Segmented } from "@/components/ui/segmented";
 import { Menu, MenuItem } from "@/components/ui/menu";
 import { DocItem, DocType } from "@/types";
 import { cn } from "@/lib/utils";
-import { useT } from "@/lib/i18n/provider";
+import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { useUser } from "@/components/providers/user-provider";
 import { APP_TZ } from "@/lib/utils";
 
@@ -66,6 +66,7 @@ export function DocumentsPanel({
 }) {
   const router = useRouter();
   const t = useT();
+  const dl = useIntlLocale();
   const [filter, setFilter] = useState<DocType | "all">("all");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("newest");
@@ -260,7 +261,7 @@ export function DocumentsPanel({
               <tbody className="divide-y divide-line">
                 {docs.map((d, i) => {
                   const m = META[d.type];
-                  const date = new Date(d.created_at).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" });
+                  const date = new Date(d.created_at).toLocaleDateString(dl, { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" });
                   return (
                     <motion.tr
                       key={d.id}

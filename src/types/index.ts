@@ -17,6 +17,8 @@ export interface Client {
   /** Set when the client was archived (soft-deleted). */
   archived_at?: string | null;
   monthly_report_enabled?: boolean;
+  /** "Industry · City" (0031), e.g. "Fahrschule · Düsseldorf". */
+  public_feed_label?: string | null;
 }
 
 export interface User {

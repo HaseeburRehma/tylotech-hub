@@ -47,6 +47,7 @@ function mapClient(c: any): Client {
     created_at: c.created_at,
     archived_at: c.archived_at ?? null,
     monthly_report_enabled: !!c.monthly_report_enabled,
+    public_feed_label: c.public_feed_label ?? null,
   };
 }
 

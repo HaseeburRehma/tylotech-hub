@@ -9,7 +9,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check, Copy, Languages, Loader2, MessageCircle, Pencil, Pin, PinOff, Reply, SmilePlus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useI18n } from "@/lib/i18n/provider";
+import { useI18n, useIntlLocale } from "@/lib/i18n/provider";
 import { APP_TZ, cn } from "@/lib/utils";
 
 // ── Emoji ───────────────────────────────────────────────────────────────────
@@ -560,6 +560,7 @@ export function useTyping(convKey: string, currentUserId: string, currentName: s
 /** "Anna tippt…" with animated dots. */
 export function TypingLine({ names }: { names: string[] }) {
   const { t } = useI18n();
+  const dl = useIntlLocale();
   if (!names.length) return null;
   const label = names.length === 1 ? t("chat.typingOne", { name: names[0]! }) : t("chat.typingMany", { names: names.slice(0, 2).join(", ") });
   return (

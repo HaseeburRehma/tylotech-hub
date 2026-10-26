@@ -5,13 +5,14 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ModalShell } from "@/components/ui/modal";
 import { clearAiHistory, readAiHistory, type AiHistoryEntry } from "@/lib/ai-history";
-import { useT } from "@/lib/i18n/provider";
+import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { AI_TOOLS } from "@/lib/ai-tools";
 import { useUser } from "@/components/providers/user-provider";
 import { APP_TZ } from "@/lib/utils";
 
 export function AiHistoryModal({ open, onClose, tool }: { open: boolean; onClose: () => void; tool?: string }) {
   const t = useT();
+  const dl = useIntlLocale();
   const user = useUser();
   const [entries, setEntries] = useState<AiHistoryEntry[]>([]);
 
@@ -73,7 +74,7 @@ export function AiHistoryModal({ open, onClose, tool }: { open: boolean; onClose
               <div className="flex items-center justify-between gap-3">
                 <span className="truncate text-sm font-medium text-foreground">{toolName(e.tool)}</span>
                 <span className="shrink-0 text-caption text-muted">
-                  {new Date(e.at).toLocaleString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                  {new Date(e.at).toLocaleString(dl, { timeZone: APP_TZ, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                 </span>
               </div>
               <p className="mt-0.5 text-xs text-muted">{e.brand}</p>

@@ -46,7 +46,7 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { ChatPeer, Message, Role } from "@/types";
 import { cn, formatRelativeTime } from "@/lib/utils";
-import { useT } from "@/lib/i18n/provider";
+import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { APP_TZ } from "@/lib/utils";
 
 /** The conversation's client logo — shown instead of initials for client senders. */
@@ -77,7 +77,7 @@ function formatTime(iso: string): string {
   }
 }
 
-function formatDate(iso: string, t: (k: string) => string): string {
+function formatDate(iso: string, t: (k: string) => string, dl: string): string {
   try {
     const d = new Date(iso);
     // Calendar days in Berlin time, so server and browser agree on "today".
@@ -85,7 +85,7 @@ function formatDate(iso: string, t: (k: string) => string): string {
     const now = new Date();
     if (dayKey(d) === dayKey(now)) return t("chat.today");
     if (dayKey(d) === dayKey(new Date(now.getTime() - 86400000))) return t("chat.yesterday");
-    return d.toLocaleDateString("de-DE", { timeZone: APP_TZ, weekday: "long", month: "short", day: "numeric" });
+    return d.toLocaleDateString(dl, { timeZone: APP_TZ, weekday: "long", month: "short", day: "numeric" });
   } catch {
     return "";
   }
@@ -322,6 +322,7 @@ function ChatThreadInner({
   initialSelected?: string | null;
 }) {
   const t = useT();
+  const dl = useIntlLocale();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [selected, setSelected] = useState<string>(
     initialSelected && peers.some((p) => p.id === initialSelected) ? initialSelected : GROUP,
@@ -647,11 +648,11 @@ function ChatThreadInner({
       const d = m.created_at.slice(0, 10);
       if (!s.has(d)) {
         s.add(d);
-        result[m.id] = formatDate(m.created_at, t);
+        result[m.id] = formatDate(m.created_at, t, dl);
       }
     }
     return result;
-  }, [visible, t]);
+  }, [visible, t, dl]);
 
   const threadedMessages = useMemo(
     () => messages.filter((m) => (m.reply_count ?? 0) > 0 && !m.parent_id).sort((a, b) => {
@@ -1676,7 +1677,7 @@ function ChatThreadInner({
                       type="submit"
                       aria-label={t("chat.send")}
                       disabled={!val.trim() && !pendingAtt.length}
-                      className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-brand-foreground transition-opacity hover:opacity-90 disabled:opacity-30"
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-brand-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
                     >
                       <Send className="h-4 w-4" />
                     </button>

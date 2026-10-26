@@ -5,7 +5,7 @@ import { ShieldCheck } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { useTheme } from "@/lib/theme/theme-provider";
-import { useT } from "@/lib/i18n/provider";
+import { useIntlLocale, useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 function BrandMark({ size = 34, showName = true, logoUrl, company, dark }: { size?: number; showName?: boolean; logoUrl?: string | null; company?: string; dark?: boolean }) {
@@ -61,6 +61,7 @@ export function AuthShell({
 }) {
   const { theme } = useTheme();
   const t = useT();
+  const dl = useIntlLocale();
   const headline = panelHeadline ?? t("auth.headline");
   const headlineFormatted = headline.replace("\n", " ");
 
@@ -133,7 +134,7 @@ export function AuthShell({
             className="mt-8 flex gap-8"
           >
             <div>
-              <p className="font-display text-2xl font-semibold tracking-[-0.02em] text-white">2.109&nbsp;€</p>
+              <p className="font-display text-2xl font-semibold tracking-[-0.02em] text-white">{new Intl.NumberFormat(dl, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(2109)}</p>
               <p className="mt-1 text-sm text-white/50">{t("auth.statBudget")}</p>
             </div>
             <div className="border-l border-white/10 pl-8">

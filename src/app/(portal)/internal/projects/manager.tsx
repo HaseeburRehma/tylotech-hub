@@ -25,7 +25,7 @@ import { Progress } from "@/components/ui/progress";
 import { NewProjectModal } from "@/components/modals/new-project-modal";
 import { EditProjectModal } from "@/components/modals/edit-project-modal";
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from "@/components/ui/menu";
-import { useT } from "@/lib/i18n/provider";
+import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { projectAssigneeIds, projectAssignees } from "@/lib/projects";
 import { PROJECT_STATUS } from "@/lib/status";
 import { cn } from "@/lib/utils";
@@ -64,6 +64,7 @@ export function ProjectsManager({
   processCountByProject?: Record<string, number>;
 }) {
   const t = useT();
+  const dl = useIntlLocale();
   const router = useRouter();
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [assignee, setAssignee] = useState<string>("all");
@@ -343,7 +344,7 @@ export function ProjectsManager({
                       <div className="mt-0.5 flex items-center gap-2">
                         <p className="text-xs text-muted sm:hidden">
                           {cName}
-                          {p.due ? ` · ${formatDue(p.due)}` : ""}
+                          {p.due ? ` · ${formatDue(p.due, dl)}` : ""}
                         </p>
                         {(processCountByProject[p.id] ?? 0) > 0 && (
                           <span className="inline-flex items-center gap-1 text-caption font-medium text-brand-ink">
@@ -392,7 +393,7 @@ export function ProjectsManager({
 
                   {/* Due date */}
                   <td className="hidden whitespace-nowrap px-4 py-3 text-right text-xs text-muted md:table-cell">
-                    {formatDue(p.due)}
+                    {formatDue(p.due, dl)}
                   </td>
 
                   {/* More */}
@@ -440,9 +441,9 @@ function AssigneeStack({ people, size, max = 4 }: { people: { key: string; name:
   );
 }
 
-function formatDue(due: string | null | undefined) {
+function formatDue(due: string | null | undefined, dl: string) {
   return due
-    ? new Date(due).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" })
+    ? new Date(due).toLocaleDateString(dl, { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" })
     : "—";
 }
 
@@ -601,6 +602,7 @@ function ProjectBoard({
   emptyLabel: string;
 }) {
   const t = useT();
+  const dl = useIntlLocale();
   return (
     <div className="card flex snap-x snap-mandatory overflow-x-auto xl:snap-none">
       {STATUSES.map((status, ci) => {
@@ -637,7 +639,7 @@ function ProjectBoard({
                       <span className="font-mono text-caption text-soft">{p.progress}%</span>
                     </div>
                     <div className="mt-2.5 flex items-center justify-between border-t border-line pt-2 text-caption text-muted">
-                      <span>{formatDue(p.due)}</span>
+                      <span>{formatDue(p.due, dl)}</span>
                       <AssigneeStack people={projectAssignees(p, memberName)} size={22} max={3} />
                     </div>
                   </div>

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useUser } from "@/components/providers/user-provider";
-import { useT } from "@/lib/i18n/provider";
+import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { activeStep, isOverdue, runProgress, type Run, type RunStatus, type StaffOption } from "@/lib/workflows-shared";
 import { APP_TZ } from "@/lib/utils";
@@ -36,6 +36,7 @@ export function RunProgress({ run, className }: { run: Run; className?: string }
 /** Title row of a run with pause/resume (any team member) and delete (admin). */
 export function RunHeader({ run, partner, partnerHref }: { run: Run; partner: string; partnerHref?: string }) {
   const t = useT();
+  const dl = useIntlLocale();
   const user = useUser();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -86,7 +87,7 @@ export function RunHeader({ run, partner, partnerHref }: { run: Run; partner: st
             ) : (
               partner
             )}{" "}
-            · {t("wf.startedOn")} {new Date(run.started_at).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "2-digit", month: "2-digit", year: "numeric" })}
+            · {t("wf.startedOn")} {new Date(run.started_at).toLocaleDateString(dl, { timeZone: APP_TZ, day: "2-digit", month: "2-digit", year: "numeric" })}
             {run.repeated_from && (
               <>
                 {" "}
@@ -169,6 +170,7 @@ export function RunHeader({ run, partner, partnerHref }: { run: Run; partner: st
 /** Compact card: progress, current step, who's on it, overdue. */
 export function RunCard({ run, partner, staff, showPartner = true }: { run: Run; partner: string; staff: StaffOption[]; showPartner?: boolean }) {
   const t = useT();
+  const dl = useIntlLocale();
   const step = activeStep(run.steps);
   const who = step?.assignee_user_id ? staff.find((s) => s.id === step.assignee_user_id)?.name : null;
   const overdue = step ? isOverdue(step) : false;
@@ -192,7 +194,7 @@ export function RunCard({ run, partner, staff, showPartner = true }: { run: Run;
             <span className={overdue ? "font-medium text-danger" : ""}>
               {" "}
               · {overdue ? t("wf.overdueSince") : t("wf.due")}{" "}
-              {new Date(`${step.due_date}T00:00:00Z`).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", timeZone: "UTC" })}
+              {new Date(`${step.due_date}T00:00:00Z`).toLocaleDateString(dl, { day: "2-digit", month: "2-digit", timeZone: "UTC" })}
             </span>
           )}
         </p>

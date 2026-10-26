@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
-import { useT } from "@/lib/i18n/provider";
+import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { APP_TZ } from "@/lib/utils";
 
@@ -25,6 +25,7 @@ export interface StaffRow {
 
 export function MembersView({ members, currentUserId, isAdmin }: { members: StaffRow[]; currentUserId: string; isAdmin: boolean }) {
   const t = useT();
+  const dl = useIntlLocale();
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
@@ -83,7 +84,7 @@ export function MembersView({ members, currentUserId, isAdmin }: { members: Staf
   }
 
   const fmt = (iso: string | null) =>
-    iso ? new Date(iso).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" }) : t("members.never");
+    iso ? new Date(iso).toLocaleDateString(dl, { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" }) : t("members.never");
 
   return (
     <div className="space-y-6">

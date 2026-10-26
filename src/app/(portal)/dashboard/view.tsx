@@ -24,14 +24,14 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AutoRefresh } from "@/components/integrations/auto-refresh";
-import { useT } from "@/lib/i18n/provider";
+import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { LOWER_IS_BETTER, shownDelta } from "@/lib/status";
 import { useActiveClient } from "@/components/providers/active-client-provider";
 import type { Kpi, Project, SeriesPoint, Update } from "@/types";
 import type { IntegrationHealthRow, PortfolioSummary } from "@/lib/data";
 import { APP_TZ } from "@/lib/utils";
 
-function DeltaBadge({ value, goodWhenDown = false }: { value: number; goodWhenDown?: boolean }) {
+function DeltaBadge({ value, goodWhenDown = false, unit = "%" }: { value: number; goodWhenDown?: boolean; unit?: string }) {
   const good = goodWhenDown ? value <= 0 : value >= 0;
   return (
     <span
@@ -42,7 +42,8 @@ function DeltaBadge({ value, goodWhenDown = false }: { value: number; goodWhenDo
     >
       {value >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
       {value > 0 ? "+" : value < 0 ? "−" : ""}
-      {Math.abs(value)}%
+      {Math.abs(value)}
+      {unit}
     </span>
   );
 }
@@ -54,11 +55,14 @@ function KpiCell({
   delta,
   suffix,
   goodWhenDown,
+  deltaUnit,
   index,
 }: {
   label: string;
   value: string;
   delta?: number;
+  /** "%" (default) or "" for an absolute change such as "+1" client. */
+  deltaUnit?: string;
   suffix?: string;
   goodWhenDown?: boolean;
   index: number;
@@ -79,7 +83,7 @@ function KpiCell({
       </p>
       {delta !== undefined && (
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-          <DeltaBadge value={delta} goodWhenDown={goodWhenDown} />
+          <DeltaBadge value={delta} goodWhenDown={goodWhenDown} unit={deltaUnit} />
           <span className="text-caption text-muted">{suffix}</span>
         </div>
       )}
@@ -168,6 +172,7 @@ export function ClientDashboardView({
   const user = useUser();
   const router = useRouter();
   const t = useT();
+  const dl = useIntlLocale();
   const firstName = user.name.split(" ")[0];
   // GA4 rows carry sessions in "roas" and users in "leads"; Search Console
   // carries clicks in "leads" (same mapping as the Leistung page).
@@ -181,7 +186,7 @@ export function ClientDashboardView({
         : { spend: t("dash.spend"), leads: t("dash.leads") };
   const period =
     kpis[0]?.period ||
-    new Date().toLocaleDateString("de-DE", { timeZone: APP_TZ, month: "long", year: "numeric" });
+    new Date().toLocaleDateString(dl, { timeZone: APP_TZ, month: "long", year: "numeric" });
 
   useEffect(() => {
     if (!user.client_id) return;
@@ -336,6 +341,7 @@ export function ClientDashboardView({
 /** Figma "My assigned work" row: checkbox, title + meta, date / status on the right. */
 function TaskRow({ done, name, meta, due, status }: { done: boolean; name: string; meta: string; due?: string | null; status: Project["status"] }) {
   const t = useT();
+  const dl = useIntlLocale();
   const s = PROJECT_STATUS[status];
   return (
     <li className="flex items-center gap-3 px-5 py-3">
@@ -358,7 +364,7 @@ function TaskRow({ done, name, meta, due, status }: { done: boolean; name: strin
       </div>
       <span className="shrink-0 text-right text-caption text-muted">
         {due
-          ? new Date(due).toLocaleDateString("de-DE", { timeZone: APP_TZ, weekday: "short", day: "numeric", month: "short" })
+          ? new Date(due).toLocaleDateString(dl, { timeZone: APP_TZ, weekday: "short", day: "numeric", month: "short" })
           : t(s.label)}
       </span>
     </li>
@@ -387,6 +393,7 @@ export function StaffDashboardView({
   myActiveTasks,
   updates,
   activeClients,
+  newClientsThisMonth = 0,
 }: {
   portfolio: PortfolioSummary;
   attention: AttentionRow[];
@@ -394,12 +401,15 @@ export function StaffDashboardView({
   myActiveTasks: number;
   updates: StaffUpdate[];
   activeClients: number;
+  /** Clients created since the 1st of this month (Figma "+1 vs. last month"). */
+  newClientsThisMonth?: number;
 }) {
   const user = useUser();
   const t = useT();
+  const dl = useIntlLocale();
   const { active: activeClient } = useActiveClient();
   const firstName = user.name.split(" ")[0];
-  const period = new Date().toLocaleDateString("de-DE", { timeZone: APP_TZ, month: "long", year: "numeric" });
+  const period = new Date().toLocaleDateString(dl, { timeZone: APP_TZ, month: "long", year: "numeric" });
 
   return (
     <div className="space-y-4 sm:space-y-5">
@@ -434,7 +444,7 @@ export function StaffDashboardView({
           <KpiCell
             index={1}
             label={t("dash.staff.leadsGenerated")}
-            value={new Intl.NumberFormat("de-DE").format(portfolio.leads30d)}
+            value={new Intl.NumberFormat(dl).format(portfolio.leads30d)}
             delta={shownDelta(portfolio.leadsDelta)}
             suffix={t("dash.vsPrevMonth")}
           />
@@ -446,7 +456,14 @@ export function StaffDashboardView({
             suffix={t("dash.vsPrevMonth")}
             goodWhenDown
           />
-          <KpiCell index={3} label={t("dash.staff.activeClients")} value={String(activeClients)} />
+          <KpiCell
+            index={3}
+            label={t("dash.staff.activeClients")}
+            value={String(activeClients)}
+            delta={newClientsThisMonth > 0 ? newClientsThisMonth : undefined}
+            deltaUnit=""
+            suffix={t("dash.vsPrevMonth")}
+          />
         </KpiStrip>
         <div className="flex items-center gap-4 px-4 pt-4 text-xs sm:px-6">
           <span className="flex items-center gap-1.5 text-soft">
@@ -497,7 +514,7 @@ export function StaffDashboardView({
                   <p className="mt-0.5 text-body-sm text-soft">
                     {row.lastSyncedAt
                       ? t("dash.staff.lastSynced", {
-                          date: new Date(row.lastSyncedAt).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short" }),
+                          date: new Date(row.lastSyncedAt).toLocaleDateString(dl, { timeZone: APP_TZ, day: "numeric", month: "short" }),
                         })
                       : t("dash.staff.neverSynced")}
                   </p>

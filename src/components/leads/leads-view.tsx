@@ -8,7 +8,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { useUser } from "@/components/providers/user-provider";
-import { useT } from "@/lib/i18n/provider";
+import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { OPEN_STATUSES, LEAD_STATUSES, type Lead, type LeadPerson, type LeadSourceView, type LeadStatus } from "@/lib/leads-shared";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -45,6 +45,7 @@ export function LeadsView({
   webhook: { url: string; verifyToken: string | null } | null;
 }) {
   const t = useT();
+  const dl = useIntlLocale();
   const user = useUser();
   const router = useRouter();
   const [leads, setLeads] = useState<Lead[]>(initial);
@@ -173,7 +174,7 @@ export function LeadsView({
             icon: Trophy,
             label: t("leads.stat.won"),
             value: stats.won,
-            sub: stats.wonValue ? stats.wonValue.toLocaleString("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : null,
+            sub: stats.wonValue ? stats.wonValue.toLocaleString(dl, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : null,
             onClick: () => setStatus("won"),
           },
         ].map((s) => (

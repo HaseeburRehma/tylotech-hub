@@ -24,7 +24,8 @@ import { useEffect, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { RequestToolModal } from "@/components/modals/request-tool-modal";
-import { useT } from "@/lib/i18n/provider";
+import { useT, useIntlLocale } from "@/lib/i18n/provider";
+import { useActiveClient } from "@/components/providers/active-client-provider";
 import { useUser } from "@/components/providers/user-provider";
 import { AI_TOOLS } from "@/lib/ai-tools";
 import { cn } from "@/lib/utils";
@@ -44,7 +45,11 @@ const ICONS: Record<string, LucideIcon> = {
 
 export default function AiToolsPage() {
   const t = useT();
+  const dl = useIntlLocale();
   const user = useUser();
+  // Staff have no company of their own: the composer works for the client picked in the sidebar.
+  const { active } = useActiveClient();
+  const clientLabel = user.company ?? active?.name ?? null;
   const router = useRouter();
   // Staff can switch a tool off globally (ai_tools.is_active) or per client
   // (client_tools); the generate API enforces both.
@@ -111,8 +116,9 @@ export default function AiToolsPage() {
               <>
                 {parts[0]}
                 <em className="font-serif text-[1.08em] font-normal italic tracking-normal text-brand-ink">{t("ait.heroStart")}</em>
-                {firstName ? `, ${firstName}` : ""}
-                {parts[1]}
+                {/* Name before the question mark: "What shall we start with, Ilias?" / "Womit legen wir los, Ilias?" */}
+                {(parts[1] ?? "").replace(/\?$/, "")}
+                {firstName ? `, ${firstName}` : ""}?
               </>
             );
           })()}
@@ -146,21 +152,21 @@ export default function AiToolsPage() {
               }
             }}
             aria-label={t("ait.heroSubtitle")}
-            placeholder={t("ait.heroSubtitle")}
+            placeholder={t("ait.composerPlaceholder", { client: clientLabel ?? "TyloTech" })}
             rows={3}
             className="block w-full resize-none bg-transparent px-5 pt-4 text-title text-white placeholder:text-white/45 focus:outline-none"
           />
           <div className="flex items-center justify-between border-t border-white/10 px-4 py-3">
             <div className="flex min-w-0 items-center gap-2">
               <span className="truncate rounded-lg bg-white/10 px-2.5 py-1 text-xs text-white/80">
-                {user.company ?? user.name?.split(" ")[0] ?? "Client"}
+                {clientLabel ?? user.name?.split(" ")[0] ?? "Client"}
               </span>
             </div>
             <button
               type="button"
               onClick={sendHero}
               aria-label={t("ait.heroSend")}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-brand-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-brand-foreground transition-opacity hover:opacity-90 disabled:opacity-70"
               disabled={!prompt.trim()}
             >
               <Send className="h-4 w-4" />
@@ -269,7 +275,7 @@ export default function AiToolsPage() {
                   <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2.5 text-caption text-muted">
                     <span className="truncate">{e.brand}</span>
                     <span className="shrink-0">
-                      {new Date(e.at).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short" })}
+                      {new Date(e.at).toLocaleDateString(dl, { timeZone: APP_TZ, day: "numeric", month: "short" })}
                     </span>
                   </div>
                 </Link>

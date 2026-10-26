@@ -262,7 +262,8 @@ function NavList({
           href={item.href}
           onClick={onNavigate}
           className={cn(
-            "group relative flex h-10 shrink-0 items-center gap-[11px] rounded-[10px] px-3 font-display text-title font-medium tracking-[-0.01em] transition-colors ring-focus",
+            // `isolate` keeps the -z-10 active pill above the sidebar's own background.
+            "group relative isolate flex h-10 shrink-0 items-center gap-[11px] rounded-[10px] px-3 font-display text-title font-medium tracking-[-0.01em] transition-colors ring-focus",
             active ? "text-foreground" : "text-soft hover:bg-bg hover:text-foreground",
           )}
         >
@@ -472,16 +473,20 @@ export function Sidebar({
       {/* Figma "Marke": wordmark + tools */}
       <div className="flex items-center gap-1 pb-[18px] pl-1.5">
         <Logo size={33} />
-        <div className="ml-auto flex items-center gap-0.5">
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new Event("open-command-palette"))}
-            aria-label={t("cmd.openSearch")}
-            title={t("cmd.openSearch")}
-            className="hidden h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground lg:flex"
-          >
-            <Search className="h-4 w-4" />
-          </button>
+        <div className="ml-auto flex shrink-0 items-center gap-0.5">
+          {/* Figma: staff get palette + bell, clients search + bell. Three icons
+              don't fit beside the wordmark; search stays on ⌘K for everyone. */}
+          {!canSeeInternal && (
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event("open-command-palette"))}
+              aria-label={t("cmd.openSearch")}
+              title={t("cmd.openSearch")}
+              className="hidden h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground lg:flex"
+            >
+              <Search className="h-4 w-4" />
+            </button>
+          )}
           <div className="hidden lg:block">
             <NotificationsBell userId={userId} variant="sidebar" />
           </div>

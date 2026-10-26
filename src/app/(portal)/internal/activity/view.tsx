@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
-import { useT } from "@/lib/i18n/provider";
+import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { APP_TZ } from "@/lib/utils";
 
 export interface AuditRow {
@@ -35,6 +35,7 @@ export function ActivityView({
   ready: boolean;
 }) {
   const t = useT();
+  const dl = useIntlLocale();
   const router = useRouter();
   const company = Object.fromEntries(clients.map((c) => [c.id, c.company]));
 
@@ -99,7 +100,7 @@ export function ActivityView({
           <ul className="divide-y divide-border/60">
             {rows.map((r) => {
               const d = new Date(r.created_at);
-              const day = d.toLocaleDateString("de-DE", { timeZone: APP_TZ, weekday: "short", day: "numeric", month: "long", year: "numeric" });
+              const day = d.toLocaleDateString(dl, { timeZone: APP_TZ, weekday: "short", day: "numeric", month: "long", year: "numeric" });
               const header = day !== lastDay;
               lastDay = day;
               return (
@@ -109,7 +110,7 @@ export function ActivityView({
                   )}
                   <div className="flex flex-col gap-0.5 px-5 py-3 sm:flex-row sm:items-baseline sm:gap-4">
                     <span className="w-12 shrink-0 text-xs tabular-nums text-muted">
-                      {d.toLocaleTimeString("de-DE", { timeZone: APP_TZ, hour: "2-digit", minute: "2-digit" })}
+                      {d.toLocaleTimeString(dl, { timeZone: APP_TZ, hour: "2-digit", minute: "2-digit" })}
                     </span>
                     <div className="min-w-0 flex-1 text-sm">
                       <span className="font-medium text-foreground">{r.actor_name ?? "System"}</span>{" "}

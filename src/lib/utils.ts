@@ -42,6 +42,12 @@ export function formatNumber(value: number) {
  */
 export const APP_TZ = "Europe/Berlin";
 
+/**
+ * BCP-47 tag for Intl date/number formatting, following the UI language.
+ * English uses en-GB ("25 Sept 2026", "13.4%"), matching the Figma EN frames.
+ */
+export const intlTag = (locale: string | null | undefined): "de-DE" | "en-GB" => (locale === "en" ? "en-GB" : "de-DE");
+
 export function formatRelativeTime(date: Date | string, locale?: string) {
   // Follows the UI language (<html lang>, set from the locale cookie).
   const lang = locale ?? (typeof document !== "undefined" ? document.documentElement.lang : "de");

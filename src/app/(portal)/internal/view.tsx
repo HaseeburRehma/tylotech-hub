@@ -11,7 +11,7 @@ import { MrrBars } from "@/components/charts/mrr-bars";
 import { HealthBadge } from "@/components/health/health";
 import { InboxCard } from "@/components/chat/inbox-card";
 import type { ClientHealth } from "@/lib/health";
-import { useT } from "@/lib/i18n/provider";
+import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { useUser } from "@/components/providers/user-provider";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { Client } from "@/types";
@@ -110,6 +110,7 @@ export function InternalView({
   health?: Record<string, ClientHealth>;
 }) {
   const tr = useT();
+  const dl = useIntlLocale();
   const user = useUser();
   const totalMrr = clients.reduce((a, c) => a + (c.mrr ?? 0), 0);
   const teamActive = team.reduce((a, t) => a + t.activeProjects, 0);
@@ -128,7 +129,7 @@ export function InternalView({
   const mrrGrowth12m = mrrNow - (mrrSeries[0]?.mrr ?? 0);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const newClientsThisMonth = clients.filter((c) => new Date(c.created_at) >= monthStart).length;
-  const pct = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1, signDisplay: "always" });
+  const pct = new Intl.NumberFormat(dl, { maximumFractionDigits: 1, signDisplay: "always" });
 
   const stats = [
     {
@@ -320,7 +321,7 @@ export function InternalView({
                   {p.due && (
                     <div className="mt-2 flex items-center gap-1.5 border-t border-line pt-1.5 text-caption text-muted">
                       <Clock className="h-3 w-3" />
-                      {new Date(p.due).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short" })}
+                      {new Date(p.due).toLocaleDateString(dl, { timeZone: APP_TZ, day: "numeric", month: "short" })}
                     </div>
                   )}
                 </div>

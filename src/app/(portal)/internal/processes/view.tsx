@@ -12,7 +12,7 @@ import { useUser } from "@/components/providers/user-provider";
 import { RunCard } from "@/components/workflows/run-parts";
 import { StartRunModal } from "@/components/workflows/start-run-modal";
 import { TemplateEditor } from "@/components/workflows/template-editor";
-import { useT } from "@/lib/i18n/provider";
+import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { activeStep, berlinToday, isOverdue, type Run, type StaffOption, type Template } from "@/lib/workflows-shared";
 
@@ -118,6 +118,7 @@ function Board({ runs, staff, company }: { runs: Run[]; staff: StaffOption[]; co
 /** Every active step assigned to me, across all running processes. */
 function MyTasks({ runs, company }: { runs: Run[]; company: Record<string, string> }) {
   const t = useT();
+  const dl = useIntlLocale();
   const user = useUser();
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -163,7 +164,7 @@ function MyTasks({ runs, company }: { runs: Run[]; company: Record<string, strin
                     <span className={overdue ? "font-medium text-danger" : ""}>
                       {" "}
                       · {overdue ? t("wf.overdueSince") : t("wf.due")}{" "}
-                      {new Date(`${step.due_date}T00:00:00Z`).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", timeZone: "UTC" })}
+                      {new Date(`${step.due_date}T00:00:00Z`).toLocaleDateString(dl, { day: "2-digit", month: "2-digit", timeZone: "UTC" })}
                     </span>
                   )}
                 </p>

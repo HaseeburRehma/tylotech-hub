@@ -66,6 +66,8 @@ export default async function DashboardPage() {
     listClients(),
   ]);
 
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const companyById = new Map(clients.map((c) => [c.id, c.company]));
   const myProjects = allProjects
     .filter((p) => p.assigned_to_id === user.id)
@@ -88,6 +90,7 @@ export default async function DashboardPage() {
       myActiveTasks={myActiveTasks}
       updates={updates}
       activeClients={clients.length}
+      newClientsThisMonth={clients.filter((c) => c.created_at && new Date(c.created_at) >= monthStart).length}
     />
   );
 }

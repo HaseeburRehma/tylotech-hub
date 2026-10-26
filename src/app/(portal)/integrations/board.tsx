@@ -15,9 +15,10 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { useT } from "@/lib/i18n/provider";
+import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import type { IntegrationProvider } from "@/lib/integrations/providers";
 import { APP_TZ } from "@/lib/utils";
+import { ProviderLogo } from "@/components/integrations/provider-logo";
 
 const ICONS: Record<string, LucideIcon> = {
   meta_ads: Megaphone,
@@ -62,6 +63,7 @@ export function IntegrationsBoard({
   const pathname = usePathname();
   const params = useSearchParams();
   const t = useT();
+  const dl = useIntlLocale();
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [confirmDisconnect, setConfirmDisconnect] = useState<string | null>(null);
@@ -230,12 +232,8 @@ export function IntegrationsBoard({
               <Card className={`flex h-full flex-col p-5 ${connected && !notLive ? "border-positive/30 ring-1 ring-positive/10" : ""}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
-                    <span
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line ${
-                        connected ? "bg-surface text-brand-ink" : "bg-bg text-muted"
-                      }`}
-                    >
-                      <Icon className="h-5 w-5" />
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line bg-surface text-muted">
+                      {ProviderLogo({ id: p.id }) ?? <Icon className="h-5 w-5" />}
                     </span>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -273,7 +271,7 @@ export function IntegrationsBoard({
                 {isStaff && row?.meta?.tokenExpiresAt && (
                   <p className={`mt-2 text-caption ${Date.parse(row.meta.tokenExpiresAt) - Date.now() < 7 * 86_400_000 ? "text-warning" : "text-muted"}`}>
                     {t("integ.tokenExpires", {
-                      date: new Date(row.meta.tokenExpiresAt).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" }),
+                      date: new Date(row.meta.tokenExpiresAt).toLocaleDateString(dl, { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" }),
                     })}
                   </p>
                 )}
@@ -379,7 +377,7 @@ export function IntegrationsBoard({
                   <span className="text-xs text-muted">
                     {connected
                       ? row?.last_synced_at
-                        ? t("integ.syncedAt", { date: new Date(row.last_synced_at).toLocaleString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) })
+                        ? t("integ.syncedAt", { date: new Date(row.last_synced_at).toLocaleString(dl, { timeZone: APP_TZ, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) })
                         : row?.account_label ?? t("common.connected")
                       : t("integ.pullLive")}
                   </span>

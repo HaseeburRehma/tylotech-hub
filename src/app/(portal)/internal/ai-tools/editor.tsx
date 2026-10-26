@@ -7,7 +7,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
-import { useT } from "@/lib/i18n/provider";
+import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { useUser } from "@/components/providers/user-provider";
 import { cn } from "@/lib/utils";
 import type { AiToolRow } from "@/lib/data";
@@ -138,6 +138,7 @@ function PromptPanel({
   canEdit: boolean;
 }) {
   const router = useRouter();
+  const dl = useIntlLocale();
   const [saved, setSaved] = useState(tool.prompt_template ?? "");
   const [prompt, setPrompt] = useState(tool.prompt_template ?? "");
   const [active, setActive] = useState(tool.is_active);
@@ -211,7 +212,7 @@ function PromptPanel({
             {t("prompts.systemPrompt")}
           </span>
           <span className="text-xs tabular-nums text-muted">
-            {t("prompts.chars", { n: prompt.length.toLocaleString("de-DE") })}
+            {t("prompts.chars", { n: prompt.length.toLocaleString(dl) })}
           </span>
         </div>
 
@@ -245,7 +246,7 @@ function PromptPanel({
               <span>
                 {t("prompts.lastEdited", {
                   name: tool.updated_by_name,
-                  date: new Date(tool.updated_at).toLocaleDateString("de-DE", { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" }),
+                  date: new Date(tool.updated_at).toLocaleDateString(dl, { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" }),
                 })}
               </span>
             </>

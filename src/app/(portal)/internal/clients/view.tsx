@@ -22,7 +22,7 @@ import { NewClientModal } from "@/components/modals/new-client-modal";
 import { HealthBadge } from "@/components/health/health";
 import type { ClientHealth } from "@/lib/health";
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from "@/components/ui/menu";
-import { useT } from "@/lib/i18n/provider";
+import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { ClientListRow, TeamMember } from "@/lib/data";
 import { APP_TZ } from "@/lib/utils";
@@ -85,6 +85,7 @@ export function ClientsView({
   health?: Record<string, ClientHealth>;
 }) {
   const t = useT();
+  const dl = useIntlLocale();
   const [filter, setFilter] = useState<PlanFilter>("all");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("budget");
@@ -339,9 +340,10 @@ export function ClientsView({
                       <p className="truncate font-display text-body font-medium text-foreground">
                         {client.company}
                       </p>
-                      <p className="truncate text-xs text-muted">
-                        {client.name}
-                      </p>
+                      {/* Figma: industry · city. Never just the company name again. */}
+                      {(client.public_feed_label || (client.name && client.name !== client.company)) && (
+                        <p className="truncate text-xs text-muted">{client.public_feed_label || client.name}</p>
+                      )}
                       {/* Plan + health move under the name on phones. */}
                       <span className="mt-1 flex items-center gap-1.5 sm:hidden">
                         <Badge variant={PLAN_VARIANT[client.plan] ?? "neutral"} className="px-1.5 py-0 text-eyebrow">{client.plan}</Badge>
@@ -404,7 +406,7 @@ export function ClientsView({
 
                 {/* Since */}
                 <td className="hidden whitespace-nowrap px-4 py-3 text-right text-xs text-muted md:table-cell">
-                  {new Date(client.created_at).toLocaleDateString("de-DE", { timeZone: APP_TZ,
+                  {new Date(client.created_at).toLocaleDateString(dl, { timeZone: APP_TZ,
                     month: "long",
                     year: "numeric",
                   })}

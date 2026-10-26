@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DEFAULT_LOCALE, LOCALE_COOKIE, translate, type Locale } from "./dictionary";
+import { intlTag } from "@/lib/utils";
 
 interface I18nCtx {
   locale: Locale;
@@ -58,4 +59,9 @@ export function useI18n(): I18nCtx {
 /** Convenience hook returning just the translate function. */
 export function useT() {
   return useI18n().t;
+}
+
+/** Intl tag for dates and numbers in the current UI language (de-DE / en-GB). */
+export function useIntlLocale() {
+  return intlTag(useI18n().locale);
 }

@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
-import { useT } from "@/lib/i18n/provider";
+import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { LEAD_STATUSES, dialable, prettyLabel, type Lead, type LeadActivity, type LeadPerson, type LeadStatus } from "@/lib/leads-shared";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -61,6 +61,7 @@ export function LeadDrawer({
   onDeleted: (id: string) => void;
 }) {
   const t = useT();
+  const dl = useIntlLocale();
   const [mounted, setMounted] = useState(false);
   const [activities, setActivities] = useState<LeadActivity[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -155,7 +156,7 @@ export function LeadDrawer({
       case "appointment":
         return m.at ? t("leads.act.appointment", { when: fmtDateTime(String(m.at)) }) : t("leads.act.appointmentRemoved");
       case "value":
-        return t("leads.act.value", { value: m.value != null ? Number(m.value).toLocaleString("de-DE", { style: "currency", currency: "EUR" }) : "—" });
+        return t("leads.act.value", { value: m.value != null ? Number(m.value).toLocaleString(dl, { style: "currency", currency: "EUR" }) : "—" });
       case "call":
         return t("leads.act.call");
       case "email":
