@@ -72,10 +72,12 @@ export function LeadsView({
     }
     // Read once — drop them (and Facebook's "#_=_") so a reload or a client
     // switch doesn't replay the connect result. ?client= stays as the page's scope.
+    // Through the router (not history.replaceState): a later router.refresh()
+    // would otherwise restore the old URL from Next's own state.
     if (id || meta || window.location.hash) {
       for (const k of ["lead", "meta", "pages"]) sp.delete(k);
       const qs = sp.toString();
-      window.history.replaceState(window.history.state, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+      router.replace(`${window.location.pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
