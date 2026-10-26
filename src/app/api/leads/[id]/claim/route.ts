@@ -5,7 +5,10 @@ import { getRateLimiter, rateLimitHeaders } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
-const missingClaim = (msg: string | undefined) => /lead_claim|claimed_at|function|does not exist|schema cache/i.test(msg ?? "");
+// Checked before the generic leads check: PostgREST reports a missing function as
+// "…lead_claim… in the schema cache", which would otherwise point admins at 0043.
+const missingClaim = (msg: string | undefined) => /lead_claim|claimed_at|call_started_at/i.test(msg ?? "");
+const S2L_NOT_READY = "Speed-to-Lead needs database migration 0046 — ask an admin to run it.";
 
 /**
  * Claim a lead (Speed-to-Lead). Atomic: the first caller wins, everyone else
@@ -25,7 +28,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const call = body.call === true;
 
   const { data: rows, error } = await admin.rpc("lead_claim", { p_lead: lead.id, p_user: user.id, p_call: call });
-  if (error) return missingLeads(error.message) || missingClaim(error.message) ? bad(LEADS_NOT_READY, 503) : bad("Could not claim the lead.");
+  if (error) {
+    if (missingClaim(error.message)) return bad(S2L_NOT_READY, 503);
+    if (missingLeads(error.message)) return bad(LEADS_NOT_READY, 503);
+    return bad("Could not claim the lead.");
+  }
 
   const claimed = Array.isArray(rows) ? rows[0] : rows;
   if (!claimed) {

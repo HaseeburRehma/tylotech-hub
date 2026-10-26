@@ -37,14 +37,15 @@ export function formatCountdown(remaining: number): string {
 }
 
 /**
- * Should a live INSERT raise the full-screen card? Only genuinely new, unclaimed,
- * still-actionable leads — not test leads, not ones that arrived long ago.
+ * Should a live INSERT raise the full-screen card? Only new, unclaimed,
+ * still-actionable leads — not ones that arrived long ago. Test leads (Meta
+ * testing tool, Google "send test data") DO alert, labelled TEST, so a partner
+ * can verify the 60-second flow end to end; stats exclude them elsewhere.
  */
 export function shouldAlert(
   lead: { status: string; claimed_at?: string | null; is_test?: boolean; created_at: string },
   serverNowMs: number,
 ): boolean {
-  if (lead.is_test) return false;
   if (lead.status !== "new" || lead.claimed_at) return false;
   const ageS = (serverNowMs - new Date(lead.created_at).getTime()) / 1000;
   return ageS <= ALERT_GRACE_SECONDS;

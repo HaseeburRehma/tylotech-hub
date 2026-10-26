@@ -83,10 +83,21 @@ describe("POST /api/leads/[id]/claim", () => {
     expect(body.mine).toBe(true);
   });
 
-  it("returns 503 when migration 0046 isn't applied", async () => {
-    const a = admin({ rpc: { data: null, error: { message: "function lead_claim(uuid, uuid, boolean) does not exist" } } });
+  it("returns 503 naming migration 0046 when the claim function is missing", async () => {
+    // The exact PostgREST wording on production before 0046 is applied.
+    const a = admin({ rpc: { data: null, error: { code: "PGRST202", message: "Could not find the function public.lead_claim(p_call, p_lead, p_user) in the schema cache" } } });
     mockLeadContext.mockResolvedValue({ user: { id: ME }, admin: a, lead });
-    expect((await call()).status).toBe(503);
+    const res = await call();
+    expect(res.status).toBe(503);
+    expect((await res.json()).error).toMatch(/0046/);
+  });
+
+  it("does not blame a missing migration for an ordinary database error", async () => {
+    const a = admin({ rpc: { data: null, error: { code: "57014", message: "canceling statement due to statement timeout" } } });
+    mockLeadContext.mockResolvedValue({ user: { id: ME }, admin: a, lead });
+    const res = await call();
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Could not claim the lead.");
   });
 
   it("rate-limits rapid claims", async () => {

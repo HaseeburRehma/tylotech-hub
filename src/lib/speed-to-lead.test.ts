@@ -41,8 +41,10 @@ describe("shouldAlert", () => {
   it("alerts for a fresh, unclaimed, real new lead", () => {
     expect(shouldAlert(base, now)).toBe(true);
   });
-  it("never alerts for test leads, claimed leads or non-new leads", () => {
-    expect(shouldAlert({ ...base, is_test: true }, now)).toBe(false);
+  it("alerts for test leads too, so the flow can be verified with a testing tool", () => {
+    expect(shouldAlert({ ...base, is_test: true }, now)).toBe(true);
+  });
+  it("never alerts for claimed or non-new leads", () => {
     expect(shouldAlert({ ...base, claimed_at: "2026-01-01T10:00:02.000Z" }, now)).toBe(false);
     expect(shouldAlert({ ...base, status: "contacted" }, now)).toBe(false);
   });

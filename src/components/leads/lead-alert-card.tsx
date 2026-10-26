@@ -136,7 +136,10 @@ export function LeadAlertCard({
       <div className={cn("w-full max-w-md overflow-hidden rounded-[22px] border border-line bg-surface shadow-float ring-4", STATE_RING[state])}>
         <div className="flex items-start justify-between gap-3 px-6 pt-5">
           <div>
-            <p className="eyebrow text-brand-ink">{t("s2l.incoming")}</p>
+            <p className="eyebrow flex items-center gap-2 text-brand-ink">
+              {t("s2l.incoming")}
+              {lead.is_test && <span className="rounded bg-warning/15 px-1.5 py-0.5 font-semibold text-warning">TEST</span>}
+            </p>
             <h2 className="mt-1 font-display text-2xl font-semibold tracking-tight text-foreground">{name}</h2>
             <p className="mt-0.5 text-sm text-muted">
               {[city, tenantName, lead.phone].filter(Boolean).join(" · ") || t("s2l.noPhone")}
