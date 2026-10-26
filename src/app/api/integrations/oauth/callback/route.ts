@@ -4,7 +4,7 @@ import { getAuthUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { META_GRAPH_VERSION } from "@/lib/integrations/fetchers";
 import { oauthConfig } from "@/lib/integrations/oauth";
-import { connectMetaPages } from "@/lib/leads-meta";
+import { exchangeMetaCode, listMetaPages, META_PICK_COOKIE, META_PICK_TTL_SEC, sealMetaPick } from "@/lib/leads-meta";
 
 export const runtime = "nodejs";
 
@@ -69,8 +69,17 @@ export async function GET(req: Request) {
     const back = (q: string) => NextResponse.redirect(`${origin}/leads?${backTo}${q}`);
     if (!admin) return back("meta=not_configured");
     try {
-      const n = await connectMetaPages(admin, { code, redirectUri: `${origin}/api/integrations/oauth/callback`, clientId, userId: user.id });
-      return back(n ? `meta=connected&pages=${n}` : "meta=no_pages");
+      const userToken = await exchangeMetaCode({ code, redirectUri: `${origin}/api/integrations/oauth/callback` });
+      if (!(await listMetaPages(userToken)).length) return back("meta=no_pages");
+      // Which pages belong to this partner is chosen on the Leads page.
+      cookieStore.set(META_PICK_COOKIE, sealMetaPick({ t: userToken, c: clientId, u: user.id }), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: META_PICK_TTL_SEC,
+        path: "/api/leads/meta",
+      });
+      return back("meta=pick");
     } catch (e) {
       const m = (e as Error).message;
       return back(`meta=${m === "missing_scope" || m === "token_exchange" || m === "not_configured" ? m : "failed"}`);

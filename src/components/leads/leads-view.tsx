@@ -14,7 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { SourceBadge, StatusBadge, fmtDateTime, since } from "./lead-bits";
 import { LeadDrawer } from "./lead-drawer";
-import { AddLeadModal, InviteSalesModal, SourcesModal } from "./lead-modals";
+import { AddLeadModal, InviteSalesModal, MetaPagesModal, SourcesModal } from "./lead-modals";
 
 type OwnerFilter = "all" | "me" | "none" | string;
 
@@ -54,7 +54,7 @@ export function LeadsView({
   const [source, setSource] = useState<"all" | Lead["source"]>("all");
   const [owner, setOwner] = useState<OwnerFilter>("all");
   const [openId, setOpenId] = useState<string | null>(null);
-  const [modal, setModal] = useState<null | "add" | "sources" | "invite">(null);
+  const [modal, setModal] = useState<null | "add" | "sources" | "invite" | "metaPages">(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => setLeads(initial), [initial]);
@@ -65,7 +65,8 @@ export function LeadsView({
     const id = sp.get("lead");
     if (id) setOpenId(id);
     const meta = sp.get("meta");
-    if (meta) {
+    if (meta === "pick") setModal("metaPages");
+    else if (meta) {
       setNotice(meta === "connected" ? t("leads.meta.connected", { n: sp.get("pages") ?? "1" }) : t(`leads.meta.err.${meta}`));
       if (meta !== "connected") setModal("sources");
     }
@@ -325,6 +326,19 @@ export function LeadsView({
         <SourcesModal clientId={clientId} staff={staff} sources={sources} metaReady={metaReady} webhook={webhook} onClose={() => setModal(null)} onChanged={() => router.refresh()} />
       )}
       {modal === "invite" && clientId && <InviteSalesModal clientId={staff ? clientId : null} company={company} onClose={() => setModal(null)} />}
+      {modal === "metaPages" && clientId && (
+        <MetaPagesModal
+          clientId={clientId}
+          staff={staff}
+          company={company}
+          onClose={() => setModal("sources")}
+          onDone={(n) => {
+            setModal(null);
+            setNotice(t("leads.meta.connected", { n: String(n) }));
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

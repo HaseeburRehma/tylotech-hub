@@ -1,7 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const mockGetAuthUser = vi.fn();
-const mockConnectMetaPages = vi.fn();
+const mockExchange = vi.fn();
+const mockList = vi.fn();
+const mockCookieSet = vi.fn();
 let nonceCookie: string | undefined;
 
 vi.mock("@/lib/auth", () => ({ getAuthUser: () => mockGetAuthUser() }));
@@ -10,9 +12,15 @@ vi.mock("@/lib/supabase/admin", () => ({
     from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { slug: "acme" } }) }) }) }),
   }),
 }));
-vi.mock("@/lib/leads-meta", () => ({ connectMetaPages: (...a: unknown[]) => mockConnectMetaPages(...a) }));
+vi.mock("@/lib/leads-meta", () => ({
+  exchangeMetaCode: (...a: unknown[]) => mockExchange(...a),
+  listMetaPages: (t: string) => mockList(t),
+  sealMetaPick: (s: Record<string, string>) => `sealed:${s.u}:${s.c}`,
+  META_PICK_COOKIE: "meta_pick",
+  META_PICK_TTL_SEC: 900,
+}));
 vi.mock("next/headers", () => ({
-  cookies: () => ({ get: () => (nonceCookie ? { value: nonceCookie } : undefined), delete: vi.fn() }),
+  cookies: () => ({ get: () => (nonceCookie ? { value: nonceCookie } : undefined), delete: vi.fn(), set: mockCookieSet }),
 }));
 
 import { GET } from "./route";
@@ -36,7 +44,7 @@ describe("OAuth callback — Meta Lead Ads", () => {
     const loc = await call(`error=access_denied&state=${state({ provider: "meta_leads", clientId: CLIENT_ID, nonce: "n1" })}`);
     expect(loc.pathname).toBe("/leads");
     expect(loc.searchParams.get("meta")).toBe("denied");
-    expect(mockConnectMetaPages).not.toHaveBeenCalled();
+    expect(mockExchange).not.toHaveBeenCalled();
   });
 
   it("keeps other providers' errors on Integrations", async () => {
@@ -48,21 +56,31 @@ describe("OAuth callback — Meta Lead Ads", () => {
   it("rejects a forged state (nonce not issued to this browser)", async () => {
     const loc = await call(`code=abc&state=${state({ provider: "meta_leads", clientId: CLIENT_ID, nonce: "forged" })}`);
     expect(loc.searchParams.get("error")).toBe("bad_state");
-    expect(mockConnectMetaPages).not.toHaveBeenCalled();
+    expect(mockExchange).not.toHaveBeenCalled();
   });
 
   it("reports missing_scope when Meta didn't grant lead access", async () => {
-    mockConnectMetaPages.mockRejectedValue(new Error("missing_scope"));
+    mockExchange.mockRejectedValue(new Error("missing_scope"));
     const loc = await call(`code=abc&state=${state({ provider: "meta_leads", clientId: CLIENT_ID, nonce: "n1" })}`);
     expect(loc.pathname).toBe("/leads");
     expect(loc.searchParams.get("meta")).toBe("missing_scope");
   });
 
-  it("connects and reports the page count", async () => {
-    mockConnectMetaPages.mockResolvedValue(2);
+  it("holds the sign-in in a sealed cookie and asks which pages belong to the partner", async () => {
+    mockExchange.mockResolvedValue("user-token");
+    mockList.mockResolvedValue([{ id: "1", name: "A", access_token: "p" }, { id: "2", name: "B" }]);
     const loc = await call(`code=abc&state=${state({ provider: "meta_leads", clientId: CLIENT_ID, nonce: "n1" })}`);
-    expect(loc.searchParams.get("meta")).toBe("connected");
-    expect(loc.searchParams.get("pages")).toBe("2");
+    expect(loc.pathname).toBe("/leads");
+    expect(loc.searchParams.get("meta")).toBe("pick");
     expect(loc.searchParams.get("client")).toBe("acme");
+    expect(mockCookieSet).toHaveBeenCalledWith("meta_pick", `sealed:${CLIENT_USER.id}:${CLIENT_ID}`, expect.objectContaining({ httpOnly: true, sameSite: "lax", path: "/api/leads/meta", maxAge: 900 }));
+  });
+
+  it("reports no_pages without setting the cookie when nothing was granted", async () => {
+    mockExchange.mockResolvedValue("user-token");
+    mockList.mockResolvedValue([]);
+    const loc = await call(`code=abc&state=${state({ provider: "meta_leads", clientId: CLIENT_ID, nonce: "n1" })}`);
+    expect(loc.searchParams.get("meta")).toBe("no_pages");
+    expect(mockCookieSet).not.toHaveBeenCalled();
   });
 });

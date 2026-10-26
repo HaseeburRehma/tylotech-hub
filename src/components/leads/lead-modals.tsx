@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, Check, CheckCircle2, Copy, Globe, Loader2, Plus, RefreshCw, Trash2, UserPlus, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Label, Textarea } from "@/components/ui/input";
 import { ModalShell } from "@/components/ui/modal";
@@ -162,6 +162,95 @@ export function InviteSalesModal({ clientId, company, onClose }: { clientId: str
             </div>
           </>
         )}
+      </div>
+    </ModalShell>
+  );
+}
+
+/* ──────────────────────── Meta: pick the partner's pages ──────────────────────── */
+
+interface PickPage {
+  id: string;
+  name: string;
+  usable: boolean;
+  connected: boolean;
+}
+
+export function MetaPagesModal({ clientId, staff, company, onClose, onDone }: { clientId: string; staff: boolean; company: string; onClose: () => void; onDone: (n: number) => void }) {
+  const t = useT();
+  const [pages, setPages] = useState<PickPage[] | null>(null);
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      const res = await fetch(`/api/leads/meta/pages${staff ? `?clientId=${clientId}` : ""}`).catch(() => null);
+      const data = res ? ((await res.json().catch(() => ({}))) as { pages?: PickPage[]; error?: string }) : {};
+      if (!live) return;
+      if (!res?.ok || !data.pages) return setError(data.error ?? t("ait.actionFailed"));
+      setPages(data.pages);
+      const usable = data.pages.filter((p) => p.usable);
+      // Pre-tick what's already connected, or the only page there is.
+      setChosen(new Set(usable.length === 1 ? [usable[0].id] : usable.filter((p) => p.connected).map((p) => p.id)));
+    })();
+    return () => {
+      live = false;
+    };
+  }, [clientId, staff, t]);
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    const r = await post("/api/leads/meta/pages", { clientId: staff ? clientId : undefined, pageIds: Array.from(chosen) });
+    setBusy(false);
+    if (!r.ok) return setError(r.error ?? t("ait.actionFailed"));
+    onDone(Number(r.data.connected ?? chosen.size));
+  }
+
+  const toggle = (id: string) =>
+    setChosen((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  return (
+    <ModalShell open onClose={onClose} className="max-w-lg">
+      <Header title={t("leads.meta.pickTitle", { company })} onClose={onClose} icon={<Globe className="h-4 w-4 text-brand-ink" />} />
+      <div className="space-y-4 p-5">
+        <p className="text-sm text-muted">{t("leads.meta.pickHelp", { company })}</p>
+        {error && <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
+        {!pages && !error && (
+          <p className="flex items-center gap-2 text-sm text-muted">
+            <Loader2 className="h-4 w-4 animate-spin" /> {t("leads.meta.loading")}
+          </p>
+        )}
+        {pages && (
+          <ul className="max-h-80 space-y-1.5 overflow-y-auto">
+            {pages.map((p) => (
+              <li key={p.id}>
+                <label className={cn("flex items-center gap-3 rounded-lg border border-border px-3 py-2", p.usable ? "cursor-pointer hover:bg-surface-2/60" : "opacity-60")}>
+                  <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--brand))]" checked={chosen.has(p.id)} disabled={!p.usable || busy} onChange={() => toggle(p.id)} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground">{p.name}</span>
+                    <span className="block text-caption text-muted">{!p.usable ? t("leads.meta.pickNoAccess") : p.connected ? t("leads.meta.pickConnected") : `ID ${p.id}`}</span>
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose} disabled={busy}>
+            {t("common.cancel")}
+          </Button>
+          <Button onClick={save} disabled={busy || !chosen.size}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} {t("leads.meta.pickConnect", { n: chosen.size })}
+          </Button>
+        </div>
       </div>
     </ModalShell>
   );
