@@ -18,8 +18,10 @@ export async function GET(req: Request) {
   // shows another partner's card and looks like it failed. The id from `state`
   // is only used to pick the page here; every access check below still applies.
   let backTo = "";
+  let peekProvider = "";
   try {
-    const peek = JSON.parse(Buffer.from(url.searchParams.get("state") ?? "", "base64url").toString()) as { clientId?: string };
+    const peek = JSON.parse(Buffer.from(url.searchParams.get("state") ?? "", "base64url").toString()) as { clientId?: string; provider?: string };
+    peekProvider = peek.provider ?? "";
     if (peek.clientId && /^[0-9a-f-]{36}$/i.test(peek.clientId)) {
       const admin0 = createAdminClient();
       const { data: c } = admin0 ? await admin0.from("clients").select("slug").eq("id", peek.clientId).maybeSingle() : { data: null };
@@ -37,6 +39,8 @@ export async function GET(req: Request) {
   const state = url.searchParams.get("state");
   // Provider error codes are echoed back to /integrations — keep them a single, encoded parameter.
   const providerError = url.searchParams.get("error");
+  // A cancelled Meta Lead Ads dialog goes back to Leads, where it was started.
+  if (providerError && peekProvider === "meta_leads") return NextResponse.redirect(`${origin}/leads?${backTo}meta=denied`);
   if (providerError) return done(`error=${encodeURIComponent(providerError.slice(0, 40))}`);
   if (!code || !state) return done("error=oauth_failed");
 

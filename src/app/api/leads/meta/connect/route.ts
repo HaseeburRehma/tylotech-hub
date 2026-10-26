@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getAuthUser, isStaff } from "@/lib/auth";
 import { META_GRAPH_VERSION } from "@/lib/integrations/fetchers";
-import { META_LEADS_SCOPES, metaApp } from "@/lib/leads-meta";
+import { metaApp, metaLeadsLoginParams } from "@/lib/leads-meta";
 
 export const runtime = "nodejs";
 
@@ -28,8 +28,7 @@ export async function GET(req: Request) {
   const auth = new URL(`https://www.facebook.com/${META_GRAPH_VERSION}/dialog/oauth`);
   auth.searchParams.set("client_id", app.id);
   auth.searchParams.set("redirect_uri", `${url.origin}/api/integrations/oauth/callback`);
-  auth.searchParams.set("response_type", "code");
-  auth.searchParams.set("scope", META_LEADS_SCOPES);
+  for (const [k, v] of Object.entries(metaLeadsLoginParams())) auth.searchParams.set(k, v);
   auth.searchParams.set("state", state);
   return NextResponse.redirect(auth.toString());
 }

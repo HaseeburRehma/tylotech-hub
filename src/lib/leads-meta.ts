@@ -23,6 +23,19 @@ import { ingestLead, type LeadField } from "@/lib/leads";
 
 export const META_LEADS_SCOPES = ["pages_show_list", "pages_read_engagement", "pages_manage_metadata", "pages_manage_ads", "leads_retrieval", "ads_read"].join(",");
 
+/**
+ * Login dialog parameters. The TyloTech Hub app is a Business app with
+ * "Facebook Login for Business": it ignores `scope` for permissions that aren't
+ * in a saved configuration ("Invalid Scopes" dialog). With META_LEADS_CONFIG_ID
+ * (Login for Business → Configurations) the dialog asks for exactly that
+ * configuration's permissions; without it we fall back to plain scopes.
+ */
+export function metaLeadsLoginParams(): Record<string, string> {
+  const configId = process.env.META_LEADS_CONFIG_ID?.trim();
+  if (configId && /^\d+$/.test(configId)) return { config_id: configId, response_type: "code", override_default_response_type: "true" };
+  return { scope: META_LEADS_SCOPES, response_type: "code", auth_type: "rerequest" };
+}
+
 const G = `https://graph.facebook.com/${META_GRAPH_VERSION}`;
 
 export const metaApp = () => {
