@@ -52,6 +52,10 @@ export interface Lead {
   received_at: string;
   updated_at: string;
   last_activity_at: string;
+  /** Speed-to-Lead (0046): who grabbed it, when, and when the first call started. */
+  claimed_by?: string | null;
+  claimed_at?: string | null;
+  call_started_at?: string | null;
 }
 
 export interface LeadActivity {

@@ -7,6 +7,7 @@ import { getAuthUser, isStaff } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { ActiveClientProvider } from "@/components/providers/active-client-provider";
+import { SpeedToLeadProvider } from "@/components/leads/speed-to-lead-provider";
 import { activeClientRef } from "@/lib/active-client-server";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
@@ -50,6 +51,12 @@ export default async function PortalLayout({ children }: { children: React.React
         <AppShell user={user} canSeeInternal={isStaff(user)} clients={clients} navBadges={navBadges}>
           {children}
         </AppShell>
+        <SpeedToLeadProvider
+          userId={user.id}
+          role={user.role}
+          clientId={user.client_id}
+          tenantNames={isStaff(user) ? Object.fromEntries(clients.map((c) => [c.id, c.name])) : undefined}
+        />
       </ActiveClientProvider>
     </UserProvider>
   );

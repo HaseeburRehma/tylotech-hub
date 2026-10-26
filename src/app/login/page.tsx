@@ -1,124 +1,18 @@
-"use client";
-
-import { setRememberPreference } from "@/lib/supabase/remember";
+import { redirect } from "next/navigation";
+import { getAuthUser } from "@/lib/auth";
 import { safeRedirect } from "@/lib/safe-redirect";
-import { rememberLoginBrand } from "@/lib/login-brand";
-import { AlertCircle, Mail } from "lucide-react";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
-import { PasswordInput } from "@/components/auth/password-input";
-import { AuthShell } from "@/components/auth/auth-shell";
-import { createClient } from "@/lib/supabase/client";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { useT } from "@/lib/i18n/provider";
+import { LoginView } from "./login-form";
 
-/** Only allow same-origin relative paths — blocks open redirects (//evil.com, https://…, /\evil). */
-function LoginForm() {
-  const router = useRouter();
-  const params = useSearchParams();
-  const t = useT();
-  const redirectTo = safeRedirect(params.get("redirect"));
+export const dynamic = "force-dynamic";
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    if (!isSupabaseConfigured) {
-      setTimeout(() => router.push(redirectTo), 500);
-      return;
-    }
-
-    const supabase = createClient();
-    // Decides whether the session cookies written by this sign-in persist.
-    setRememberPreference(remember);
-    const { data, error } = await supabase!.auth.signInWithPassword({ email, password });
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-      return;
-    }
-
-    // Check if user has MFA enrolled — redirect to verify page
-    const { data: aal } = await supabase!.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
-      const params = new URLSearchParams();
-      if (redirectTo !== "/dashboard") params.set("redirect", redirectTo);
-      router.push(`/mfa-verify${params.toString() ? "?" + params.toString() : ""}`);
-      return;
-    }
-
-    rememberLoginBrand(null);
-    router.push(redirectTo);
-    router.refresh();
-  }
-
-  return (
-    <>
-      <div className="mb-8">
-        <h1 className="font-display text-3xl font-semibold tracking-tight">{t("auth.welcomeBack")}</h1>
-        <p className="mt-2 text-sm text-muted">{t("auth.signInSubtitle")}</p>
-      </div>
-
-      <form onSubmit={onSubmit} className="space-y-4">
-        {error && (
-          <div className="flex items-start gap-2 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-        <div>
-          <Label htmlFor="email">{t("auth.email")}</Label>
-          <div className="relative">
-            <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className="h-12 pl-10" />
-          </div>
-        </div>
-        <div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="password">{t("auth.password")}</Label>
-            <Link href="/reset" className="mb-1.5 text-xs font-medium text-brand-ink hover:underline">
-              {t("auth.forgot")}
-            </Link>
-          </div>
-          <PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
-        </div>
-
-        <label className="mt-1 flex items-center gap-2 text-sm text-muted cursor-pointer select-none">
-          <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="h-4 w-4 rounded border-border accent-brand" />
-          {t("auth.rememberMe")}
-        </label>
-
-        <Button type="submit" loading={loading} className="mt-4 w-full" size="lg">
-          {t("auth.signIn")}
-        </Button>
-      </form>
-
-      <p className="mt-6 text-center text-sm text-muted">
-        {t("auth.teamMemberQ")}{" "}
-        <Link href="/signup" className="font-semibold text-brand-ink hover:underline">
-          {t("auth.createAccount")}
-        </Link>
-      </p>
-    </>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <AuthShell hideThemeSwitcher>
-      <Suspense>
-        <LoginForm />
-      </Suspense>
-    </AuthShell>
-  );
+/**
+ * Already signed in → go straight to the app instead of showing the login form.
+ * getAuthUser() returns null for no-access sessions (archived client, deactivated,
+ * MFA not completed), so this never loops with the portal layout's gate, and a
+ * transient Supabase outage falls through to the form rather than erroring.
+ */
+export default async function LoginPage({ searchParams }: { searchParams: { redirect?: string } }) {
+  const user = await getAuthUser().catch(() => null);
+  if (user) redirect(safeRedirect(searchParams?.redirect));
+  return <LoginView />;
 }

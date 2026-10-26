@@ -10,6 +10,25 @@ export const LOCALE_COOKIE = "locale";
 type Dict = Record<string, string>;
 
 const en: Dict = {
+  // Speed-to-Lead
+  "s2l.incoming": "New lead",
+  "s2l.newLead": "New lead",
+  "s2l.toCall": "to call",
+  "s2l.overdue": "overdue",
+  "s2l.noPhone": "No phone — follow up by e-mail",
+  "s2l.take": "I take it",
+  "s2l.callNow": "Call now",
+  "s2l.call": "Call",
+  "s2l.afterCall": "Log the outcome after the call",
+  "s2l.taken": "Already taken",
+  "s2l.takenBy": "Already taken by {name}",
+  "s2l.claimError": "Could not claim the lead. Please try again.",
+  "s2l.outcomeError": "Could not save the outcome. Please try again.",
+  "s2l.outcome.appointment": "Appointment booked",
+  "s2l.outcome.won": "Customer won",
+  "s2l.outcome.notReached": "Not reached",
+  "s2l.outcome.notInterested": "Not interested",
+  "s2l.outcome.spam": "Wrong / spam",
   "lang.de": "Deutsch",
   "lang.en": "English",
 
@@ -1581,6 +1600,25 @@ const en: Dict = {
 };
 
 const de: Dict = {
+  // Speed-to-Lead
+  "s2l.incoming": "Neuer Lead",
+  "s2l.newLead": "Neuer Lead",
+  "s2l.toCall": "zum Anrufen",
+  "s2l.overdue": "überfällig",
+  "s2l.noPhone": "Keine Nummer – per E-Mail nachfassen",
+  "s2l.take": "Ich übernehme",
+  "s2l.callNow": "Jetzt anrufen",
+  "s2l.call": "Anrufen",
+  "s2l.afterCall": "Ergebnis nach dem Anruf festhalten",
+  "s2l.taken": "Schon vergeben",
+  "s2l.takenBy": "Schon übernommen von {name}",
+  "s2l.claimError": "Lead konnte nicht übernommen werden. Bitte erneut versuchen.",
+  "s2l.outcomeError": "Ergebnis konnte nicht gespeichert werden. Bitte erneut versuchen.",
+  "s2l.outcome.appointment": "Termin vereinbart",
+  "s2l.outcome.won": "Kunde gewonnen",
+  "s2l.outcome.notReached": "Nicht erreicht",
+  "s2l.outcome.notInterested": "Kein Interesse",
+  "s2l.outcome.spam": "Falsch / Spam",
   "lang.de": "Deutsch",
   "lang.en": "English",
 
