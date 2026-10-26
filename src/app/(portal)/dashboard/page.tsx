@@ -8,6 +8,7 @@ import {
   listProjects,
   listUpdates,
   listUpdatesAll,
+  isDemoClient,
 } from "@/lib/data";
 import { PROVIDERS } from "@/lib/integrations/providers";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -89,7 +90,7 @@ export default async function DashboardPage() {
       myProjects={myProjects}
       myActiveTasks={myActiveTasks}
       updates={updates}
-      activeClients={clients.length}
+      activeClients={clients.filter((c) => !isDemoClient(c)).length}
       newClientsThisMonth={clients.filter((c) => c.created_at && new Date(c.created_at) >= monthStart).length}
     />
   );

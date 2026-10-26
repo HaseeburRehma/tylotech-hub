@@ -246,6 +246,15 @@ export interface PortfolioSummary {
  * accounts, last 30 days vs the 30 before that, plus a combined daily series for
  * the trend chart. Relies on RLS (`is_staff()`) to read across all tenants.
  */
+/** Clients with a `demo-` slug hold fictional sample data (e.g. the App Store review login). */
+export const DEMO_SLUG_PREFIX = "demo-";
+export const isDemoClient = (c: { slug?: string | null }) => !!c.slug?.startsWith(DEMO_SLUG_PREFIX);
+
+async function demoClientIds(sb: NonNullable<ReturnType<typeof createClient>>): Promise<Set<string>> {
+  const { data } = await sb.from("clients").select("id").like("slug", `${DEMO_SLUG_PREFIX}%`);
+  return new Set((data ?? []).map((c: { id: string }) => c.id));
+}
+
 export async function getPortfolioSummary(): Promise<PortfolioSummary> {
   const empty: PortfolioSummary = {
     spend30d: 0,
@@ -270,7 +279,7 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
   const cutoffStr = day(30);
   const sinceStr = day(60);
 
-  const rows = await selectAll<any>((from, to) =>
+  const [allRows, demoIds] = await Promise.all([selectAll<any>((from, to) =>
     sb
       .from("metric_points")
       .select("client_id,date,spend,leads,provider")
@@ -281,7 +290,9 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
       .order("client_id", { ascending: true })
       .order("provider", { ascending: true })
       .range(from, to),
-  );
+  ), demoClientIds(sb)]);
+  // Sample data of the App Store review client must not count as real spend.
+  const rows = allRows.filter((r) => !demoIds.has(r.client_id));
   if (!rows.length) return empty;
 
   const byDate = new Map<string, { spend: number; leads: number }>();
