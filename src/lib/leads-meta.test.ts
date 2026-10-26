@@ -14,9 +14,10 @@ vi.mock("@/lib/http", () => ({
     return new Response(JSON.stringify(body), { status: 200 });
   },
 }));
-vi.mock("@/lib/leads", () => ({ ingestLead: vi.fn() }));
+const mockIngest = vi.fn();
+vi.mock("@/lib/leads", () => ({ ingestLead: (...a: unknown[]) => mockIngest(...a) }));
 
-import { listMetaPages, openMetaPick, sealMetaPick } from "./leads-meta";
+import { handleLeadgenEvent, listMetaPages, openMetaPick, sealMetaPick } from "./leads-meta";
 
 const ENV = { id: process.env.META_APP_ID, secret: process.env.META_APP_SECRET };
 beforeEach(() => {
@@ -99,5 +100,33 @@ describe("Meta pick cookie", () => {
     const v = sealMetaPick({ t: "tok", c: "c1", u: "u1" });
     process.env.META_APP_SECRET = "other";
     expect(openMetaPick(v, who)).toBeNull();
+  });
+});
+
+describe("handleLeadgenEvent", () => {
+  const admin: any = {
+    from: () => ({
+      select: () => ({ eq: () => ({ eq: () => ({ neq: async () => ({ data: [{ id: "s1", client_id: "c1", access_token: "pt" }] }) }) }) }),
+      update: () => ({ eq: async () => ({}) }),
+    }),
+  };
+  beforeEach(() => mockIngest.mockReset().mockResolvedValue({ id: "l1", lead_no: 1 }));
+
+  it("stores the lead with notify on and flags Meta testing-tool leads as test", async () => {
+    routes["555"] = { id: "555", created_time: "2026-10-26T15:00:00+0000", form_id: "9", field_data: [{ name: "full_name", values: ["<test lead: dummy data for full_name>"] }] };
+    routes["9"] = { name: "Kontaktformular" };
+    expect(await handleLeadgenEvent(admin, { leadgen_id: "555", page_id: "77" })).toBe(1);
+    expect(mockIngest.mock.calls[0][1]).toMatchObject({ clientId: "c1", source: "meta", externalId: "555", isTest: true, notify: true, form: "Kontaktformular" });
+  });
+
+  it("real answers are not test leads", async () => {
+    routes["556"] = { id: "556", created_time: "2026-10-26T15:00:00+0000", field_data: [{ name: "full_name", values: ["Max Muster"] }] };
+    await handleLeadgenEvent(admin, { leadgen_id: "556", page_id: "77" });
+    expect(mockIngest.mock.calls[0][1].isTest).toBe(false);
+  });
+
+  it("ignores events without a lead or page id", async () => {
+    expect(await handleLeadgenEvent(admin, { page_id: "77" })).toBe(0);
+    expect(mockIngest).not.toHaveBeenCalled();
   });
 });

@@ -240,6 +240,8 @@ async function storeMetaLead(admin: SupabaseClient, source: { id: string; client
     ad: l.ad_name ?? null,
     form: formName ?? (l.form_id ? `Formular ${l.form_id}` : null),
     platform: l.platform === "ig" ? "instagram" : l.platform === "fb" ? "facebook" : l.platform ?? "facebook",
+    // Meta's Lead Ads Testing Tool fills every answer with "<test lead: dummy data for …>".
+    isTest: fields.some((f) => /^<test lead/i.test(f.value)),
     notify,
   });
 }
