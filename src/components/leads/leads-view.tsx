@@ -183,12 +183,17 @@ export function LeadsView({
         case "status":
           return rank(l.status);
         case "owner":
-          return l.assigned_to ? (nameOf.get(l.assigned_to) ?? "").toLocaleLowerCase("de") : "\uffff";
+          return (nameOf.get(l.assigned_to ?? "") ?? "").toLocaleLowerCase("de");
         default:
           return new Date(l.created_at).getTime();
       }
     };
+    // Leads without a name / owner go last in either direction.
+    const blank = (l: Lead) => (sort.key === "name" ? !(l.name ?? l.email ?? l.phone) : sort.key === "owner" ? !l.assigned_to : false);
     return [...shown].sort((a, b) => {
+      const ba = blank(a);
+      const bb = blank(b);
+      if (ba !== bb) return ba ? 1 : -1;
       const x = key(a);
       const y = key(b);
       if (x < y) return -dir;
