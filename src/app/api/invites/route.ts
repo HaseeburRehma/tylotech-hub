@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   // be turned into a spam/phishing relay.
   const rl = await getRateLimiter().limit(`invite:${user.id}`, staffInviter ? { limit: 10, windowSec: 3600 } : { limit: 3, windowSec: 3600 });
   if (!rl.success) {
-    return NextResponse.json({ error: "Too many invitations — please try again later." }, { status: 429, headers: rateLimitHeaders(rl) });
+    return NextResponse.json({ error: "Too many invitations. Please try again later." }, { status: 429, headers: rateLimitHeaders(rl) });
   }
 
   const admin = createAdminClient();

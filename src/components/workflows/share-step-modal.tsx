@@ -57,7 +57,7 @@ export function ShareStepModal({
     setSent(false);
   }, [open, step.assignee_user_id, user.id, others]);
 
-  const nameOf = (id: string | null) => (id ? staff.find((s) => s.id === id)?.name ?? "—" : null);
+  const nameOf = (id: string | null) => (id ? staff.find((s) => s.id === id)?.name ?? "-" : null);
   const index = run.steps.findIndex((s) => s.id === step.id);
   const status = t(`wf.state.${run.status === "paused" && step.status === "active" ? "paused" : step.status}`);
   const origin = typeof window === "undefined" ? "" : window.location.origin;
@@ -67,7 +67,7 @@ export function ShareStepModal({
     const lines = [
       [mentions, message.trim()].filter(Boolean).join(" "),
       `📋 ${run.name} · ${partner}${run.iteration && run.iteration > 1 ? ` · ${t("wf.round", { n: run.iteration })}` : ""}`,
-      `**${t("wf.step")} ${index + 1}/${run.steps.length}: ${step.title}** — ${status}`,
+      `**${t("wf.step")} ${index + 1}/${run.steps.length}: ${step.title}** · ${status}`,
       [
         `👤 ${t("wf.responsible")}: ${nameOf(step.assignee_user_id) ?? t("wf.unassigned")}`,
         step.due_date ? `⏰ ${t("wf.deadline")}: ${fmtDate(step.due_date)}` : null,

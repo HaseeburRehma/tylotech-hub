@@ -246,7 +246,7 @@ export function InternalView({
               </Link>
             }
           />
-          {team.length === 0 && <p className="px-5 py-8 text-center text-sm text-muted">—</p>}
+          {team.length === 0 && <p className="px-5 py-8 text-center text-sm text-muted">-</p>}
           <ul className="divide-y divide-line">
             {team.map((t) => {
               const share = teamActive ? Math.round((t.activeProjects / teamActive) * 100) : 0;

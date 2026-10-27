@@ -51,7 +51,7 @@ export async function notifyStepActive(admin: SupabaseClient, stepId: string, ac
   // Nobody needs an email about a step they just activated for themselves.
   if (!step?.assignee_user_id || step.assignee_user_id === actorId) return;
   const run = (Array.isArray(step.workflow_runs) ? step.workflow_runs[0] : step.workflow_runs) as any;
-  const company = (Array.isArray(run?.clients) ? run.clients[0] : run?.clients)?.company ?? "—";
+  const company = (Array.isArray(run?.clients) ? run.clients[0] : run?.clients)?.company ?? "-";
   const path = `/internal/processes/${step.run_id}`;
   await notifyUser(step.assignee_user_id, {
     title: `Du bist dran: ${step.title} bei ${company}`,
@@ -81,7 +81,7 @@ export async function notifyStepActive(admin: SupabaseClient, stepId: string, ac
 export async function notifyRunCompleted(admin: SupabaseClient, runId: string, actorId: string) {
   const { data: run } = await admin.from("workflow_runs").select("name,started_by,clients(company)").eq("id", runId).maybeSingle();
   if (!run?.started_by || run.started_by === actorId) return;
-  const company = (Array.isArray(run.clients) ? run.clients[0] : run.clients)?.company ?? "—";
+  const company = (Array.isArray(run.clients) ? run.clients[0] : run.clients)?.company ?? "-";
   await notifyUser(run.started_by, {
     title: `Abgeschlossen: ${run.name} bei ${company}`,
     href: `/internal/processes/${runId}`,

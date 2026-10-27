@@ -265,7 +265,7 @@ export function LeadsView({
                       {l.name ?? l.email ?? l.phone ?? t("leads.noName")}
                       {l.is_test && <span className="ml-2 rounded bg-warning/15 px-1 text-eyebrow font-semibold text-warning">TEST</span>}
                     </span>
-                    <span className="block truncate text-xs text-muted">{[l.phone, l.email].filter(Boolean).join(" · ") || "—"}</span>
+                    <span className="block truncate text-xs text-muted">{[l.phone, l.email].filter(Boolean).join(" · ") || "-"}</span>
                   </span>
                   <span className="hidden min-w-0 md:block">
                     <span className="flex items-center gap-1.5">
@@ -280,7 +280,7 @@ export function LeadsView({
                     {l.assigned_to ? (
                       <>
                         <Avatar name={nameOf.get(l.assigned_to) ?? "?"} size={22} />
-                        <span className="truncate text-xs text-muted">{(nameOf.get(l.assigned_to) ?? "—").split(" ")[0]}</span>
+                        <span className="truncate text-xs text-muted">{(nameOf.get(l.assigned_to) ?? "-").split(" ")[0]}</span>
                       </>
                     ) : (
                       <span className="text-xs text-muted/60">{t("leads.unassigned")}</span>

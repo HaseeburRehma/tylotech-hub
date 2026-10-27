@@ -276,7 +276,7 @@ export default function ToolPage() {
     if (!targetClientId || !output) return;
     setAction({ kind: "doc", state: "busy" });
     const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
-    const file = new File([`# ${t(config.name)} — ${generatedFor || brand}\n\n${output}\n`], `${slug}-${stamp}.md`, {
+    const file = new File([`# ${t(config.name)}: ${generatedFor || brand}\n\n${output}\n`], `${slug}-${stamp}.md`, {
       type: "text/markdown",
     });
     const form = new FormData();

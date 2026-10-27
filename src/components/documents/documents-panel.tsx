@@ -291,7 +291,7 @@ export function DocumentsPanel({
                       <td className="hidden px-4 py-3 sm:table-cell">
                         <Badge variant={m.variant}>{t(m.label)}</Badge>
                       </td>
-                      <td className="hidden whitespace-nowrap px-4 py-3 text-right font-mono text-body-sm text-soft md:table-cell">{d.size || "—"}</td>
+                      <td className="hidden whitespace-nowrap px-4 py-3 text-right font-mono text-body-sm text-soft md:table-cell">{d.size || "-"}</td>
                       <td className="hidden whitespace-nowrap px-4 py-3 text-right text-body-sm text-muted sm:table-cell">{date}</td>
                       <td className="px-4 py-3 text-right">
                         {(downloadable(d) || canDelete(d)) && (

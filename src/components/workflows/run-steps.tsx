@@ -33,7 +33,7 @@ async function patchStep(id: string, body: Record<string, unknown>) {
  * Expanding a step lets anyone reassign, set a deadline, add a note, attach
  * files / links (e.g. the weekly report) or share the step to the team chat.
  */
-export function RunSteps({ run, staff, partner = "—" }: { run: Run; staff: StaffOption[]; partner?: string }) {
+export function RunSteps({ run, staff, partner = "-" }: { run: Run; staff: StaffOption[]; partner?: string }) {
   const t = useT();
   const user = useUser();
   const router = useRouter();
@@ -98,7 +98,7 @@ export function RunSteps({ run, staff, partner = "—" }: { run: Run; staff: Sta
                         <>
                           <span className="eyebrow text-success">{t("wf.state.done")}</span>
                           <span className="text-muted">
-                            {t("wf.by")} {nameOf(s.completed_by) ?? "—"}
+                            {t("wf.by")} {nameOf(s.completed_by) ?? "-"}
                             {s.completed_at ? ` · ${fmtStamp(s.completed_at)}` : ""}
                           </span>
                         </>
@@ -107,7 +107,7 @@ export function RunSteps({ run, staff, partner = "—" }: { run: Run; staff: Sta
                         <>
                           <span className="eyebrow">{t("wf.state.skipped")}</span>
                           <span className="text-muted">
-                            {t("wf.by")} {nameOf(s.completed_by) ?? "—"}
+                            {t("wf.by")} {nameOf(s.completed_by) ?? "-"}
                             {s.completed_at ? ` · ${fmtStamp(s.completed_at)}` : ""}
                           </span>
                         </>

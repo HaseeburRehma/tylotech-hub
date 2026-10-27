@@ -1,6 +1,6 @@
 import { getAuthUser, isStaff } from "@/lib/auth";
 import { activeClientRef } from "@/lib/active-client-server";
-import { getClientByRef, listClients, listMessages, listTeamPeers, listUpdates } from "@/lib/data";
+import { getClientByRef, listClientUsers, listClients, listMessages, listTeamPeers, listUpdates } from "@/lib/data";
 import { ChatView } from "./view";
 
 export default async function ChatPage({ searchParams }: { searchParams: { client?: string } }) {
@@ -21,13 +21,19 @@ export default async function ChatPage({ searchParams }: { searchParams: { clien
     clientLogoUrl = fallback?.logo_url ?? null;
   }
 
-  const [messages, updates, peers] = await Promise.all([listMessages(clientId), listUpdates(clientId), listTeamPeers()]);
+  const [messages, updates, peers, clientPeople] = await Promise.all([
+    listMessages(clientId),
+    listUpdates(clientId),
+    listTeamPeers(),
+    listClientUsers(clientId),
+  ]);
 
   return (
     <ChatView
       initialMessages={messages}
       updates={updates}
       peers={peers}
+      directory={[...peers, ...clientPeople]}
       currentUserId={user?.id ?? "demo"}
       currentName={user?.name ?? "You"}
       currentRole={user?.role ?? "client"}

@@ -11,7 +11,7 @@ export * from "@/lib/leads-shared";
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
 export const missingLeads = (msg: string | undefined) => /\bleads\b|lead_sources|lead_activities|schema cache|does not exist/i.test(msg ?? "");
-export const LEADS_NOT_READY = "Leads need database migration 0043 — ask an admin to run it.";
+export const LEADS_NOT_READY = "Leads need database migration 0043. Ask an admin to run it.";
 
 type Ctx = { user: AuthUser; admin: SupabaseClient; clientId: string };
 

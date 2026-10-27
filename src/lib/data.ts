@@ -384,7 +384,7 @@ export async function listIntegrationHealth(): Promise<IntegrationHealthRow[]> {
       const c = byId.get(r.client_id);
       return {
         clientId: r.client_id,
-        clientName: c?.company ?? "—",
+        clientName: c?.company ?? "-",
         clientSlug: c?.slug ?? null,
         provider: r.provider as string,
         status: r.status as string,
@@ -409,7 +409,7 @@ export async function listUpdatesAll(limit = 8): Promise<(Update & { clientName:
   const clientIds = Array.from(new Set(rows.map((u: any) => u.client_id)));
   const { data: clients } = await sb.from("clients").select("id,company").in("id", clientIds);
   const nameById = new Map((clients ?? []).map((c: any) => [c.id, c.company]));
-  return (rows as Update[]).map((u) => ({ ...u, clientName: nameById.get(u.client_id) ?? "—" }));
+  return (rows as Update[]).map((u) => ({ ...u, clientName: nameById.get(u.client_id) ?? "-" }));
 }
 
 export async function listProjects(clientId?: string | null): Promise<Project[]> {
@@ -505,11 +505,14 @@ export async function listClientUsers(clientId: string | null): Promise<ChatPeer
   if (!sb || !clientId) return [];
   const { data } = await sb
     .from("users")
-    .select("id,name,role")
+    .select("*")
     .eq("client_id", clientId)
     .eq("role", "client")
     .order("name");
-  return (data ?? []).map((u: any) => ({ id: u.id, name: u.name, role: u.role as Role, title: "Client" }));
+  // `*` tolerates columns added by later migrations; deactivated people don't show.
+  return (data ?? [])
+    .filter((u: any) => !u.deactivated_at)
+    .map((u: any) => ({ id: u.id, name: u.name, role: u.role as Role, title: "Client", avatarUrl: u.avatar_url ?? null }));
 }
 
 export interface NotificationRow {
@@ -598,6 +601,7 @@ export async function listTeamPeers(): Promise<ChatPeer[]> {
     name: u.name,
     role: u.role as Role,
     title: staffTitle(u),
+    avatarUrl: u.avatar_url ?? null,
   }));
 }
 

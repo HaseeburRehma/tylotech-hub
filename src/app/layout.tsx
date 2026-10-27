@@ -20,16 +20,16 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://www.tylohq.de"),
   title: "TyloTech Hub",
   description:
-    "White-label client portal & internal command center — KPIs, AI tools, chat and reporting.",
+    "White-label client portal & internal command center: KPIs, AI tools, chat and reporting.",
   openGraph: {
     type: "website",
     siteName: "TyloHQ",
     title: "TyloTech Hub",
-    description: "White-label client portal & internal command center — KPIs, leads, AI tools, chat and reporting.",
+    description: "White-label client portal & internal command center: KPIs, leads, AI tools, chat and reporting.",
     url: "/",
     locale: "de_DE",
   },
-  twitter: { card: "summary_large_image", title: "TyloTech Hub", description: "White-label client portal & internal command center — KPIs, leads, AI tools, chat and reporting." },
+  twitter: { card: "summary_large_image", title: "TyloTech Hub", description: "White-label client portal & internal command center: KPIs, leads, AI tools, chat and reporting." },
   // The app has its own DE/EN switch; browser machine translation rewrites the
   // DOM under React and crashes pages, so ask browsers not to offer it.
   other: { google: "notranslate" },
@@ -103,7 +103,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     >
       <head>
         {/* If a translator or extension still rewrites text nodes, React's later
-            removeChild/insertBefore would throw and crash the page — tolerate it
+            removeChild/insertBefore would throw and crash the page, tolerate it
             (https://github.com/facebook/react/issues/11538). */}
         <script
           dangerouslySetInnerHTML={{

@@ -365,8 +365,8 @@ export function OnboardingView({
   if (step >= STEPS.length - 1) {
     const connectedSources = Array.from(connected);
     const firstSource = connectedSources.length > 0
-      ? CHANNELS.find((c) => c.id === connectedSources[0])?.name ?? "—"
-      : "—";
+      ? CHANNELS.find((c) => c.id === connectedSources[0])?.name ?? "-"
+      : "-";
 
     return (
       <div className="flex min-h-screen flex-col items-center bg-bg">
@@ -516,7 +516,7 @@ export function OnboardingView({
                             onChange={(e) => setProfile((p) => ({ ...p, role: e.target.value }))}
                             className="input-base h-12 w-full appearance-none pl-10"
                           >
-                            <option value="">—</option>
+                            <option value="">-</option>
                             {[...(profile.role && !ROLES.includes(profile.role) ? [profile.role] : []), ...ROLES].map((r) => <option key={r} value={r}>{r}</option>)}
                           </select>
                           <Users className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />

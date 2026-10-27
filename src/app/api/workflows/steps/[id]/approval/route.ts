@@ -6,7 +6,7 @@ import { UUID_RE, bad, staffContext } from "../../../_shared";
 
 export const runtime = "nodejs";
 
-const NOT_READY = "Client approvals need database migration 0042 — ask an admin to run it.";
+const NOT_READY = "Client approvals need database migration 0042. Ask an admin to run it.";
 
 /**
  * Ask the partner to approve a draft on this step (any team member):

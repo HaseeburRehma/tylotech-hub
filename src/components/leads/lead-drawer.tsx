@@ -71,7 +71,7 @@ export function LeadDrawer({
   const [value, setValue] = useState(lead.value != null ? String(lead.value) : "");
   const [copied, setCopied] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const nameOf = (id: string | null) => (id ? people.find((p) => p.id === id)?.name ?? "—" : t("leads.system"));
+  const nameOf = (id: string | null) => (id ? people.find((p) => p.id === id)?.name ?? "-" : t("leads.system"));
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -156,7 +156,7 @@ export function LeadDrawer({
       case "appointment":
         return m.at ? t("leads.act.appointment", { when: fmtDateTime(String(m.at)) }) : t("leads.act.appointmentRemoved");
       case "value":
-        return t("leads.act.value", { value: m.value != null ? Number(m.value).toLocaleString(dl, { style: "currency", currency: "EUR" }) : "—" });
+        return t("leads.act.value", { value: m.value != null ? Number(m.value).toLocaleString(dl, { style: "currency", currency: "EUR" }) : "-" });
       case "call":
         return t("leads.act.call");
       case "email":
@@ -325,7 +325,7 @@ export function LeadDrawer({
           <section>
             <p className="eyebrow mb-2">{t("leads.answers")}</p>
             {lead.fields.length === 0 ? (
-              <p className="text-sm text-muted">—</p>
+              <p className="text-sm text-muted">-</p>
             ) : (
               <dl className="divide-y divide-border rounded-xl border border-border">
                 {lead.fields.map((f, i) => (

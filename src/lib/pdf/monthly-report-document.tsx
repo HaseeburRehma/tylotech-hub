@@ -48,7 +48,7 @@ function ChangeLine({ m }: { m: MonthlyMetric }) {
 
 export function MonthlyReportDocument({ data, generatedAt }: { data: MonthlyReportData; generatedAt: string }) {
   return (
-    <Document title={`${data.company} — Monatsbericht ${data.periodLabel}`} author="TyloTech">
+    <Document title={`${data.company}: Monatsbericht ${data.periodLabel}`} author="TyloTech">
       <Page size="A4" style={styles.page}>
         <View style={[styles.bar, { backgroundColor: data.brandColor }]} />
         <Text style={styles.eyebrow}>Monatsbericht</Text>

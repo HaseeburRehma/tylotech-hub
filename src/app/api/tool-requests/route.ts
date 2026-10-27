@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
 
   const rl = await getRateLimiter().limit(`tool-request:${user.id}`, { limit: 5, windowSec: 3600 });
-  if (!rl.success) return NextResponse.json({ error: "Too many requests — try again later." }, { status: 429, headers: rateLimitHeaders(rl) });
+  if (!rl.success) return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429, headers: rateLimitHeaders(rl) });
 
   const b = (await req.json().catch(() => ({}))) as { what?: string; clientId?: string; frequency?: string; manual?: string };
   const what = String(b.what ?? "").trim().slice(0, 2000);

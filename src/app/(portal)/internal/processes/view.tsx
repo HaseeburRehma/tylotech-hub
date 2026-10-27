@@ -93,7 +93,7 @@ function Board({ runs, staff, company }: { runs: Run[]; staff: StaffOption[]; co
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {open.map((r) => (
-            <RunCard key={r.id} run={r} partner={company[r.client_id ?? ""] ?? "—"} staff={staff} />
+            <RunCard key={r.id} run={r} partner={company[r.client_id ?? ""] ?? "-"} staff={staff} />
           ))}
         </div>
       )}
@@ -105,7 +105,7 @@ function Board({ runs, staff, company }: { runs: Run[]; staff: StaffOption[]; co
           {showDone && (
             <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {done.map((r) => (
-                <RunCard key={r.id} run={r} partner={company[r.client_id ?? ""] ?? "—"} staff={staff} />
+                <RunCard key={r.id} run={r} partner={company[r.client_id ?? ""] ?? "-"} staff={staff} />
               ))}
             </div>
           )}
@@ -159,7 +159,7 @@ function MyTasks({ runs, company }: { runs: Run[]; company: Record<string, strin
                   {step.title}
                 </Link>
                 <p className="text-xs text-muted">
-                  {run.name} · {company[run.client_id ?? ""] ?? "—"}
+                  {run.name} · {company[run.client_id ?? ""] ?? "-"}
                   {step.due_date && (
                     <span className={overdue ? "font-medium text-danger" : ""}>
                       {" "}

@@ -3,7 +3,7 @@ import { TYLOTECH_GOLD } from "@/lib/theme/themes";
 
 // Link previews (WhatsApp, Slack, LinkedIn, iMessage …) for tylohq.de.
 export const runtime = "edge";
-export const alt = "TyloHQ — the client portal and command center by TyloTech";
+export const alt = "TyloHQ: the client portal and command center by TyloTech";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -59,7 +59,7 @@ export default function OpenGraphImage() {
             <span>Dein Marketing. Deine Leads.</span>
             <span style={{ color: GOLD }}>Ein Portal.</span>
           </div>
-          <div style={{ fontSize: 28, color: "#B8B0A0", maxWidth: 960 }}>Client portal & command center — live KPIs, every lead from Meta & Google, chat and monthly reports.</div>
+          <div style={{ fontSize: 28, color: "#B8B0A0", maxWidth: 960 }}>Client portal & command center: live KPIs, every lead from Meta & Google, chat and monthly reports.</div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>

@@ -451,7 +451,7 @@ export function StaffDashboardView({
           <KpiCell
             index={2}
             label={t("dash.staff.costPerLead")}
-            value={portfolio.leads30d > 0 ? formatCurrency(portfolio.spend30d / portfolio.leads30d) : "—"}
+            value={portfolio.leads30d > 0 ? formatCurrency(portfolio.spend30d / portfolio.leads30d) : "-"}
             delta={shownDelta(portfolio.cplDelta)}
             suffix={t("dash.vsPrevMonth")}
             goodWhenDown

@@ -18,7 +18,7 @@ import { UUID_RE, bad, staffContext } from "../../../_shared";
 
 export const runtime = "nodejs";
 
-const NOT_READY = "Attachments need database migration 0041 — ask an admin to run it.";
+const NOT_READY = "Attachments need database migration 0041. Ask an admin to run it.";
 
 /**
  * Add an attachment to a step (any team member, any step state):
@@ -53,7 +53,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const mime = String(b.mime ?? "").toLowerCase();
     if (!name) return bad("File name is required.");
     if (!(size > 0) || size > WF_MAX_BYTES) return bad("File too large (max 50 MB).", 413);
-    if (!isAllowedMime(mime)) return bad("Unsupported file type — use PDF, images, Excel/CSV, Word or PowerPoint.", 415);
+    if (!isAllowedMime(mime)) return bad("Unsupported file type. Use PDF, images, Excel/CSV, Word or PowerPoint.", 415);
     // Fail early (before the upload) when the table isn't there yet.
     const probe = await ctx.admin.from("workflow_step_attachments").select("id").limit(1);
     if (probe.error && missingAttachments(probe.error.message)) return bad(NOT_READY, 503);
@@ -71,7 +71,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const path = String(b.path ?? "");
     if (!path.startsWith(folder) || path.includes("..")) return bad("Invalid upload.");
     const stat = await statObject(ctx.admin, path);
-    if (!stat) return bad("Upload not found — please try again.", 404);
+    if (!stat) return bad("Upload not found. Please try again.", 404);
     if (!isAllowedMime(stat.mime) || stat.size > WF_MAX_BYTES) {
       await ctx.admin.storage.from(WF_BUCKET).remove([path]);
       return bad("Unsupported file.", 415);

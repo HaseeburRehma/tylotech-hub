@@ -141,7 +141,8 @@ async function claudeTranslate(text: string, target: Lang): Promise<string | nul
         `Translate the user's message into ${LANG_NAME[target]}. ` +
         `Preserve tone, meaning, names, brand terms, numbers, emojis and line breaks. ` +
         `If the text is already in ${LANG_NAME[target]}, return it unchanged. ` +
-        `Output ONLY the translation — no quotes, labels, notes or explanations.`,
+        `Output ONLY the translation. No quotes, labels, notes or explanations. ` +
+        `Do not add em dashes (—) that the original doesn't have; use commas or full stops.`,
       messages: [{ role: "user", content: text }],
     });
     const out = msg.content

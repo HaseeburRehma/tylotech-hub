@@ -86,7 +86,7 @@ export async function GET(req: Request) {
     results.push({
       type: "Message",
       label: snippet(text, q),
-      meta: [m.client_id ? cl?.company ?? "—" : "TyloTech Team", m.sender_name, when].filter(Boolean).join(" · "),
+      meta: [m.client_id ? cl?.company ?? "-" : "TyloTech Team", m.sender_name, when].filter(Boolean).join(" · "),
       href: !staff ? `/chat?msg=${m.id}` : m.client_id ? `/internal/clients/${cl?.slug ?? m.client_id}?tab=chat&msg=${m.id}` : `/internal/team?msg=${m.id}`,
     });
   }

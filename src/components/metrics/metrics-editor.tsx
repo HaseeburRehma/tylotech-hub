@@ -119,7 +119,7 @@ export function MetricsEditor({ clientId, initialKpis }: { clientId: string; ini
             </div>
             <div>
               <Label>{t("kpiEd.delta")}</Label>
-              <Input type="number" inputMode="decimal" value={r.delta} onChange={(e) => set(i, "delta", e.target.value)} placeholder="—" />
+              <Input type="number" inputMode="decimal" value={r.delta} onChange={(e) => set(i, "delta", e.target.value)} placeholder="-" />
             </div>
             <div>
               <Label>{t("kpiEd.period")}</Label>

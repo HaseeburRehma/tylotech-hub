@@ -22,7 +22,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
           <p className="text-sm text-muted">
             Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.
           </p>
-          <p className="text-xs text-muted/70">Something went wrong — please try again.</p>
+          <p className="text-xs text-muted/70">Something went wrong. Please try again.</p>
         </div>
         <button
           onClick={() => reset()}

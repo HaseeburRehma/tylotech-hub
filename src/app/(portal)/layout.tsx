@@ -12,7 +12,7 @@ import { activeClientRef } from "@/lib/active-client-server";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const user = await getAuthUser();
-  if (!user) redirect(loginPathFor(cookies().get(LOGIN_BRAND_COOKIE)?.value)); // backstop — middleware guards these routes
+  if (!user) redirect(loginPathFor(cookies().get(LOGIN_BRAND_COOKIE)?.value)); // backstop: middleware guards these routes
 
   // Staff get the client roster in the sidebar (to jump into each client's
   // workspace/chat). The list is confidential, so clients never receive it.

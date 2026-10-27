@@ -73,7 +73,7 @@ export default async function DashboardPage() {
   const myProjects = allProjects
     .filter((p) => p.assigned_to_id === user.id)
     .slice(0, 6)
-    .map((p) => ({ ...p, clientName: companyById.get(p.client_id) ?? "—" }));
+    .map((p) => ({ ...p, clientName: companyById.get(p.client_id) ?? "-" }));
   const myActiveTasks = allProjects.filter(
     (p) => p.assigned_to_id === user.id && (p.status === "in_progress" || p.status === "review"),
   ).length;

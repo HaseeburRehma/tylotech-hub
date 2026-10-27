@@ -37,7 +37,7 @@ export function StepApprovals({ step, staff, partner }: { step: RunStep; staff: 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const items = step.approvals ?? [];
-  const nameOf = (id: string | null) => (id ? staff.find((s) => s.id === id)?.name ?? partner : "—");
+  const nameOf = (id: string | null) => (id ? staff.find((s) => s.id === id)?.name ?? partner : "-");
 
   async function cancel(a: Approval) {
     setBusy(a.id);

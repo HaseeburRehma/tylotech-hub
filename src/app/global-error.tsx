@@ -43,7 +43,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
             Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.
           </p>
           <p style={{ fontSize: "12px", color: "#8a857a", margin: "0 0 20px" }}>
-            Something went wrong — please try again.
+            Something went wrong. Please try again.
           </p>
           <button
             onClick={() => reset()}

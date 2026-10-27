@@ -95,7 +95,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const ctx = await leadContext(params.id);
   if ("error" in ctx) return ctx.error;
-  if (!isStaff(ctx.user)) return bad("Only your TyloTech team can delete leads — mark it as invalid instead.", 403);
+  if (!isStaff(ctx.user)) return bad("Only your TyloTech team can delete leads. Mark it as invalid instead.", 403);
   const { error } = await ctx.admin.from("leads").delete().eq("id", ctx.lead.id);
   if (error) return bad("Could not delete the lead.");
   await logAudit(ctx.user, { action: "lead.delete", clientId: ctx.lead.client_id, targetType: "lead", targetId: ctx.lead.id, summary: `#${ctx.lead.lead_no}` }, ctx.admin);

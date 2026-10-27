@@ -68,7 +68,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
   await logAudit(
     user,
-    { action: `approval.${status}`, clientId: a.client_id, targetType: "workflow_step", targetId: a.step_id, summary: `${a.title}${comment ? ` — ${comment.slice(0, 80)}` : ""}` },
+    { action: `approval.${status}`, clientId: a.client_id, targetType: "workflow_step", targetId: a.step_id, summary: `${a.title}${comment ? `: ${comment.slice(0, 80)}` : ""}` },
     admin,
   );
   return NextResponse.json({ ok: true, approval: updated });

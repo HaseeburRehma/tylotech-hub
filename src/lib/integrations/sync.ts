@@ -100,7 +100,7 @@ export async function syncClient(
         .from("integrations")
         .update(data.error === "auth" ? { status: "error", meta } : { meta })
         .eq("id", row.id);
-      results.push({ provider: row.provider, synced: false, reason: data.error === "auth" ? "token rejected — reconnect" : "provider error" });
+      results.push({ provider: row.provider, synced: false, reason: data.error === "auth" ? "token rejected. Reconnect" : "provider error" });
       continue;
     }
     if (!data) {

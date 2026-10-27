@@ -16,6 +16,7 @@ import {
   listMessages,
   listProjects,
   listTeamMembers,
+  listTeamPeers,
   listUpdates,
 } from "@/lib/data";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -44,7 +45,7 @@ export default async function ClientDetailPage({
   }
 
   const admin = createAdminClient();
-  const [messages, updates, documents, projects, kpis, peers, integrationsRes, teamMembers, portfolio, series] =
+  const [messages, updates, documents, projects, kpis, peers, teamPeers, integrationsRes, teamMembers, portfolio, series] =
     await Promise.all([
       listMessages(client.id),
       listUpdates(client.id),
@@ -52,6 +53,7 @@ export default async function ClientDetailPage({
       listProjects(client.id),
       getKpis(client.id),
       listClientUsers(client.id),
+      listTeamPeers(),
       admin
         ? admin.from("integrations").select("*").eq("client_id", client.id)
         : Promise.resolve({ data: [] as any[] }),
@@ -104,6 +106,7 @@ export default async function ClientDetailPage({
         role: user?.role ?? "team",
       }}
       peers={peers}
+      directory={[...peers, ...teamPeers]}
       teamMembers={teamMembers}
       spend30d={Number(spend30d.toFixed(2))}
       leads30d={leads30d}

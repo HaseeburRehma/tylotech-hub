@@ -8,6 +8,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Copy, Languages, Loader2, MessageCircle, Pencil, Pin, PinOff, Reply, SmilePlus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Avatar } from "@/components/ui/avatar";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n, useIntlLocale } from "@/lib/i18n/provider";
 import { APP_TZ, cn } from "@/lib/utils";
@@ -577,31 +578,56 @@ export function TypingLine({ names }: { names: string[] }) {
 
 const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("de-DE", { timeZone: APP_TZ, hour: "2-digit", minute: "2-digit" });
 
-/** "Gesehen 20:21" (DM) or "Gesehen von Anna, Ben +2" (group) under your latest message. */
+const SEEN_FACES = 5;
+const firstName = (name: string) => name.split(" ")[0] || name;
+
+/**
+ * Read receipt under your latest message: the readers' profile photos (initials
+ * without one) and their names. DM: one face + "Gesehen 20:21"; group: up to
+ * five overlapping faces + "Gesehen von Anna, Ben +2". Hover a face for name and time.
+ */
 export function SeenLine({
   messageAt,
   reads,
-  nameOf,
+  personOf,
   isDm,
 }: {
   messageAt: string;
   reads: ChatRead[];
-  nameOf: (userId: string) => string;
+  personOf: (userId: string) => { name: string; avatarUrl: string | null };
   isDm: boolean;
 }) {
   const { t } = useI18n();
   const seenBy = reads.filter((r) => r.last_read_at >= messageAt).sort((a, b) => a.last_read_at.localeCompare(b.last_read_at));
   if (!seenBy.length) return null;
-  const title = seenBy.map((r) => `${nameOf(r.user_id)} · ${hhmm(r.last_read_at)}`).join("\n");
+  const people = seenBy.map((r) => ({ ...personOf(r.user_id), id: r.user_id, at: r.last_read_at }));
   const label = isDm
-    ? t("chat.seenAt", { time: hhmm(seenBy[0]!.last_read_at) })
+    ? t("chat.seenAt", { time: hhmm(people[0]!.at) })
     : t("chat.seenBy", {
-        names: seenBy.slice(0, 2).map((r) => nameOf(r.user_id)).join(", ") + (seenBy.length > 2 ? ` +${seenBy.length - 2}` : ""),
+        names: people.slice(0, 2).map((p) => firstName(p.name)).join(", ") + (people.length > 2 ? ` +${people.length - 2}` : ""),
       });
+  const faces = people.slice(0, isDm ? 1 : SEEN_FACES);
+  const extra = isDm ? 0 : people.length - faces.length;
   return (
-    <p className="mt-1 text-right text-caption text-muted" title={title}>
-      ✓✓ {label}
-    </p>
+    <div
+      className="mt-1.5 flex items-center justify-end gap-1.5"
+      role="status"
+      aria-label={`${label}. ${people.map((p) => `${p.name} ${hhmm(p.at)}`).join(", ")}`}
+    >
+      <span className="flex items-center -space-x-1.5" aria-hidden>
+        {faces.map((p) => (
+          <span key={p.id} title={`${p.name} · ${hhmm(p.at)}`} className="rounded-full ring-2 ring-surface">
+            <Avatar name={p.name} src={p.avatarUrl} size={18} className="text-[8px] ring-0" />
+          </span>
+        ))}
+        {extra > 0 && (
+          <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-surface-2 px-1 text-[9px] font-semibold text-soft ring-2 ring-surface">
+            +{extra}
+          </span>
+        )}
+      </span>
+      <span className="text-caption text-muted">{label}</span>
+    </div>
   );
 }
 

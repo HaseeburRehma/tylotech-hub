@@ -89,7 +89,7 @@ export async function sendChatEmail(to: string, e: ChatEmail): Promise<void> {
         ${button(en.cta)}
       </td></tr>
       <tr><td style="padding:16px 28px;background:#fafafa;border-top:1px solid #eee">
-        <p style="margin:0;font-size:12px;color:#999">Diese E-Mail wurde automatisch gesendet. · This email was sent automatically. — TyloTech</p>
+        <p style="margin:0;font-size:12px;color:#999">Diese E-Mail wurde automatisch gesendet. · This email was sent automatically. TyloTech</p>
       </td></tr>
     </table>
   </td></tr></table>
@@ -107,13 +107,13 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
     subject: "Passwort zurücksetzen",
     lead: "Wir haben eine Anfrage erhalten, das Passwort für Ihr TyloTech-Konto zurückzusetzen. Klicken Sie auf den Button, um ein neues Passwort festzulegen.",
     cta: "Passwort zurücksetzen",
-    note: "Der Link ist aus Sicherheitsgründen nur begrenzt gültig. Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren – Ihr Passwort bleibt unverändert.",
+    note: "Der Link ist aus Sicherheitsgründen nur begrenzt gültig. Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren. Ihr Passwort bleibt unverändert.",
   };
   const en = {
     subject: "Reset your password",
     lead: "We received a request to reset the password for your TyloTech account. Click the button below to set a new password.",
     cta: "Reset password",
-    note: "For your security this link is valid for a limited time only. If you didn't request this, you can safely ignore this email — your password stays unchanged.",
+    note: "For your security this link is valid for a limited time only. If you didn't request this, you can safely ignore this email. Your password stays unchanged.",
   };
 
   const subject = `${de.subject} · ${en.subject}`;
@@ -142,7 +142,7 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
         <p style="margin:14px 0 0;font-size:12px;color:#999;line-height:1.5">${en.note}</p>
       </td></tr>
       <tr><td style="padding:16px 28px;background:#fafafa;border-top:1px solid #eee">
-        <p style="margin:0;font-size:12px;color:#999">Diese E-Mail wurde automatisch gesendet. · This email was sent automatically. — TyloTech</p>
+        <p style="margin:0;font-size:12px;color:#999">Diese E-Mail wurde automatisch gesendet. · This email was sent automatically. TyloTech</p>
       </td></tr>
     </table>
   </td></tr></table>
@@ -162,13 +162,13 @@ export async function sendInviteEmail(to: string, inviteUrl: string, inviterName
     subject: `${inviterName} lädt dich zu TyloHQ ein`,
     lead: `${inviter} hat dich ins TyloHQ von <strong>${ws}</strong> eingeladen. Lege dein Passwort fest, um loszulegen.`,
     cta: "Einladung annehmen",
-    after: `Danach meldest du dich unter <a href="${site}/login" style="color:#9a7b2c">${site.replace(/^https?:\/\//, "")}</a> an — mit denselben Zugangsdaten auch in der TyloHQ-App.`,
+    after: `Danach meldest du dich unter <a href="${site}/login" style="color:#9a7b2c">${site.replace(/^https?:\/\//, "")}</a> an, mit denselben Zugangsdaten auch in der TyloHQ-App.`,
   };
   const en = {
     subject: `${inviterName} invited you to TyloHQ`,
     lead: `${inviter} invited you to the <strong>${ws}</strong> TyloHQ. Set your password to get started.`,
     cta: "Accept invitation",
-    after: `Afterwards, sign in at <a href="${site}/login" style="color:#9a7b2c">${site.replace(/^https?:\/\//, "")}</a> — the same login works in the TyloHQ app.`,
+    after: `Afterwards, sign in at <a href="${site}/login" style="color:#9a7b2c">${site.replace(/^https?:\/\//, "")}</a>. The same login works in the TyloHQ app.`,
   };
   const button = (label: string) =>
     `<a href="${inviteUrl}" style="display:inline-block;background:#D1AA71;color:#111;text-decoration:none;font-weight:600;padding:11px 22px;border-radius:10px;font-size:14px">${label} →</a>`;
@@ -187,7 +187,7 @@ export async function sendInviteEmail(to: string, inviteUrl: string, inviterName
       <tr><td style="padding:8px 28px"><hr style="border:none;border-top:1px solid #eee;margin:16px 0"/></td></tr>
       <tr><td style="padding:0 28px 24px">${block("English", en)}</td></tr>
       <tr><td style="padding:16px 28px;background:#fafafa;border-top:1px solid #eee">
-        <p style="margin:0;font-size:12px;color:#999">Diese E-Mail wurde automatisch gesendet. · This email was sent automatically. — TyloTech</p>
+        <p style="margin:0;font-size:12px;color:#999">Diese E-Mail wurde automatisch gesendet. · This email was sent automatically. TyloTech</p>
       </td></tr>
     </table>
   </td></tr></table>
@@ -229,7 +229,7 @@ export async function sendMonthlyReportEmail(
         "Open portal",
       )}</td></tr>
       <tr><td style="padding:16px 28px;background:#fafafa;border-top:1px solid #eee">
-        <p style="margin:0;font-size:12px;color:#999">Diese E-Mail wurde automatisch gesendet. · This email was sent automatically. — TyloTech</p>
+        <p style="margin:0;font-size:12px;color:#999">Diese E-Mail wurde automatisch gesendet. · This email was sent automatically. TyloTech</p>
       </td></tr>
     </table>
   </td></tr></table>
@@ -325,5 +325,5 @@ export async function sendLeadEmail(to: string, e: LeadEmail): Promise<boolean> 
     </table>
   </td></tr></table>
   </body></html>`;
-  return send(to, `${e.isTest ? "[TEST] " : ""}🔥 Neuer Lead #${e.leadNo} – ${who} (${e.partner}) – jetzt anrufen`, html);
+  return send(to, `${e.isTest ? "[TEST] " : ""}🔥 Neuer Lead #${e.leadNo}: ${who} (${e.partner}), jetzt anrufen`, html);
 }

@@ -7,7 +7,7 @@ import { getRateLimiter } from "@/lib/rate-limit";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const expired = () => NextResponse.json({ error: "The Meta sign-in expired — connect Meta again.", code: "expired" }, { status: 410 });
+const expired = () => NextResponse.json({ error: "The Meta sign-in expired. Connect Meta again.", code: "expired" }, { status: 410 });
 
 /**
  * After "Connect Meta": the pages this sign-in may use, for the partner to pick
@@ -20,7 +20,7 @@ export async function GET(req: Request) {
   const pick = openMetaPick(cookies().get(META_PICK_COOKIE)?.value, { userId: ctx.user.id, clientId: ctx.clientId });
   if (!pick) return expired();
   const rl = await getRateLimiter().limit(`meta-pages:${ctx.user.id}`, { limit: 20, windowSec: 600 });
-  if (!rl.success) return NextResponse.json({ error: "Too many requests — try again in a few minutes." }, { status: 429 });
+  if (!rl.success) return NextResponse.json({ error: "Too many requests. Try again in a few minutes." }, { status: 429 });
 
   let pages;
   try {
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   const pick = openMetaPick(jar.get(META_PICK_COOKIE)?.value, { userId: ctx.user.id, clientId: ctx.clientId });
   if (!pick) return expired();
   const rl = await getRateLimiter().limit(`meta-pages:${ctx.user.id}`, { limit: 20, windowSec: 600 });
-  if (!rl.success) return NextResponse.json({ error: "Too many requests — try again in a few minutes." }, { status: 429 });
+  if (!rl.success) return NextResponse.json({ error: "Too many requests. Try again in a few minutes." }, { status: 429 });
 
   let connected: number;
   try {
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
   } catch (e) {
     return NextResponse.json({ error: `Meta: ${(e as Error).message}`.slice(0, 200) }, { status: 502 });
   }
-  if (!connected) return NextResponse.json({ error: "None of the chosen pages could be connected — you need a task on the page (or the page's business) in Meta." }, { status: 422 });
+  if (!connected) return NextResponse.json({ error: "None of the chosen pages could be connected. You need a task on the page (or the page's business) in Meta." }, { status: 422 });
   jar.delete({ name: META_PICK_COOKIE, path: "/api/leads/meta" });
   return NextResponse.json({ ok: true, connected });
 }

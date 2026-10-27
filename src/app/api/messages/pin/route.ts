@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       : q.is("recipient_id", null);
     const { count, error } = await q;
     if (error && /pinned_at/.test(error.message)) return NextResponse.json({ error: "Pinning needs database migration 0042." }, { status: 503 });
-    if ((count ?? 0) >= MAX_PINS) return NextResponse.json({ error: `At most ${MAX_PINS} pinned messages per chat — unpin one first.` }, { status: 409 });
+    if ((count ?? 0) >= MAX_PINS) return NextResponse.json({ error: `At most ${MAX_PINS} pinned messages per chat. Unpin one first.` }, { status: 409 });
   }
 
   const { data, error } = await admin

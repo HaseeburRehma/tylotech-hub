@@ -48,7 +48,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     // Replace the definition in one transaction (0037) — a failed insert can't
     // leave the template without steps. Runs keep their own copies.
     const { error: rErr } = await ctx.admin.rpc("workflow_replace_template_steps", { p_template: params.id, p_steps: steps.rows });
-    if (rErr) return bad(/foreign key|violates/i.test(rErr.message) ? "A default person no longer exists — pick someone else." : "Could not save the steps.");
+    if (rErr) return bad(/foreign key|violates/i.test(rErr.message) ? "A default person no longer exists. Pick someone else." : "Could not save the steps.");
   }
 
   const action = b.archived === true ? "workflow.template_archive" : b.archived === false && Object.keys(patch).length === 1 ? "workflow.template_restore" : "workflow.template_edit";

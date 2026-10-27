@@ -44,7 +44,7 @@ export async function POST(req: Request) {
   });
   if (error) {
     console.error("reactions request failed:", error.message);
-    return NextResponse.json({ error: "Something went wrong — please try again." }, { status: 400 });
+    return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 400 });
   }
   return NextResponse.json({ ok: true, action: "added" });
 }

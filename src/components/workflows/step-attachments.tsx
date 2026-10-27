@@ -78,7 +78,7 @@ export function StepAttachments({ step, staff, hasPartner }: { step: RunStep; st
   const [toClient, setToClient] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [viewer, setViewer] = useState<number | null>(null);
-  const nameOf = (id: string | null) => (id ? staff.find((s) => s.id === id)?.name ?? t("wf.formerMember") : "—");
+  const nameOf = (id: string | null) => (id ? staff.find((s) => s.id === id)?.name ?? t("wf.formerMember") : "-");
 
   const files = items.filter((a) => a.kind === "file");
   const viewerItems: ViewerItem[] = files.map((a) => ({

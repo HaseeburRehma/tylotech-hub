@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
 export function ReportDocument(props: ReportProps) {
   const { company, brandColor, period, generatedAt, kpis } = props;
   return (
-    <Document title={`${company} — Performance Report`} author="TyloTech">
+    <Document title={`${company}: Performance Report`} author="TyloTech">
       <Page size="A4" style={styles.page}>
         <View style={[styles.bar, { backgroundColor: brandColor }]} />
         <Text style={styles.h1}>{company}</Text>
@@ -61,7 +61,7 @@ export function ReportDocument(props: ReportProps) {
                   <View style={styles.kpiInner}>
                     <Text style={styles.kpiLabel}>{k.label}</Text>
                     <Text style={styles.kpiValue}>{k.value}</Text>
-                    {k.delta !== "—" && (
+                    {k.delta !== "-" && (
                       <Text style={[styles.kpiDelta, { color: brandColor }]}>{k.delta} vs previous 30 days</Text>
                     )}
                   </View>

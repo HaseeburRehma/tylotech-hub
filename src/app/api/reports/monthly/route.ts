@@ -51,7 +51,7 @@ export async function POST(req: Request) {
   const user = await getAuthUser();
   if (!isStaff(user)) return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   const rl = await getRateLimiter().limit(`report-send:${user!.id}`, { limit: 10, windowSec: 3600 });
-  if (!rl.success) return NextResponse.json({ error: "Too many sends — try again later." }, { status: 429, headers: rateLimitHeaders(rl) });
+  if (!rl.success) return NextResponse.json({ error: "Too many sends. Try again later." }, { status: 429, headers: rateLimitHeaders(rl) });
 
   const b = (await req.json().catch(() => ({}))) as { clientId?: string; period?: string; force?: boolean };
   const period = b.period ?? previousPeriod();

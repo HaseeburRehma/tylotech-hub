@@ -69,7 +69,7 @@ export async function POST(req: Request) {
   if (error) {
     await admin.storage.from("documents").remove([path]);
     console.error("documents request failed:", error.message);
-    return NextResponse.json({ error: "Something went wrong — please try again." }, { status: 400 });
+    return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 400 });
   }
   await logAudit(user, { action: "document.upload", clientId, targetType: "document", targetId: data?.id, summary: `${row.name} (${row.type})` }, admin);
   return NextResponse.json({ ok: true, document: data });
@@ -103,7 +103,7 @@ export async function DELETE(req: Request) {
   const { data: deleted, error } = await admin.from("documents").delete().eq("id", id).select("id");
   if (error) {
     console.error("documents request failed:", error.message);
-    return NextResponse.json({ error: "Something went wrong — please try again." }, { status: 400 });
+    return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 400 });
   }
   if (!deleted?.length) return NextResponse.json({ error: "Not found." }, { status: 404 });
 

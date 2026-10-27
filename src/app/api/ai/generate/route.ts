@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { NO_DASH_RULE, withoutEmDashes } from "@/lib/no-dashes";
 import { NextResponse } from "next/server";
 import { TOOL_DEFS } from "@/lib/ai/prompts";
 import { config } from "@/lib/config";
@@ -81,14 +82,14 @@ export async function POST(req: Request) {
     const msg = await client.messages.create({
       model: MODEL,
       max_tokens: config.ai.maxTokens,
-      system: systemPrompt,
+      system: `${systemPrompt}\n\n${NO_DASH_RULE}`,
       messages: [{ role: "user", content: def.buildUser(inputs, brand) }],
     });
     const output = msg.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
       .join("\n");
-    return NextResponse.json({ output, demo: false });
+    return NextResponse.json({ output: withoutEmDashes(output), demo: false });
   } catch (err) {
     console.error("Claude API error", err);
     return NextResponse.json(

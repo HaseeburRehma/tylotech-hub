@@ -90,6 +90,8 @@ export interface ChatPeer {
   name: string;
   role: Role;
   title?: string;
+  /** Profile photo (users.avatar_url); initials are shown without one. */
+  avatarUrl?: string | null;
 }
 
 export type UpdateType = "milestone" | "report" | "campaign" | "note" | "alert";

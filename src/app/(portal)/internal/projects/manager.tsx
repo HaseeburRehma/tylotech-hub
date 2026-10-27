@@ -323,7 +323,7 @@ export function ProjectsManager({
             {filtered.map((p, i) => {
               const s = PROJECT_STATUS[p.status];
               const people = projectAssignees(p, memberName);
-              const cName = clientName[p.client_id] ?? "—";
+              const cName = clientName[p.client_id] ?? "-";
               return (
                 <motion.tr
                   key={p.id}
@@ -420,7 +420,7 @@ export function ProjectsManager({
 
 /** Overlapping avatars (Figma "Person" stack), names on hover and for screen readers. */
 function AssigneeStack({ people, size, max = 4 }: { people: { key: string; name: string }[]; size: number; max?: number }) {
-  if (!people.length) return <span className="text-xs text-muted">—</span>;
+  if (!people.length) return <span className="text-xs text-muted">-</span>;
   const shown = people.slice(0, max);
   const rest = people.length - shown.length;
   const all = people.map((x) => x.name).join(", ");
@@ -444,7 +444,7 @@ function AssigneeStack({ people, size, max = 4 }: { people: { key: string; name:
 function formatDue(due: string | null | undefined, dl: string) {
   return due
     ? new Date(due).toLocaleDateString(dl, { timeZone: APP_TZ, day: "numeric", month: "short", year: "numeric" })
-    : "—";
+    : "-";
 }
 
 function ProjectActions({
@@ -623,7 +623,7 @@ function ProjectBoard({
             </div>
             <div className="space-y-2.5">
               {items.map((p) => {
-                const cName = clientName[p.client_id] ?? "—";
+                const cName = clientName[p.client_id] ?? "-";
                 return (
                   <div key={p.id} className="rounded-xl border border-line bg-surface p-3 shadow-card">
                     <div className="flex items-start justify-between gap-2">

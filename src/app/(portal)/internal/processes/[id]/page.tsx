@@ -31,10 +31,10 @@ export default async function RunPage({ params }: { params: { id: string } }) {
       <Card className="space-y-6 p-6">
         <RunHeader
           run={run}
-          partner={client?.company ?? "—"}
+          partner={client?.company ?? "-"}
           partnerHref={client ? `/internal/clients/${client.slug ?? run.client_id}` : undefined}
         />
-        <RunSteps run={run} staff={staff} partner={client?.company ?? "—"} />
+        <RunSteps run={run} staff={staff} partner={client?.company ?? "-"} />
       </Card>
     </div>
   );

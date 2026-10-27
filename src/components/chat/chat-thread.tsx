@@ -302,6 +302,7 @@ function ChatThreadInner({
   currentRole,
   clientId,
   peers = [],
+  directory = [],
   title,
   subtitle,
   className,
@@ -314,6 +315,8 @@ function ChatThreadInner({
   currentRole: Role;
   clientId: string | null;
   peers?: ChatPeer[];
+  /** Everyone who can read the chat (beyond DM peers): names and photos for "seen by". */
+  directory?: ChatPeer[];
   title: string;
   subtitle?: string;
   className?: string;
@@ -385,12 +388,19 @@ function ChatThreadInner({
   const [msgView, setMsgView] = useState<Record<string, "orig" | "tr">>({});
   const nameById = useMemo(() => {
     const map = new Map<string, string>();
+    for (const p of directory) map.set(p.id, p.name);
     for (const p of peers) map.set(p.id, p.name);
     for (const m of messages) if (!map.has(m.sender_id)) map.set(m.sender_id, m.sender_name);
     map.set(currentUserId, currentName);
     return map;
-  }, [peers, messages, currentUserId, currentName]);
-  const nameOf = useCallback((id: string) => nameById.get(id) ?? "—", [nameById]);
+  }, [directory, peers, messages, currentUserId, currentName]);
+  const nameOf = useCallback((id: string) => nameById.get(id) ?? "-", [nameById]);
+  const avatarById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of [...directory, ...peers]) if (p.avatarUrl) map.set(p.id, p.avatarUrl);
+    return map;
+  }, [directory, peers]);
+  const personOf = useCallback((id: string) => ({ name: nameOf(id), avatarUrl: avatarById.get(id) ?? null }), [nameOf, avatarById]);
   const convKey = convKeyOf({ clientId, internal, selected, currentUserId, group: GROUP });
   const latestAt = visible.length ? visible[visible.length - 1]!.created_at : null;
   const { reads, myPrevReadAt } = useChatReads(convKey, internal ? null : clientId, currentUserId, latestAt);
@@ -1502,7 +1512,7 @@ function ChatThreadInner({
                         </div>
                       )}
                       {lastMineId === m.id && (
-                        <SeenLine messageAt={m.created_at} reads={reads} nameOf={nameOf} isDm={selected !== GROUP} />
+                        <SeenLine messageAt={m.created_at} reads={reads} personOf={personOf} isDm={selected !== GROUP} />
                       )}
                     </div>
                   </div>

@@ -50,5 +50,5 @@ export async function fetchMetaAdsKpis(accessToken: string, accountId: string): 
  * fabricated protocol.
  */
 async function fetchViaMcp(_accessToken: string, _accountId: string): Promise<FetchResult> {
-  throw new Error("Meta MCP backend not implemented yet — set USE_MCP=false or implement fetchViaMcp().");
+  throw new Error("Meta MCP backend not implemented yet, set USE_MCP=false or implement fetchViaMcp().");
 }

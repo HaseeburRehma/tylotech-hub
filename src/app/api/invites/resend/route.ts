@@ -20,7 +20,7 @@ export async function POST(req: Request) {
 
   const rl = await getRateLimiter().limit(`invite:${user.id}`, { limit: 10, windowSec: 3600 });
   if (!rl.success) {
-    return NextResponse.json({ error: "Too many invitations — please try again later." }, { status: 429, headers: rateLimitHeaders(rl) });
+    return NextResponse.json({ error: "Too many invitations. Please try again later." }, { status: 429, headers: rateLimitHeaders(rl) });
   }
 
   const admin = createAdminClient();
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   const { data: auth } = await admin.auth.admin.getUserById(userId);
   if (!auth?.user) return NextResponse.json({ error: "Not found." }, { status: 404 });
   if (auth.user.last_sign_in_at) {
-    return NextResponse.json({ error: "This person has already signed in — they can use “Forgot password”.", code: "active" }, { status: 409 });
+    return NextResponse.json({ error: "This person has already signed in. They can use “Forgot password”.", code: "active" }, { status: 409 });
   }
 
   // "recovery" works for existing (invited, unconfirmed) users; verifying it
@@ -50,6 +50,6 @@ export async function POST(req: Request) {
   const emailed = await sendInviteEmail(target.email, link, user.name, "TyloTech");
 
   await logAudit(user, { action: "invite.resend", clientId: null, targetType: "user", targetId: target.id, summary: `${target.email} · ${emailed ? "emailed" : "email failed"}` }, admin);
-  if (!emailed) return NextResponse.json({ error: "The email could not be sent — check the email settings (Resend).", code: "email_failed" }, { status: 502 });
+  if (!emailed) return NextResponse.json({ error: "The email could not be sent. Check the email settings (Resend).", code: "email_failed" }, { status: 502 });
   return NextResponse.json({ ok: true, emailed: true });
 }

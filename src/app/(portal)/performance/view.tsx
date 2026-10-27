@@ -154,7 +154,7 @@ function makeFormat(locale: Locale) {
   const eur = (v: number) => new Intl.NumberFormat(tag, { style: "currency", currency: "EUR", maximumFractionDigits: Math.abs(v) < 100 ? 2 : 0 }).format(v);
   return {
     value: (v: number | null, unit: Unit) =>
-      v == null ? "—" : unit === "currency" ? eur(v) : unit === "ratio" ? `${nf(2).format(v)}x` : unit === "position" ? nf(1, 1).format(v) : nf(0).format(v),
+      v == null ? "-" : unit === "currency" ? eur(v) : unit === "ratio" ? `${nf(2).format(v)}x` : unit === "position" ? nf(1, 1).format(v) : nf(0).format(v),
     compact: (v: number) => new Intl.NumberFormat(tag, { notation: "compact", maximumFractionDigits: 1 }).format(v),
     pct: (v: number, digits = 1) => `${new Intl.NumberFormat(tag, { maximumFractionDigits: digits, minimumFractionDigits: digits, signDisplay: "exceptZero" }).format(v)} %`,
     int: (v: number) => nf(0).format(v),

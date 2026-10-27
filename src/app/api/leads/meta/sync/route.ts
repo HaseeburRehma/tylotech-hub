@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   const ctx = await leadsContext(b.clientId ?? null);
   if ("error" in ctx) return ctx.error;
   const rl = await getRateLimiter().limit(`lead-sync:${ctx.clientId}`, { limit: 6, windowSec: 600 });
-  if (!rl.success) return NextResponse.json({ error: "Just synced — try again in a few minutes." }, { status: 429 });
+  if (!rl.success) return NextResponse.json({ error: "Just synced. Try again in a few minutes." }, { status: 429 });
   const days = b.days ? Math.min(90, Math.max(1, Math.round(b.days))) : undefined;
   const added = await syncMetaLeads(ctx.admin, { clientId: ctx.clientId, days, notify: false });
   return NextResponse.json({ ok: true, added });

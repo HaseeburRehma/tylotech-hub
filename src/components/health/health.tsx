@@ -34,7 +34,7 @@ export function HealthBadge({ health, className }: { health: ClientHealth | unde
       className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-caption font-semibold tabular-nums", LEVEL_STYLE[level], className)}
     >
       <HeartPulse className="h-3 w-3" />
-      {health?.score ?? "—"}
+      {health?.score ?? "-"}
     </span>
   );
 }

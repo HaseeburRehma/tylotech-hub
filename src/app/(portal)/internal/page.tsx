@@ -39,7 +39,7 @@ export default async function InternalPage() {
       .filter((p) => p.status === s.key)
       .map((p) => ({
         name: p.name,
-        client: companyById[p.client_id] ?? "—",
+        client: companyById[p.client_id] ?? "-",
         clientColor: colorById[p.client_id] ?? "#888888",
         clientLogo: logoById[p.client_id] ?? null,
         assignee: p.assigned_to ?? "",
@@ -58,7 +58,7 @@ export default async function InternalPage() {
       id: r.id,
       name: r.name,
       status: r.status,
-      client: companyById[r.client_id ?? ""] ?? "—",
+      client: companyById[r.client_id ?? ""] ?? "-",
       clientColor: colorById[r.client_id ?? ""] ?? "#888888",
       clientLogo: logoById[r.client_id ?? ""] ?? null,
       assignee: assigneeName,

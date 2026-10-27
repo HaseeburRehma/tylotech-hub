@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 // Checked before the generic leads check: PostgREST reports a missing function as
 // "…lead_claim… in the schema cache", which would otherwise point admins at 0043.
 const missingClaim = (msg: string | undefined) => /lead_claim|claimed_at|call_started_at/i.test(msg ?? "");
-const S2L_NOT_READY = "Speed-to-Lead needs database migration 0046 — ask an admin to run it.";
+const S2L_NOT_READY = "Speed-to-Lead needs database migration 0046. Ask an admin to run it.";
 
 /**
  * Claim a lead (Speed-to-Lead). Atomic: the first caller wins, everyone else

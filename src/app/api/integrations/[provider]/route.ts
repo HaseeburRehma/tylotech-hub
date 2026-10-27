@@ -131,7 +131,7 @@ export async function POST(
       .eq("provider", provider.id);
     if (error) {
       console.error("integrations request failed:", error.message);
-      return NextResponse.json({ error: "Something went wrong — please try again." }, { status: 400 });
+      return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 400 });
     }
     return NextResponse.json({ ok: true });
   }
@@ -158,7 +158,7 @@ export async function POST(
 
     console.error("integrations request failed:", error.message);
 
-    return NextResponse.json({ error: "Something went wrong — please try again." }, { status: 400 });
+    return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 400 });
 
   }
   return NextResponse.json({ ok: true, live });

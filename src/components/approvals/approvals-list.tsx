@@ -125,8 +125,8 @@ function ApprovalCard({ a, canDecide }: { a: Approval; canDecide: boolean }) {
       )}
       {a.decided_at && a.status !== "pending" && a.status !== "cancelled" && (
         <p className="text-xs text-muted">
-          {t("approval.decidedBy", { name: a.decided_by_name ?? "—", when: stamp(a.decided_at) })}
-          {a.decision_comment ? ` — “${a.decision_comment}”` : ""}
+          {t("approval.decidedBy", { name: a.decided_by_name ?? "-", when: stamp(a.decided_at) })}
+          {a.decision_comment ? `: “${a.decision_comment}”` : ""}
         </p>
       )}
       {canDecide && a.status === "pending" && (

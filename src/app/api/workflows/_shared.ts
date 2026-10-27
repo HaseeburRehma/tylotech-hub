@@ -18,8 +18,8 @@ export const bad = (error: string, status = 400) => NextResponse.json({ error },
 
 /** Postgres errors raised by the engine functions → friendly API errors. */
 export function engineError(message: string) {
-  if (/not active/.test(message)) return bad("This step can't be changed right now — refresh to see the latest state.", 409);
+  if (/not active/.test(message)) return bad("This step can't be changed right now. Refresh to see the latest state.", 409);
   if (/not finished/.test(message)) return bad("Only finished steps can be reopened.", 409);
   if (/not found/.test(message)) return bad("Step not found.", 404);
-  return bad("Something went wrong — please try again.", 400);
+  return bad("Something went wrong. Please try again.", 400);
 }

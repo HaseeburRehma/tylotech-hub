@@ -68,7 +68,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     action,
     targetType: "user",
     targetId: params.id,
-    summary: Object.entries(row).map(([k, v]) => (k === "deactivated_at" ? "" : `${k}=${v ?? "—"}`)).filter(Boolean).join(", ") || undefined,
+    summary: Object.entries(row).map(([k, v]) => (k === "deactivated_at" ? "" : `${k}=${v ?? "-"}`)).filter(Boolean).join(", ") || undefined,
   }, admin);
   revalidateTag(STAFF_TAG);
   return NextResponse.json({ ok: true });

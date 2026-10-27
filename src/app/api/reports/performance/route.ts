@@ -35,7 +35,7 @@ export async function GET(request: Request) {
   const kpis = raw.map((k) => ({
     label: k.label,
     value: formatKpi(k.unit, k.value),
-    delta: k.delta == null || k.delta === 0 ? "—" : `${k.delta > 0 ? "+" : ""}${k.delta}%`,
+    delta: k.delta == null || k.delta === 0 ? "-" : `${k.delta > 0 ? "+" : ""}${k.delta}%`,
     source: k.source,
   }));
 

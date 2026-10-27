@@ -48,7 +48,7 @@ export const TYLOTECH_THEME: BrandTheme = {
   company: "TyloTech",
   logo: { type: "mark", value: "tylotech" },
   primary: [209, 170, 113], // #D1AA71 gold (Figma surface/accent)
-  primaryInk: [148, 113, 63], // #94713F (Figma text/accent) — gold is never text on white
+  primaryInk: [148, 113, 63], // #94713F (Figma text/accent): gold is never text on white
   primaryIcon: [185, 143, 83], // #B98F53 (Figma icon/accent)
   primarySubtle: [251, 246, 238], // #FBF6EE (Figma surface/accent-subtle)
   secondary: [24, 22, 18],
@@ -75,7 +75,7 @@ export const LIGHTOFHOPE_THEME: BrandTheme = {
   name: "Light of Hope",
   company: "Light of Hope",
   logo: { type: "url", value: `${LOGO_BASE}/light-of-hope.avif` },
-  primary: [123, 44, 255], // purple — white text (dark text is ~3.4:1, fails AA)
+  primary: [123, 44, 255], // purple, white text (dark text is ~3.4:1, fails AA)
   secondary: [20, 16, 31],
   tagline: "Dein Leuchtturm in der Dunkelheit.",
 };

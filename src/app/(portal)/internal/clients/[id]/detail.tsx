@@ -63,6 +63,7 @@ export function ClientDetail({
   liveProviders,
   staff,
   peers = [],
+  directory,
   teamMembers = [],
   spend30d = 0,
   leads30d = 0,
@@ -88,6 +89,8 @@ export function ClientDetail({
   liveProviders: string[];
   staff: { id: string; name: string; role: Role };
   peers?: ChatPeer[];
+  /** Everyone who can read this chat (client users + team): names and photos for "seen by". */
+  directory?: ChatPeer[];
   teamMembers?: TeamMember[];
   spend30d?: number;
   leads30d?: number;
@@ -457,7 +460,7 @@ export function ClientDetail({
                         <td className="hidden px-4 py-3 text-right text-muted sm:table-cell">{k.unit}</td>
                         <td className="px-4 py-3 text-right">
                           {k.delta == null ? (
-                            <span className="text-xs text-muted">—</span>
+                            <span className="text-xs text-muted">-</span>
                           ) : (
                             <span
                               className={cn(
@@ -508,7 +511,7 @@ export function ClientDetail({
               <dl className="divide-y divide-line">
                 {[
                   [t("cd.company"), client.company],
-                  [t("cd.contact"), peers[0]?.name ?? "—"],
+                  [t("cd.contact"), peers[0]?.name ?? "-"],
                   [t("cd.planLabel"), client.plan],
                   [t("cd.mrr"), formatCurrency(client.mrr)],
                   [t("cd.since"), clientSince],
@@ -572,6 +575,7 @@ export function ClientDetail({
             clientId={client.id}
             clientLogoUrl={client.logo_url}
             peers={peers}
+            directory={directory}
             initialSelected={chatWith}
             title={`${client.company} · Team`}
             className="h-full"

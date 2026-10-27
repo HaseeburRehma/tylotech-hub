@@ -24,6 +24,7 @@ export function ChatView({
   initialMessages,
   updates,
   peers = [],
+  directory,
   currentUserId,
   currentName,
   currentRole,
@@ -34,6 +35,8 @@ export function ChatView({
   initialMessages: Message[];
   updates: Update[];
   peers?: ChatPeer[];
+  /** Everyone who can read this chat (team + client users): names and photos for "seen by". */
+  directory?: ChatPeer[];
   currentUserId: string;
   currentName: string;
   currentRole: Role;
@@ -114,6 +117,7 @@ export function ChatView({
             clientId={clientId}
             clientLogoUrl={clientLogoUrl}
             peers={peers}
+            directory={directory}
             title={t("chat.team")}
             subtitle={clientCompany ? t("chat.groupMembersClient", { n: String(peers.length), client: clientCompany }) : t("chat.groupMembers", { n: String(peers.length) })}
             className="h-full"
