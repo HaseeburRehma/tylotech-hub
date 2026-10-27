@@ -234,6 +234,8 @@ export async function syncSheetSource(
       platform: base.platform,
       updated_at: new Date().toISOString(),
       ...("tags" in base ? { tags: base.tags } : {}),
+      // The time can appear later (or be corrected) in the sheet.
+      ...(l.createdAt ? { created_at: base.created_at } : {}),
     };
     if (!ex.name && base.name) patch.name = base.name;
     const contact: Record<string, unknown> = {};

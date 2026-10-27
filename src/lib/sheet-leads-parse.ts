@@ -150,18 +150,26 @@ export function tabToLeads(tab: string, values: Cell[][], tz: string, textTz: st
     });
     if (!fields.length) continue;
 
-    const created = timeCol >= 0 ? parseSheetDate(r[timeCol], tz, textTz) : null;
+    const rowId = idCol >= 0 ? text(r[idCol]) : "";
+    // No time in the row: ids like "lead_1793089135785_x" carry the submit time (ms).
+    const idMs = Number(rowId.match(/^lead_(\d{13})_/)?.[1] ?? NaN);
+    const created =
+      (timeCol >= 0 ? parseSheetDate(r[timeCol], tz, textTz) : null) ?? (idMs > 1.4e12 && idMs < 4.1e12 ? new Date(idMs).toISOString() : null);
     const status = statusCol >= 0 ? text(r[statusCol]) : "";
     const contact = pickContact(fields);
+    const reachable = !!(contact.email || contact.phone);
+    // Leftover fragments (no id, no time, nobody to contact) aren't enquiries.
+    if (!rowId && !created && !reachable && !contact.name) continue;
     // Without an id column: the same person at the same second is the same row.
     const externalId =
-      (idCol >= 0 && text(r[idCol])) ||
+      rowId ||
       `sheet:${createHash("sha1").update(`${tab}|${created ?? ""}|${contact.email ?? ""}|${contact.phone ?? ""}`).digest("hex").slice(0, 20)}`;
 
     const tags: string[] = [];
     if (retreat) tags.push("Retreat");
     if (PROGRESS.test(status)) tags.push(status.slice(0, 40));
-    else if (!retreat && !tracksProgress) tags.push("Vollständig");
+    // Finished-leads tab: a row nobody can be reached from is a fragment, not a finished form.
+    else if (!retreat && !tracksProgress) tags.push(reachable ? "Vollständig" : "Teil-Lead (anonym)");
     const complete = tags.some((t) => /vollst|complete/i.test(t));
     // Any other status (e.g. the team's own "abgeschlossen") stays visible as an answer.
     if (status && !PROGRESS.test(status)) fields.push({ label: "Status (Sheet)", value: status.slice(0, 200) });

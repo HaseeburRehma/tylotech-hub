@@ -108,6 +108,21 @@ describe("tabToLeads", () => {
     expect(one[0].externalId).toBe(two[0].externalId);
   });
 
+  it("Light of Hope fragments: id-only rows take the id's time and aren't 'Vollständig'; id-less, timeless, contactless rows are dropped", () => {
+    const [frag] = tabToLeads(
+      "Google leads updated",
+      [GOOGLE_TAB[0], ["", "", "", "", "", "", "Stress", "", "", "lead_1791981410000_abcdefghi", "", "", ""]],
+      TZ,
+    );
+    expect(frag.createdAt).toBe(new Date(1791981410000).toISOString());
+    expect(frag.tags).toEqual(["Teil-Lead (anonym)"]);
+    expect(frag.complete).toBe(false);
+    const retreat = tabToLeads("Retreat Leads", [RETREAT_TAB[0], ["", "", "", "", "", "", "", "", "", "5", "", "", "", ""]], TZ);
+    expect(retreat).toEqual([]);
+    // A name alone is still a lead worth keeping.
+    expect(tabToLeads("x", [["Name", "Frage"], ["Jo Doe", "a"]], TZ)).toHaveLength(1);
+  });
+
   it("copes with ragged rows, numbers and an empty tab", () => {
     expect(tabToLeads("x", [], TZ)).toEqual([]);
     expect(tabToLeads("x", [["Email"]], TZ)).toEqual([]);
