@@ -201,7 +201,7 @@ export function InternalView({
             key={s.label}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.06 }}
+            transition={{ delay: Math.min(i, 8) * 0.04 }}
             className="card min-w-0 px-4 py-3.5 sm:px-5"
           >
             <div className="flex items-center gap-2">

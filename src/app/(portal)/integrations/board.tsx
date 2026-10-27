@@ -227,7 +227,7 @@ export function IntegrationsBoard({
               key={p.id}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
+              transition={{ delay: Math.min(i, 8) * 0.04 }}
             >
               <Card className={`flex h-full flex-col p-5 ${connected && !notLive ? "border-positive/30 ring-1 ring-positive/10" : ""}`}>
                 <div className="flex items-start justify-between gap-3">

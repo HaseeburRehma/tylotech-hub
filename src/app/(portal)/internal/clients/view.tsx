@@ -326,7 +326,7 @@ export function ClientsView({
                 key={client.id}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.03 }}
+                transition={{ delay: Math.min(i, 8) * 0.03 }}
                 className="group border-b border-line last:border-0 hover:bg-bg/60"
               >
                 {/* Client name + subtitle */}
@@ -430,9 +430,10 @@ export function ClientsView({
                   ) : null}
                   <Link
                     href={`/internal/clients/${client.slug ?? client.id}`}
+                    aria-label={client.company}
                     className="inline-flex items-center text-muted transition-colors group-hover:text-foreground"
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4" aria-hidden />
                   </Link>
                 </td>
               </motion.tr>

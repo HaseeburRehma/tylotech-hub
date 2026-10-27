@@ -71,7 +71,7 @@ function KpiCell({
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.05, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.4, delay: Math.min(index, 6) * 0.04, ease: [0.16, 1, 0.3, 1] }}
       className="min-w-0 bg-surface px-4 py-4 sm:px-6 sm:py-5"
     >
       <div className="flex items-center gap-2">
@@ -291,7 +291,7 @@ export function ClientDashboardView({
                   key={u.id}
                   initial={{ opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
+                  transition={{ delay: Math.min(i, 8) * 0.04 }}
                   className="flex gap-3 px-5 py-3.5"
                 >
                   <span className="w-0.5 shrink-0 self-stretch rounded-full bg-brand" />

@@ -7,6 +7,7 @@ import { getAuthUser, isStaff } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { ActiveClientProvider } from "@/components/providers/active-client-provider";
+import { MotionProvider } from "@/components/providers/motion-provider";
 import { SpeedToLeadProvider } from "@/components/leads/speed-to-lead-provider";
 import { activeClientRef } from "@/lib/active-client-server";
 
@@ -48,9 +49,11 @@ export default async function PortalLayout({ children }: { children: React.React
   return (
     <UserProvider user={user}>
       <ActiveClientProvider clients={clients} initialActiveId={initialActiveId}>
-        <AppShell user={user} canSeeInternal={isStaff(user)} clients={clients} navBadges={navBadges}>
-          {children}
-        </AppShell>
+        <MotionProvider>
+          <AppShell user={user} canSeeInternal={isStaff(user)} clients={clients} navBadges={navBadges}>
+            {children}
+          </AppShell>
+        </MotionProvider>
         <SpeedToLeadProvider
           userId={user.id}
           role={user.role}

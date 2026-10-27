@@ -199,7 +199,7 @@ export default function AiToolsPage() {
                 key={tool.id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 + i * 0.04 }}
+                transition={{ delay: 0.1 + Math.min(i, 8) * 0.03 }}
               >
                 <Link
                   href={off ? "#" : `/ai-tools/${tool.slug}`}

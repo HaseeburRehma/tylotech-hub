@@ -329,7 +329,7 @@ export function ProjectsManager({
                   key={p.id}
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.03 }}
+                  transition={{ delay: Math.min(i, 8) * 0.03 }}
                   className="group border-b border-line last:border-0 hover:bg-bg/60"
                 >
                   {/* Project name */}

@@ -1636,7 +1636,14 @@ function ChatThreadInner({
 
                 <div className="flex items-center justify-between px-3 pb-2">
                   <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50">
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      disabled={uploading}
+                      aria-label={t("chat.attach")}
+                      title={t("chat.attach")}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+                    >
                       {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                     </button>
                     <button

@@ -175,7 +175,7 @@ function Reveal({ i, children, className }: { i: number; children: React.ReactNo
       className={className}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: 0.05 * i, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.4, delay: 0.04 * Math.min(i, 6), ease: [0.22, 1, 0.36, 1] }}
     >
       {children}
     </motion.div>
