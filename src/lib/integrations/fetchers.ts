@@ -278,18 +278,54 @@ export async function fetchGa4(accessToken: string, propertyId: string): Promise
 }
 
 /** Google Ads — daily account metrics for a customer (needs approved developer token). */
-export async function fetchGoogleAds(accessToken: string, customerId: string): Promise<FetchResult> {
+/**
+ * How this Google sign-in reaches a Google Ads account: "" when directly, the
+ * manager (MCC) id when only through a manager account, undefined when it
+ * can't tell (no access, API error). Saves people from typing the MCC id.
+ */
+export async function findGoogleAdsManager(accessToken: string, customerId: string): Promise<string | undefined> {
+  const cid = (customerId ?? "").replace(/[^0-9]/g, "");
+  if (!accessToken || !cid) return undefined;
+  const base = `https://googleads.googleapis.com/${GOOGLE_ADS_VERSION}`;
+  const auth: Record<string, string> = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
+  if (process.env.GOOGLE_ADS_DEVELOPER_TOKEN) auth["developer-token"] = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+  const list = await fetch(`${base}/customers:listAccessibleCustomers`, { headers: auth, cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
+  const ids: string[] = ((list?.resourceNames ?? []) as string[]).map((n) => n.replace(/^customers\//, "")).filter((x) => /^\d+$/.test(x));
+  if (!ids.length) return undefined;
+  if (ids.includes(cid)) return "";
+  for (const mgr of ids.slice(0, 15)) {
+    const res = await fetch(`${base}/customers/${mgr}/googleAds:search`, {
+      method: "POST",
+      headers: { ...auth, "login-customer-id": mgr },
+      body: JSON.stringify({ query: `SELECT customer_client.id FROM customer_client WHERE customer_client.id = ${cid}` }),
+      cache: "no-store",
+    }).catch(() => null);
+    const j: any = res?.ok ? await res.json().catch(() => null) : null;
+    if (j?.results?.length) return mgr;
+  }
+  return undefined;
+}
+
+/**
+ * Google Ads spend/conversions. Google no longer requires a developer token
+ * (access is managed in Google Cloud); one is still sent when configured.
+ * Accounts reached through a manager account (MCC) need its id as
+ * login-customer-id: per integration (meta.loginCustomerId) or env default.
+ */
+export async function fetchGoogleAds(accessToken: string, customerId: string, loginCustomerId?: string | null): Promise<FetchResult> {
   const devToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
   const cid = (customerId ?? "").replace(/[^0-9]/g, "");
-  if (!accessToken || !cid || !devToken) return null;
+  if (!accessToken || !cid) return null;
   const w = windows();
   const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
-    "developer-token": devToken,
     "Content-Type": "application/json",
   };
-  const loginCid = (process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID ?? "").replace(/[^0-9]/g, "");
-  if (loginCid) headers["login-customer-id"] = loginCid;
+  if (devToken) headers["developer-token"] = devToken;
+  const loginCid = (loginCustomerId || process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID || "").replace(/[^0-9]/g, "");
+  if (loginCid && loginCid !== cid) headers["login-customer-id"] = loginCid;
 
   const query = `SELECT segments.date, metrics.cost_micros, metrics.conversions, metrics.conversions_value FROM customer WHERE segments.date BETWEEN '${w.start}' AND '${w.end}'`;
   const res = await fetchWithRetry(`https://googleads.googleapis.com/${GOOGLE_ADS_VERSION}/customers/${cid}/googleAds:searchStream`, {

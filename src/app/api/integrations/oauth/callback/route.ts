@@ -219,6 +219,8 @@ export async function GET(req: Request) {
     lastErrorAt: _a,
     lastErrorDetail: _d,
     tokenExpiresAt: _x,
+    // A new Google sign-in may reach the account another way: detect the manager again.
+    loginCustomerId: _m,
     ...prevMeta
   } = (existing?.meta ?? {}) as Record<string, unknown>;
 

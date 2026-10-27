@@ -29,7 +29,8 @@ export const PROVIDERS: IntegrationProvider[] = [
     name: "Google Ads",
     description: "Search & display campaign performance.",
     category: "Ads",
-    liveEnv: "GOOGLE_ADS_DEVELOPER_TOKEN",
+    // Google dropped developer tokens (2026): the Google sign-in is all it needs.
+    liveEnv: "GOOGLE_CLIENT_ID",
     metrics: [
       { key: "spend", label: "Ad Spend", unit: "currency" },
       { key: "conversions", label: "Conversions", unit: "number" },

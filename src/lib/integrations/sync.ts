@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { fetchGa4, fetchGoogleAds, fetchSearchConsole, isFetchError, type FetchResult } from "@/lib/integrations/fetchers";
+import { fetchGa4, fetchGoogleAds, fetchSearchConsole, findGoogleAdsManager, isFetchError, type FetchResult } from "@/lib/integrations/fetchers";
 import { fetchMetaAdsKpis } from "@/lib/integrations/meta-ads-adapter";
 import { refreshGoogleAccessToken } from "@/lib/integrations/oauth";
 import { notifyClientUsers } from "@/lib/notify";
@@ -74,7 +74,7 @@ export async function syncClient(
       continue;
     }
 
-    const cfg = (row.meta ?? {}) as { accountId?: string; siteUrl?: string; propertyId?: string; [k: string]: unknown };
+    const cfg = (row.meta ?? {}) as { accountId?: string; siteUrl?: string; propertyId?: string; loginCustomerId?: string; [k: string]: unknown };
 
     // Google access tokens expire hourly → refresh from the stored refresh_token first.
     let accessToken: string | null = row.access_token;
@@ -88,7 +88,18 @@ export async function syncClient(
 
     let data: FetchResult = null;
     if (row.provider === "meta_ads") data = await fetchMetaAdsKpis(accessToken ?? "", cfg.accountId ?? "");
-    else if (row.provider === "google_ads") data = await fetchGoogleAds(accessToken ?? "", cfg.accountId ?? "");
+    else if (row.provider === "google_ads") {
+      // First sync after sign-in: find out whether the account is reached
+      // through a manager account (MCC) and remember it.
+      if (cfg.loginCustomerId === undefined && accessToken && cfg.accountId) {
+        const mgr = await findGoogleAdsManager(accessToken, cfg.accountId);
+        if (mgr !== undefined) {
+          cfg.loginCustomerId = mgr;
+          await admin.from("integrations").update({ meta: { ...(row.meta ?? {}), loginCustomerId: mgr } }).eq("id", row.id);
+        }
+      }
+      data = await fetchGoogleAds(accessToken ?? "", cfg.accountId ?? "", cfg.loginCustomerId);
+    }
     else if (row.provider === "ga4") data = await fetchGa4(accessToken ?? "", cfg.propertyId ?? "");
     else if (row.provider === "search_console") data = await fetchSearchConsole(accessToken ?? "", cfg.siteUrl ?? "");
 
