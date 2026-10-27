@@ -356,14 +356,17 @@ function ChatThreadInner({
   const [mentionPos, setMentionPos] = useState({ left: 0, bottom: 0 });
   const [sidebarTab, setSidebarTab] = useState<"channels" | "threads" | "mentions">("channels");
 
-  const threadKeyOf = (m: Message): string => {
-    if (!m.recipient_id) return GROUP;
-    return m.sender_id === currentUserId ? m.recipient_id : m.sender_id;
-  };
+  const threadKeyOf = useCallback(
+    (m: Message): string => {
+      if (!m.recipient_id) return GROUP;
+      return m.sender_id === currentUserId ? m.recipient_id : m.sender_id;
+    },
+    [currentUserId],
+  );
 
   const visible = useMemo(
     () => messages.filter((m) => threadKeyOf(m) === selected && !m.parent_id),
-    [messages, selected],
+    [messages, selected, threadKeyOf],
   );
   const q = searchQ.trim().toLowerCase();
   const shown = q
@@ -649,7 +652,7 @@ function ChatThreadInner({
       if (!m.parent_id) map[threadKeyOf(m)] = m;
     }
     return map;
-  }, [messages]);
+  }, [messages, threadKeyOf]);
 
   const dateDividers = useMemo(() => {
     const s = new Set<string>();
