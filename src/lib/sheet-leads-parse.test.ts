@@ -38,6 +38,14 @@ describe("dates", () => {
     expect(parseSheetDate("", TZ)).toBeNull();
     expect(parseSheetDate(12, TZ)).toBeNull();
   });
+  it("sheet set to GMT, text written in German time (Light of Hope): text uses its own zone", () => {
+    // lead_1793089135785 = 08:18:55 UTC; the sheet shows "2026-10-27 9:18:58".
+    expect(parseSheetDate("2026-10-27 9:18:58", "Etc/GMT", TZ)).toBe("2026-10-27T08:18:58.000Z");
+    // Real date cells still follow the sheet's zone.
+    expect(parseSheetDate(46322.5, "Etc/GMT", TZ)).toBe("2026-10-27T12:00:00.000Z");
+    const [l] = tabToLeads("Leads", [["LeadID", "Zeitstempel", "Email"], ["lead_1793089135785_x", "2026-10-27 9:18:58", "a@b.de"]], "Etc/GMT", TZ);
+    expect(l.createdAt).toBe("2026-10-27T08:18:58.000Z");
+  });
   it("handles the DST switch day", () => {
     expect(zonedToIso(2026, 3, 29, 3, 30, 0, TZ)).toBe("2026-03-29T01:30:00.000Z");
   });

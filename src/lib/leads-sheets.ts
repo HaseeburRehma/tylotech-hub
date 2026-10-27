@@ -21,6 +21,8 @@ export interface SheetConfig {
   spreadsheetId?: string;
   title?: string;
   timeZone?: string;
+  /** Zone of text timestamps written by form scripts (default Europe/Berlin). */
+  textTimeZone?: string;
   tabs?: string[];
   /** Fingerprint per lead id: unchanged rows are skipped. */
   hashes?: Record<string, string>;
@@ -127,8 +129,10 @@ export async function syncSheetSource(
     return fail(sheetErrorText(e));
   }
 
+  // Real date cells are in the sheet's zone; text times as the form scripts
+  // write them (German local time unless configured otherwise).
   const tz = cfg.timeZone || "Europe/Berlin";
-  const leads = mergeSheetLeads(tabs.map((t) => tabToLeads(t, data[t] ?? [], tz)));
+  const leads = mergeSheetLeads(tabs.map((t) => tabToLeads(t, data[t] ?? [], tz, cfg.textTimeZone || "Europe/Berlin")));
   // Oldest first, so lead numbers follow the order people sent their forms.
   leads.sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
   const old = cfg.hashes ?? {};

@@ -77,9 +77,11 @@ export function zonedToIso(y: number, mo: number, d: number, h: number, mi: numb
 /**
  * A sheet date cell → ISO. Sheets give numbers (serial days since 1899-12-30,
  * wall time of the sheet's zone) for real dates and strings for text such as
- * "27.10.2026, 09:16:39" or "2026-10-27 9:18:58".
+ * "27.10.2026, 09:16:39" or "2026-10-27 9:18:58". Text is whatever the form
+ * script wrote, usually local German time even when the sheet itself is set to
+ * GMT (Light of Hope), so text gets its own zone.
  */
-export function parseSheetDate(v: Cell, tz: string): string | null {
+export function parseSheetDate(v: Cell, tz: string, textTz: string = tz): string | null {
   if (typeof v === "number" && v > 20000 && v < 80000) {
     const wall = new Date(Math.round((v - 25569) * 86_400_000));
     return zonedToIso(wall.getUTCFullYear(), wall.getUTCMonth() + 1, wall.getUTCDate(), wall.getUTCHours(), wall.getUTCMinutes(), wall.getUTCSeconds(), tz);
@@ -87,9 +89,9 @@ export function parseSheetDate(v: Cell, tz: string): string | null {
   const s = typeof v === "string" ? v.trim() : "";
   if (!s) return null;
   let m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:,?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
-  if (m) return zonedToIso(+m[3], +m[2], +m[1], +(m[4] ?? 0), +(m[5] ?? 0), +(m[6] ?? 0), tz);
+  if (m) return zonedToIso(+m[3], +m[2], +m[1], +(m[4] ?? 0), +(m[5] ?? 0), +(m[6] ?? 0), textTz);
   m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
-  if (m) return zonedToIso(+m[1], +m[2], +m[3], +(m[4] ?? 0), +(m[5] ?? 0), +(m[6] ?? 0), tz);
+  if (m) return zonedToIso(+m[1], +m[2], +m[3], +(m[4] ?? 0), +(m[5] ?? 0), +(m[6] ?? 0), textTz);
   // Has its own offset ("…Z", "+01:00").
   if (/\d{4}-\d{2}-\d{2}T.*(Z|[+-]\d{2}:?\d{2})$/.test(s) && !Number.isNaN(Date.parse(s))) return new Date(s).toISOString();
   return null;
@@ -116,7 +118,7 @@ function idColumn(headers: string[], rows: Cell[][]): number {
 }
 
 /** One tab → leads (one per row with any answer). */
-export function tabToLeads(tab: string, values: Cell[][], tz: string): SheetLead[] {
+export function tabToLeads(tab: string, values: Cell[][], tz: string, textTz: string = tz): SheetLead[] {
   if (!values.length) return [];
   const headers = (values[0] ?? []).map((h) => text(h));
   const rows = values.slice(1);
@@ -148,7 +150,7 @@ export function tabToLeads(tab: string, values: Cell[][], tz: string): SheetLead
     });
     if (!fields.length) continue;
 
-    const created = timeCol >= 0 ? parseSheetDate(r[timeCol], tz) : null;
+    const created = timeCol >= 0 ? parseSheetDate(r[timeCol], tz, textTz) : null;
     const status = statusCol >= 0 ? text(r[statusCol]) : "";
     const contact = pickContact(fields);
     // Without an id column: the same person at the same second is the same row.
