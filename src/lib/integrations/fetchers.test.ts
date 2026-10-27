@@ -120,3 +120,28 @@ describe("findGoogleAdsManager", () => {
     expect(await findGoogleAdsManager("", "185-986-0474")).toBeUndefined();
   });
 });
+
+describe("Google Ads errors are readable", () => {
+  const withRes = async (status: number, body: unknown) => {
+    const orig = globalThis.fetch;
+    globalThis.fetch = (async () => new Response(JSON.stringify(body), { status })) as typeof fetch;
+    try {
+      const { fetchGoogleAds } = await import("./fetchers");
+      return (await fetchGoogleAds("at", "185-986-0474", "1328386899")) as { error: string; detail?: string };
+    } finally {
+      globalThis.fetch = orig;
+    }
+  };
+  it("access level / developer token: shows the code, doesn't ask to sign in again", async () => {
+    const r = await withRes(403, [{ error: { code: 403, status: "PERMISSION_DENIED", message: "The caller does not have permission", details: [{ errors: [{ errorCode: { authorizationError: "DEVELOPER_TOKEN_NOT_APPROVED" }, message: "The developer token is only approved for use with test accounts." }] }] } }]);
+    expect(r).toEqual({ error: "api", detail: "DEVELOPER_TOKEN_NOT_APPROVED: The developer token is only approved for use with test accounts." });
+  });
+  it("API switched off in Google Cloud: api error with the reason", async () => {
+    const r = await withRes(403, { error: { code: 403, status: "PERMISSION_DENIED", message: "Google Ads API has not been used in project 996657864136 before or it is disabled. SERVICE_DISABLED" } });
+    expect(r.error).toBe("api");
+    expect(r.detail).toMatch(/SERVICE_DISABLED/);
+  });
+  it("a really expired sign-in stays an auth error", async () => {
+    expect((await withRes(401, { error: { code: 401, status: "UNAUTHENTICATED", message: "Request had invalid authentication credentials." } })).error).toBe("auth");
+  });
+});

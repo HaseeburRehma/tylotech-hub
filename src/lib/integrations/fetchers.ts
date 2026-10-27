@@ -97,12 +97,22 @@ function change(cur: number, prev: number | null | undefined): number | null {
  */
 async function errorFor(res: Response | null): Promise<FetchError> {
   if (!res) return { error: "api", detail: "network error" };
-  const body: any = await res.json().catch(() => null);
+  const raw: any = await res.json().catch(() => null);
+  // Google Ads searchStream wraps errors in a list: [{ error: {...} }].
+  const body = Array.isArray(raw) ? raw[0] : raw;
   const err = body?.error ?? {};
-  const message = typeof err === "string" ? err : String(err.message ?? err.status ?? `HTTP ${res.status}`);
+  let message = typeof err === "string" ? err : String(err.message ?? err.status ?? `HTTP ${res.status}`);
+  // Google Ads: the useful part is details[].errors[] { errorCode: { authorizationError: "…" }, message }.
+  const gaErr = Array.isArray(err.details) ? err.details.find((d: any) => Array.isArray(d?.errors))?.errors?.[0] : null;
+  const gaKind = gaErr?.errorCode ? Object.keys(gaErr.errorCode)[0] : null;
+  const gaCode = gaErr?.errorCode ? String(Object.values(gaErr.errorCode)[0]) : null;
+  if (gaErr) message = `${gaCode}: ${gaErr.message ?? message}`;
   const detail = message.replace(/access_token=[^&\s]+/g, "access_token=***").slice(0, 200);
   const metaAuth = err.type === "OAuthException" && [102, 190, 463, 467].includes(Number(err.code ?? err.error_subcode));
-  return { error: res.status === 401 || res.status === 403 || metaAuth ? "auth" : "api", detail };
+  // A Google Ads 403 about access level, developer token or account permission
+  // isn't fixed by signing in again: report it, don't mark the sign-in broken.
+  const notSignIn = gaKind === "authorizationError" || /DEVELOPER_TOKEN|NOT_APPROVED|PERMISSION_DENIED|SERVICE_DISABLED/i.test(message);
+  return { error: res.status === 401 || metaAuth || (res.status === 403 && !notSignIn) ? "auth" : "api", detail };
 }
 
 const sum = <T,>(rows: T[], f: (r: T) => number) => rows.reduce((a, r) => a + f(r), 0);
