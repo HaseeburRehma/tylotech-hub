@@ -35,6 +35,8 @@ interface Row {
   has_token?: boolean;
   meta: {
     accountId?: string;
+    loginCustomerId?: string;
+    managerLookupError?: string;
     siteUrl?: string;
     propertyId?: string;
     tokenOwner?: "client" | "staff";
@@ -154,7 +156,7 @@ export function IntegrationsBoard({
     router.refresh();
   }
 
-  async function configure(providerId: string, field: "accountId" | "siteUrl" | "propertyId" | "accessToken", value: string) {
+  async function configure(providerId: string, field: "accountId" | "loginCustomerId" | "siteUrl" | "propertyId" | "accessToken", value: string) {
     const { ok, data } = await post(`/api/integrations/${providerId}`, { action: "configure", clientId, [field]: value });
     setNotice(ok ? { ok: true, text: t("integ.savedSetting") } : { ok: false, text: data.error ?? t("integ.err.generic") });
     router.refresh();
@@ -307,6 +309,21 @@ export function IntegrationsBoard({
                           data-lpignore="true"
                           onBlur={(e) => canEditTarget && e.target.value !== (row?.meta?.accountId ?? "") && configure(p.id, "accountId", e.target.value)}
                           placeholder="123-456-7890"
+                          className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-xs text-foreground outline-none field-focus read-only:opacity-70"
+                        />
+                      </label>
+                    )}
+                    {p.id === "google_ads" && (
+                      <label className="block font-mono text-eyebrow text-muted">
+                        {t("integrations.googleManagerId")}
+                        <input
+                          defaultValue={row?.meta?.loginCustomerId ?? ""}
+                          readOnly={!canEditTarget}
+                          autoComplete="off"
+                          data-1p-ignore
+                          data-lpignore="true"
+                          onBlur={(e) => canEditTarget && e.target.value !== (row?.meta?.loginCustomerId ?? "") && configure(p.id, "loginCustomerId", e.target.value)}
+                          placeholder={t("integrations.googleManagerAuto")}
                           className="mt-1 h-9 w-full rounded-lg border border-line bg-bg px-3 font-mono text-xs text-foreground outline-none field-focus read-only:opacity-70"
                         />
                       </label>

@@ -293,17 +293,23 @@ export async function fetchGa4(accessToken: string, propertyId: string): Promise
  * manager (MCC) id when only through a manager account, undefined when it
  * can't tell (no access, API error). Saves people from typing the MCC id.
  */
-export async function findGoogleAdsManager(accessToken: string, customerId: string): Promise<string | undefined> {
+export async function findGoogleAdsManager(accessToken: string, customerId: string, onFail?: (detail: string) => void): Promise<string | undefined> {
   const cid = (customerId ?? "").replace(/[^0-9]/g, "");
   if (!accessToken || !cid) return undefined;
   const base = `https://googleads.googleapis.com/${GOOGLE_ADS_VERSION}`;
   const auth: Record<string, string> = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
   if (process.env.GOOGLE_ADS_DEVELOPER_TOKEN) auth["developer-token"] = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
-  const list = await fetch(`${base}/customers:listAccessibleCustomers`, { headers: auth, cache: "no-store" })
-    .then((r) => (r.ok ? r.json() : null))
-    .catch(() => null);
+  const listRes = await fetch(`${base}/customers:listAccessibleCustomers`, { headers: auth, cache: "no-store" }).catch(() => null);
+  if (!listRes?.ok) {
+    onFail?.(`listAccessibleCustomers: ${(await errorFor(listRes)).detail ?? "failed"}`);
+    return undefined;
+  }
+  const list = await listRes.json().catch(() => null);
   const ids: string[] = ((list?.resourceNames ?? []) as string[]).map((n) => n.replace(/^customers\//, "")).filter((x) => /^\d+$/.test(x));
-  if (!ids.length) return undefined;
+  if (!ids.length) {
+    onFail?.("This Google login has no Google Ads accounts.");
+    return undefined;
+  }
   if (ids.includes(cid)) return "";
   for (const mgr of ids.slice(0, 15)) {
     const res = await fetch(`${base}/customers/${mgr}/googleAds:search`, {
@@ -315,6 +321,7 @@ export async function findGoogleAdsManager(accessToken: string, customerId: stri
     const j: any = res?.ok ? await res.json().catch(() => null) : null;
     if (j?.results?.length) return mgr;
   }
+  onFail?.(`Account ${cid} not found under ${ids.length} accessible account(s).`);
   return undefined;
 }
 

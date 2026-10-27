@@ -92,11 +92,13 @@ export async function syncClient(
       // First sync after sign-in: find out whether the account is reached
       // through a manager account (MCC) and remember it.
       if (cfg.loginCustomerId === undefined && accessToken && cfg.accountId) {
-        const mgr = await findGoogleAdsManager(accessToken, cfg.accountId);
+        let why = "";
+        const mgr = await findGoogleAdsManager(accessToken, cfg.accountId, (d) => (why = d));
         if (mgr !== undefined) {
           cfg.loginCustomerId = mgr;
-          await admin.from("integrations").update({ meta: { ...(row.meta ?? {}), loginCustomerId: mgr } }).eq("id", row.id);
-        }
+          delete cfg.managerLookupError;
+          await admin.from("integrations").update({ meta: { ...cfg } }).eq("id", row.id);
+        } else if (why) cfg.managerLookupError = why.slice(0, 200);
       }
       data = await fetchGoogleAds(accessToken ?? "", cfg.accountId ?? "", cfg.loginCustomerId);
     }

@@ -20,6 +20,7 @@ export async function POST(
     action?: string;
     clientId?: string;
     accountId?: string;
+    loginCustomerId?: string;
     siteUrl?: string;
     propertyId?: string;
     accessToken?: string;
@@ -77,7 +78,7 @@ export async function POST(
       .maybeSingle();
 
     const meta: Record<string, unknown> = { ...(existing?.meta ?? {}) };
-    const changesTarget = body.accountId !== undefined || body.siteUrl !== undefined || body.propertyId !== undefined;
+    const changesTarget = body.accountId !== undefined || body.siteUrl !== undefined || body.propertyId !== undefined || body.loginCustomerId !== undefined;
     // A client may only re-target a token they authorised themselves; a staff or
     // agency token pointed at another account would leak that account's data.
     if (changesTarget && !staff && meta.tokenOwner !== "client") {
@@ -89,7 +90,7 @@ export async function POST(
 
     const update: Record<string, unknown> = {};
     if (changesTarget) {
-      for (const key of ["accountId", "siteUrl", "propertyId"] as const) {
+      for (const key of ["accountId", "siteUrl", "propertyId", "loginCustomerId"] as const) {
         const v = body[key];
         if (v === undefined) continue;
         const clean = String(v).trim().slice(0, 200);
@@ -100,12 +101,22 @@ export async function POST(
         const shape: Record<string, RegExp> = {
           "meta_ads:accountId": /^(act_)?\d{5,20}$/,
           "google_ads:accountId": /^\d{3}-?\d{3}-?\d{4}$/,
+          // Manager account (MCC) the ad account is reached through; empty = detect automatically.
+          "google_ads:loginCustomerId": /^\d{3}-?\d{3}-?\d{4}$/,
           "ga4:propertyId": /^(properties\/)?\d{5,15}$/,
           "search_console:siteUrl": /^(https?:\/\/\S+|sc-domain:\S+)$/,
         };
         const re = shape[`${provider.id}:${key}`];
         if (clean && re && !re.test(clean)) {
           return NextResponse.json({ error: `Invalid ${key} for ${provider.id}.` }, { status: 400 });
+        }
+        if (key === "loginCustomerId") {
+          if (provider.id !== "google_ads") continue;
+          // Cleared → the next sync looks the manager up again.
+          if (clean) meta.loginCustomerId = clean;
+          else delete meta.loginCustomerId;
+          delete meta.managerLookupError;
+          continue;
         }
         meta[key] = clean;
       }
