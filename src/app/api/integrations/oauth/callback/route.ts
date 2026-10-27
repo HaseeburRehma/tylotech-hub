@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { META_GRAPH_VERSION } from "@/lib/integrations/fetchers";
 import { oauthConfig } from "@/lib/integrations/oauth";
 import { exchangeMetaCode, listMetaPages, META_PICK_COOKIE, META_PICK_TTL_SEC, sealMetaPick } from "@/lib/leads-meta";
+import { SHEETS_SCOPE, SheetError, sheetMeta, type SheetConfig } from "@/lib/leads-sheets";
+import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -41,6 +43,7 @@ export async function GET(req: Request) {
   const providerError = url.searchParams.get("error");
   // A cancelled Meta Lead Ads dialog goes back to Leads, where it was started.
   if (providerError && peekProvider === "meta_leads") return NextResponse.redirect(`${origin}/leads?${backTo}meta=denied`);
+  if (providerError && peekProvider === "google_sheet") return NextResponse.redirect(`${origin}/leads?${backTo}sheet=denied`);
   if (providerError) return done(`error=${encodeURIComponent(providerError.slice(0, 40))}`);
   if (!code || !state) return done("error=oauth_failed");
 
@@ -84,6 +87,63 @@ export async function GET(req: Request) {
       const m = (e as Error).message;
       return back(`meta=${m === "missing_scope" || m === "token_exchange" || m === "not_configured" ? m : "failed"}`);
     }
+  }
+
+  // Google Sheet lead source (Leads page): store the read-only grant, then pick tabs there.
+  if (provider === "google_sheet") {
+    const back = (q: string) => NextResponse.redirect(`${origin}/leads?${backTo}${q}`);
+    const admin = createAdminClient();
+    const gid = process.env.GOOGLE_CLIENT_ID;
+    const gsecret = process.env.GOOGLE_CLIENT_SECRET;
+    if (!admin || !gid || !gsecret) return back("sheet=not_configured");
+    let sheet = "";
+    try {
+      sheet = String(JSON.parse(Buffer.from(state, "base64url").toString()).sheet ?? "");
+    } catch {
+      /* checked below */
+    }
+    if (!/^[a-zA-Z0-9_-]{20,}$/.test(sheet)) return back("sheet=bad_url");
+    const tok = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ client_id: gid, client_secret: gsecret, code, redirect_uri: `${origin}/api/integrations/oauth/callback`, grant_type: "authorization_code" }),
+    })
+      .then((r) => r.json())
+      .catch(() => null);
+    if (!tok?.access_token) return back("sheet=failed");
+    if (!String(tok.scope ?? "").split(/\s+/).includes(SHEETS_SCOPE)) return back("sheet=missing_scope");
+    if (!tok.refresh_token) return back("sheet=failed");
+    let meta: Awaited<ReturnType<typeof sheetMeta>>;
+    try {
+      meta = await sheetMeta(tok.access_token, sheet);
+    } catch (e) {
+      const st = e instanceof SheetError ? e.status : 0;
+      return back(`sheet=${st === 403 ? "no_access" : st === 404 ? "not_found" : "failed"}`);
+    }
+    // Reconnecting keeps the chosen tabs and what was imported already.
+    const { data: prev } = await admin.from("lead_sources").select("config").eq("client_id", clientId).eq("kind", "google_sheet").eq("external_id", sheet).maybeSingle();
+    const prevCfg = (prev?.config ?? {}) as SheetConfig;
+    const { data: saved, error } = await admin
+      .from("lead_sources")
+      .upsert(
+        {
+          client_id: clientId,
+          kind: "google_sheet",
+          label: meta.title.slice(0, 120) || "Google Sheet",
+          external_id: sheet,
+          access_token: tok.refresh_token,
+          status: "active",
+          last_error: null,
+          created_by: user.id,
+          config: { ...prevCfg, spreadsheetId: sheet, title: meta.title, timeZone: meta.timeZone, tabs: (prevCfg.tabs ?? []).filter((t) => meta.tabs.some((x) => x.title === t)) },
+        },
+        { onConflict: "client_id,kind,external_id" },
+      )
+      .select("id")
+      .single();
+    if (error || !saved) return back(/kind_check|config/.test(error?.message ?? "") ? "sheet=migration" : "sheet=failed");
+    await logAudit(user, { action: "lead_source.create", clientId, targetType: "lead_source", targetId: saved.id, summary: `google_sheet: ${meta.title.slice(0, 80)}` }, admin);
+    return back(`sheet=pick&source=${saved.id}`);
   }
 
   const cfg = oauthConfig(provider);

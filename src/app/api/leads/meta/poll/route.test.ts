@@ -3,6 +3,8 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 const mockSync = vi.fn();
 vi.mock("@/lib/leads-meta", () => ({ syncMetaLeads: (...a: unknown[]) => mockSync(...a) }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({}) }));
+const mockSheets = vi.fn();
+vi.mock("@/lib/leads-sheets", () => ({ syncSheetLeads: (...a: unknown[]) => mockSheets(...a) }));
 
 import { GET, POST } from "./route";
 
@@ -14,6 +16,7 @@ const prev = process.env.CRON_SECRET;
 beforeEach(() => {
   process.env.CRON_SECRET = SECRET;
   mockSync.mockReset().mockResolvedValue(2);
+  mockSheets.mockReset().mockResolvedValue({ added: 1, updated: 0, alerted: 1, pending: 0 });
 });
 afterEach(() => {
   process.env.CRON_SECRET = prev;
@@ -39,5 +42,24 @@ describe("/api/leads/meta/poll", () => {
     expect((await res.json()).added).toBe(2);
     expect(mockSync.mock.calls[0][1]).toEqual({ notify: true, overlapMinutes: 15, activeFormsOnly: true, notifyMaxAgeMinutes: 1440 });
     expect((await call(`Bearer ${SECRET}`, "GET")).status).toBe(200);
+  });
+});
+
+describe("poll also reads Google Sheets", () => {
+  it("runs both and reports both", async () => {
+    const r = await call(`Bearer ${SECRET}`);
+    expect(r.status).toBe(200);
+    expect(await r.json()).toMatchObject({ ok: true, added: 2, sheets: { added: 1 } });
+    expect(mockSheets).toHaveBeenCalledTimes(1);
+  });
+  it("a failing sheet read doesn't break the Meta poll", async () => {
+    mockSheets.mockRejectedValue(new Error("boom"));
+    const r = await call(`Bearer ${SECRET}`);
+    expect(r.status).toBe(200);
+    expect(await r.json()).toMatchObject({ ok: true, added: 2, sheets: null });
+  });
+  it("unauthorised calls read nothing", async () => {
+    expect((await call("Bearer nope")).status).toBe(401);
+    expect(mockSheets).not.toHaveBeenCalled();
   });
 });

@@ -1,22 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { logAudit } from "@/lib/audit";
-import { LEADS_NOT_READY, bad, hookUrl, leadsContext, missingLeads, type LeadSourceView } from "@/lib/leads";
+import { LEADS_NOT_READY, bad, leadsContext, missingLeads, sourceView } from "@/lib/leads";
 
 export const runtime = "nodejs";
 
-const view = (origin: string, s: any): LeadSourceView => ({
-  id: s.id,
-  kind: s.kind,
-  label: s.label,
-  status: s.status,
-  last_error: s.last_error,
-  last_received_at: s.last_received_at,
-  last_synced_at: s.last_synced_at,
-  created_at: s.created_at,
-  hookUrl: s.kind === "meta" ? null : hookUrl(origin, s.id),
-  key: s.kind === "meta" ? null : s.secret,
-});
+const view = sourceView;
 
 /** Lead sources of a partner (team: ?clientId=). Tokens never leave the server. */
 export async function GET(req: Request) {

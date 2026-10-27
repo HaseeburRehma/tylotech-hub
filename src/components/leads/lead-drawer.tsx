@@ -11,7 +11,7 @@ import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { LEAD_STATUSES, dialable, prettyLabel, type Lead, type LeadActivity, type LeadPerson, type LeadStatus } from "@/lib/leads-shared";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { STATUS_VARIANT, SourceBadge, fmtDateTime } from "./lead-bits";
+import { LeadTags, STATUS_VARIANT, SourceBadge, fmtDateTime } from "./lead-bits";
 
 /** datetime-local value in Berlin time ↔ ISO. */
 const toLocalInput = (iso: string | null) => {
@@ -186,9 +186,10 @@ export function LeadDrawer({
       >
         <header className="flex items-start gap-3 border-b border-border px-5 py-4">
           <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-2 text-xs text-muted">
+            <p className="flex flex-wrap items-center gap-2 text-xs text-muted">
               <span className="font-mono">#{lead.lead_no}</span>
               <SourceBadge lead={lead} />
+              <LeadTags tags={lead.tags} />
               <span>{fmtDateTime(lead.created_at)}</span>
               {lead.is_test && <span className="rounded bg-warning/15 px-1 text-eyebrow font-semibold text-warning">TEST</span>}
             </p>

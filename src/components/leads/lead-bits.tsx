@@ -41,3 +41,24 @@ export function SourceBadge({ lead }: { lead: Pick<Lead, "source" | "platform"> 
   const color = lead.source === "meta" ? "bg-[#1877F2]/15 text-[#5b9bff]" : lead.source === "google_ads" ? "bg-[#34A853]/15 text-[#4cc46f]" : "bg-surface-2 text-muted";
   return <span className={cn("inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-caption font-semibold", color)}>{name}</span>;
 }
+
+/** Labels from the source ("Vollständig", "Teil-Lead", "Retreat"): finished green, partial amber. */
+export function LeadTags({ tags, max }: { tags?: string[] | null; max?: number }) {
+  if (!tags?.length) return null;
+  const shown = max ? tags.slice(0, max) : tags;
+  return (
+    <>
+      {shown.map((tag) => (
+        <span
+          key={tag}
+          className={cn(
+            "inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-caption font-medium",
+            /vollst|complete/i.test(tag) ? "bg-success/15 text-success" : /teil|partial/i.test(tag) ? "bg-warning/15 text-warning" : "bg-surface-2 text-foreground",
+          )}
+        >
+          {tag}
+        </span>
+      ))}
+    </>
+  );
+}

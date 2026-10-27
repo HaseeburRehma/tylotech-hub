@@ -56,6 +56,8 @@ export interface Lead {
   claimed_by?: string | null;
   claimed_at?: string | null;
   call_started_at?: string | null;
+  /** Labels from the source, e.g. "Vollständig", "Teil-Lead", "Retreat" (0047). */
+  tags?: string[];
 }
 
 export interface LeadActivity {
@@ -72,7 +74,7 @@ export interface LeadActivity {
 /** A lead source as the UI sees it — never the token; the hook URL only for people who may manage sources. */
 export interface LeadSourceView {
   id: string;
-  kind: "meta" | "google_ads" | "webhook";
+  kind: "meta" | "google_ads" | "webhook" | "google_sheet";
   label: string;
   status: "active" | "error" | "disconnected";
   last_error: string | null;
@@ -81,6 +83,8 @@ export interface LeadSourceView {
   created_at: string;
   hookUrl?: string | null;
   key?: string | null;
+  /** Google Sheet sources: which tabs are read. */
+  sheet?: { tabs: string[]; title: string | null };
 }
 
 export interface LeadPerson {

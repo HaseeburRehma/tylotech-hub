@@ -4,7 +4,7 @@ import { getAuthUser, isStaff, type AuthUser } from "@/lib/auth";
 import { inBackground } from "@/lib/background";
 import { alertNewLead } from "@/lib/lead-alerts";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { pickContact, type LeadField, type LeadSource } from "@/lib/leads-shared";
+import { pickContact, type LeadField, type LeadSource, type LeadSourceView } from "@/lib/leads-shared";
 
 export * from "@/lib/leads-shared";
 
@@ -73,6 +73,8 @@ export interface IncomingLead {
   form?: string | null;
   platform?: string | null;
   isTest?: boolean;
+  /** Short labels from the source ("Vollständig", "Teil-Lead", "Retreat"). Needs migration 0047. */
+  tags?: string[];
   /** Explicit contact data (manual entry); otherwise picked from the fields. */
   contact?: { name?: string | null; email?: string | null; phone?: string | null };
   actorId?: string | null;
@@ -89,7 +91,8 @@ const clean = (v: unknown, max = 500) => {
  * tell the partner's people (in-app, push, email). Returns the lead or null
  * when it was a duplicate.
  */
-export async function ingestLead(admin: SupabaseClient, l: IncomingLead): Promise<{ id: string; lead_no: number; duplicate?: boolean } | { error: string }> {
+/** The row a lead is stored as (cleaned, contact picked from the answers when not given). */
+export function leadRow(l: IncomingLead) {
   const fields = l.fields
     .map((f) => ({ label: clean(f.label, 200) ?? "", value: clean(f.value, 4000) ?? "" }))
     .filter((f) => f.label && f.value)
@@ -111,7 +114,14 @@ export async function ingestLead(admin: SupabaseClient, l: IncomingLead): Promis
     fields,
     is_test: !!l.isTest,
     created_at: l.createdAt && !Number.isNaN(Date.parse(l.createdAt)) ? new Date(l.createdAt).toISOString() : new Date().toISOString(),
+    // Only sent when there are tags, so sources keep working before migration 0047.
+    ...(l.tags?.length ? { tags: Array.from(new Set(l.tags.map((t) => t.trim().slice(0, 40)).filter(Boolean))).slice(0, 12) } : {}),
   };
+  return row;
+}
+
+export async function ingestLead(admin: SupabaseClient, l: IncomingLead): Promise<{ id: string; lead_no: number; duplicate?: boolean } | { error: string }> {
+  const row = leadRow(l);
   if (row.external_id) {
     const { data: dup } = await admin
       .from("leads")
@@ -162,5 +172,24 @@ export async function logLeadActivity(
 
 /** Webhook URL for a source (shown to people who manage sources). */
 export const hookUrl = (origin: string, sourceId: string) => `${origin}/api/leads/hook/${sourceId}`;
+
+/** A lead_sources row as the UI may see it: never a token; hook URL and key only for webhook kinds. */
+export function sourceView(origin: string, s: any): LeadSourceView {
+  const hook = s.kind === "google_ads" || s.kind === "webhook";
+  const cfg = (s.config ?? {}) as { tabs?: string[]; title?: string };
+  return {
+    id: s.id,
+    kind: s.kind,
+    label: s.label,
+    status: s.status,
+    last_error: s.last_error,
+    last_received_at: s.last_received_at,
+    last_synced_at: s.last_synced_at,
+    created_at: s.created_at,
+    hookUrl: hook ? hookUrl(origin, s.id) : null,
+    key: hook ? s.secret : null,
+    ...(s.kind === "google_sheet" ? { sheet: { tabs: Array.isArray(cfg.tabs) ? cfg.tabs : [], title: cfg.title ?? null } } : {}),
+  };
+}
 
 export { isStaff };

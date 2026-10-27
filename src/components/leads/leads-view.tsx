@@ -12,9 +12,9 @@ import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { OPEN_STATUSES, LEAD_STATUSES, type Lead, type LeadPerson, type LeadSourceView, type LeadStatus } from "@/lib/leads-shared";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { SourceBadge, StatusBadge, fmtDateTime, since } from "./lead-bits";
+import { LeadTags, SourceBadge, StatusBadge, fmtDateTime, since } from "./lead-bits";
 import { LeadDrawer } from "./lead-drawer";
-import { AddLeadModal, InviteSalesModal, MetaPagesModal, SourcesModal } from "./lead-modals";
+import { AddLeadModal, InviteSalesModal, MetaPagesModal, SheetTabsModal, SourcesModal } from "./lead-modals";
 
 type OwnerFilter = "all" | "me" | "none" | string;
 
@@ -53,8 +53,10 @@ export function LeadsView({
   const [status, setStatus] = useState<"open" | "all" | LeadStatus>("open");
   const [source, setSource] = useState<"all" | Lead["source"]>("all");
   const [owner, setOwner] = useState<OwnerFilter>("all");
+  const [tag, setTag] = useState<string>("all");
+  const [sheetSource, setSheetSource] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [modal, setModal] = useState<null | "add" | "sources" | "invite" | "metaPages">(null);
+  const [modal, setModal] = useState<null | "add" | "sources" | "invite" | "metaPages" | "sheetTabs">(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => setLeads(initial), [initial]);
@@ -74,8 +76,18 @@ export function LeadsView({
     // switch doesn't replay the connect result. ?client= stays as the page's scope.
     // Through the router (not history.replaceState): a later router.refresh()
     // would otherwise restore the old URL from Next's own state.
-    if (id || meta || window.location.hash) {
-      for (const k of ["lead", "meta", "pages"]) sp.delete(k);
+    // ?sheet=pick&source=… after connecting a Google Sheet; ?sheet=<reason> when it failed.
+    const sheet = sp.get("sheet");
+    const src = sp.get("source");
+    if (sheet === "pick" && src) {
+      setSheetSource(src);
+      setModal("sheetTabs");
+    } else if (sheet) {
+      setNotice(t(`leads.sheet.err.${sheet}`));
+      setModal("sources");
+    }
+    if (id || meta || sheet || window.location.hash) {
+      for (const k of ["lead", "meta", "pages", "sheet", "source"]) sp.delete(k);
       const qs = sp.toString();
       router.replace(`${window.location.pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
     }
@@ -114,13 +126,17 @@ export function LeadsView({
       if (owner === "me" && l.assigned_to !== user.id) return false;
       if (owner === "none" && l.assigned_to) return false;
       if (owner !== "all" && owner !== "me" && owner !== "none" && l.assigned_to !== owner) return false;
+      if (tag !== "all" && !(l.tags ?? []).includes(tag)) return false;
       if (!term) return true;
       return (
         String(l.lead_no) === term.replace(/^#/, "") ||
-        [l.name, l.email, l.phone, l.campaign, l.form, ...l.fields.map((f) => f.value)].some((v) => v?.toLowerCase().includes(term))
+        [l.name, l.email, l.phone, l.campaign, l.form, ...(l.tags ?? []), ...l.fields.map((f) => f.value)].some((v) => v?.toLowerCase().includes(term))
       );
     });
-  }, [leads, q, status, source, owner, user.id]);
+  }, [leads, q, status, source, owner, tag, user.id]);
+
+  // Tags that occur in this partner's leads (filter only shows when there are any).
+  const allTags = useMemo(() => Array.from(new Set(leads.flatMap((l) => l.tags ?? []))).sort((a, b) => a.localeCompare(b, "de")), [leads]);
 
   const stats = useMemo(() => {
     const now = Date.now();
@@ -238,6 +254,16 @@ export function LeadsView({
                 </option>
               ))}
             </select>
+            {allTags.length > 0 && (
+              <select value={tag} onChange={(e) => setTag(e.target.value)} className="input-base h-10 w-auto appearance-none py-0 pr-8 text-sm" aria-label={t("leads.filter.tag")}>
+                <option value="all">{t("leads.filter.allTags")}</option>
+                {allTags.map((x) => (
+                  <option key={x} value={x}>
+                    {x}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 
@@ -270,6 +296,7 @@ export function LeadsView({
                   <span className="hidden min-w-0 md:block">
                     <span className="flex items-center gap-1.5">
                       <SourceBadge lead={l} />
+                      <LeadTags tags={l.tags} max={2} />
                       <span className="truncate text-xs text-muted">{l.campaign ?? l.form ?? ""}</span>
                     </span>
                   </span>
@@ -332,7 +359,30 @@ export function LeadsView({
         />
       )}
       {modal === "sources" && clientId && (
-        <SourcesModal clientId={clientId} staff={staff} sources={sources} metaReady={metaReady} webhook={webhook} onClose={() => setModal(null)} onChanged={() => router.refresh()} />
+        <SourcesModal
+          clientId={clientId}
+          staff={staff}
+          sources={sources}
+          metaReady={metaReady}
+          webhook={webhook}
+          onClose={() => setModal(null)}
+          onChanged={() => router.refresh()}
+          onPickTabs={(id) => {
+            setSheetSource(id);
+            setModal("sheetTabs");
+          }}
+        />
+      )}
+      {modal === "sheetTabs" && sheetSource && (
+        <SheetTabsModal
+          sourceId={sheetSource}
+          onClose={() => setModal("sources")}
+          onDone={(r) => {
+            setModal(null);
+            setNotice(`${t("leads.sheet.imported", { added: r.added, updated: r.updated })}${r.pending ? ` ${t("leads.sheet.more")}` : ""}`);
+            router.refresh();
+          }}
+        />
       )}
       {modal === "invite" && clientId && <InviteSalesModal clientId={staff ? clientId : null} company={company} onClose={() => setModal(null)} />}
       {modal === "metaPages" && clientId && (

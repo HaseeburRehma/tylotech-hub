@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Check, CheckCircle2, Copy, Globe, Loader2, Plus, RefreshCw, Trash2, UserPlus, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, Copy, FileSpreadsheet, Globe, Loader2, Plus, RefreshCw, Trash2, UserPlus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Label, Textarea } from "@/components/ui/input";
@@ -290,6 +290,7 @@ export function SourcesModal({
   webhook,
   onClose,
   onChanged,
+  onPickTabs,
 }: {
   clientId: string;
   staff: boolean;
@@ -298,13 +299,28 @@ export function SourcesModal({
   webhook: { url: string; verifyToken: string | null } | null;
   onClose: () => void;
   onChanged: () => void;
+  onPickTabs: (sourceId: string) => void;
 }) {
   const t = useT();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [sheetUrl, setSheetUrl] = useState("");
   const meta = sources.filter((s) => s.kind === "meta");
-  const hooks = sources.filter((s) => s.kind !== "meta");
+  const sheets = sources.filter((s) => s.kind === "google_sheet");
+  const hooks = sources.filter((s) => s.kind === "google_ads" || s.kind === "webhook");
+  const sheetUrlOk = /docs\.google\.com\/spreadsheets\/d\/[\w-]{20,}/.test(sheetUrl);
+
+  async function syncSheet(id: string) {
+    setBusy(`sync:${id}`);
+    setError(null);
+    setInfo(null);
+    const r = await post(`/api/leads/sheets/${id}`, {});
+    setBusy(null);
+    if (!r.ok) return setError(r.error ?? t("ait.actionFailed"));
+    setInfo(t("leads.sheet.imported", { added: Number(r.data.added ?? 0), updated: Number(r.data.updated ?? 0) }));
+    onChanged();
+  }
 
   async function create(kind: "google_ads" | "webhook") {
     setBusy(kind);
@@ -389,6 +405,63 @@ export function SourcesModal({
           )}
         </section>
 
+        {/* Google Sheets (website forms that write into a sheet) */}
+        <section className="space-y-3 rounded-xl border border-border p-4">
+          <div>
+            <p className="flex items-center gap-2 font-semibold text-foreground">
+              <FileSpreadsheet className="h-4 w-4 text-success" /> Google Sheets
+            </p>
+            <p className="text-xs text-muted">{t("leads.src.sheetsHelp")}</p>
+          </div>
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!sheetUrlOk) return;
+              setBusy("sheet");
+              window.location.href = `/api/leads/sheets/connect?url=${encodeURIComponent(sheetUrl.trim())}${staff ? `&clientId=${clientId}` : ""}`;
+            }}
+          >
+            <input
+              type="url"
+              value={sheetUrl}
+              onChange={(e) => setSheetUrl(e.target.value)}
+              placeholder={t("leads.src.sheetUrlPh")}
+              aria-label={t("leads.src.sheetUrlPh")}
+              className="input-base h-9 min-w-0 flex-1 py-0 text-sm"
+            />
+            <Button size="sm" type="submit" disabled={!sheetUrlOk || busy === "sheet"}>
+              {busy === "sheet" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} {t("leads.src.connectSheet")}
+            </Button>
+          </form>
+          {sheets.map((s) => (
+            <div key={s.id} className="flex items-center gap-3 rounded-lg bg-surface-2/50 px-3 py-2">
+              <span className={cn("h-2 w-2 shrink-0 rounded-full", s.status === "error" ? "bg-danger" : s.sheet?.tabs.length ? "bg-success" : "bg-warning")} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground">{s.label}</p>
+                <p className={cn("truncate text-caption", s.status === "error" ? "text-danger" : "text-muted")}>
+                  {s.status === "error"
+                    ? s.last_error ?? t("leads.src.error")
+                    : s.sheet?.tabs.length
+                      ? `${s.sheet.tabs.join(", ")}${s.last_synced_at ? ` · ${t("leads.src.checked", { when: fmtDateTime(s.last_synced_at) })}` : ""}`
+                      : t("leads.src.noTabs")}
+                </p>
+              </div>
+              <Button size="sm" variant="secondary" onClick={() => onPickTabs(s.id)}>
+                {t("leads.src.chooseTabs")}
+              </Button>
+              {!!s.sheet?.tabs.length && (
+                <button type="button" onClick={() => syncSheet(s.id)} disabled={busy === `sync:${s.id}`} aria-label={t("leads.src.syncNow")} className="text-muted hover:text-foreground">
+                  {busy === `sync:${s.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                </button>
+              )}
+              <button type="button" onClick={() => remove(s.id)} disabled={busy === s.id} aria-label={t("leads.src.remove")} className="text-muted hover:text-danger">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </section>
+
         {/* Google Ads + website webhooks */}
         <section className="space-y-3 rounded-xl border border-border p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -423,6 +496,108 @@ export function SourcesModal({
             </div>
           ))}
         </section>
+      </div>
+    </ModalShell>
+  );
+}
+
+/* ───────────────────── Google Sheet: which tabs hold leads ───────────────────── */
+
+interface SheetTab {
+  title: string;
+  rows: number;
+  leadLike: boolean;
+  chosen: boolean;
+}
+
+export function SheetTabsModal({
+  sourceId,
+  onClose,
+  onDone,
+}: {
+  sourceId: string;
+  onClose: () => void;
+  onDone: (r: { added: number; updated: number; pending: number }) => void;
+}) {
+  const t = useT();
+  const [title, setTitle] = useState("");
+  const [tabs, setTabs] = useState<SheetTab[] | null>(null);
+  const [chosen, setChosen] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      const res = await fetch(`/api/leads/sheets/${sourceId}`).catch(() => null);
+      const data = res ? ((await res.json().catch(() => ({}))) as { title?: string; tabs?: SheetTab[]; error?: string }) : {};
+      if (!live) return;
+      if (!res?.ok || !data.tabs) return setError(data.error ?? t("ait.actionFailed"));
+      setTitle(data.title ?? "");
+      setTabs(data.tabs);
+      const already = data.tabs.filter((x) => x.chosen).map((x) => x.title);
+      // First time: suggest the lead-like tabs among the first three.
+      setChosen(already.length ? already : data.tabs.slice(0, 3).filter((x) => x.leadLike).map((x) => x.title));
+    })();
+    return () => {
+      live = false;
+    };
+  }, [sourceId, t]);
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    // Keep the sheet's own order.
+    const ordered = (tabs ?? []).map((x) => x.title).filter((x) => chosen.includes(x));
+    const r = await post(`/api/leads/sheets/${sourceId}`, { tabs: ordered }, "PATCH");
+    setBusy(false);
+    if (!r.ok) return setError(r.error ?? t("ait.actionFailed"));
+    onDone({ added: Number(r.data.added ?? 0), updated: Number(r.data.updated ?? 0), pending: Number(r.data.pending ?? 0) });
+  }
+
+  const toggle = (name: string) => setChosen((c) => (c.includes(name) ? c.filter((x) => x !== name) : [...c, name]));
+
+  return (
+    <ModalShell open onClose={busy ? () => {} : onClose} className="max-w-lg">
+      <Header title={t("leads.sheet.pickTitle")} onClose={onClose} icon={<FileSpreadsheet className="h-4 w-4 text-success" />} />
+      <div className="space-y-4 p-5">
+        <p className="text-sm text-muted">
+          {title && <span className="font-medium text-foreground">{title}. </span>}
+          {t("leads.sheet.pickHelp")}
+        </p>
+        {error && <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
+        {!tabs && !error && (
+          <p className="flex items-center gap-2 text-sm text-muted">
+            <Loader2 className="h-4 w-4 animate-spin" /> {t("leads.sheet.loading")}
+          </p>
+        )}
+        {tabs && (
+          <ul className="max-h-80 space-y-1.5 overflow-y-auto">
+            {tabs.map((x) => (
+              <li key={x.title}>
+                <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border px-3 py-2 hover:bg-surface-2/60">
+                  <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--brand))]" checked={chosen.includes(x.title)} disabled={busy} onChange={() => toggle(x.title)} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground">{x.title}</span>
+                    <span className="block text-caption text-muted">
+                      {t("leads.sheet.rows", { n: x.rows })}
+                      {x.leadLike ? ` · ${t("leads.sheet.leadLike")}` : ""}
+                    </span>
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        )}
+        {busy && <p className="text-caption text-muted">{t("leads.sheet.importing")}</p>}
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose} disabled={busy}>
+            {t("common.cancel")}
+          </Button>
+          <Button onClick={save} disabled={busy || !chosen.length || chosen.length > 10}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} {t("leads.sheet.save", { n: chosen.length })}
+          </Button>
+        </div>
       </div>
     </ModalShell>
   );

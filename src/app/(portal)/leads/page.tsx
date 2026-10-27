@@ -1,7 +1,7 @@
 import { getAuthUser, isStaff } from "@/lib/auth";
 import { activeClientRef } from "@/lib/active-client-server";
 import { getClientByRef, listClients } from "@/lib/data";
-import { hookUrl, leadPeople, missingLeads, type Lead, type LeadSourceView } from "@/lib/leads";
+import { leadPeople, missingLeads, sourceView, type Lead, type LeadSourceView } from "@/lib/leads";
 import { metaApp, metaWebhookVerifyToken } from "@/lib/leads-meta";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { headers } from "next/headers";
@@ -34,18 +34,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: { clie
   const unavailable = !!leadsRes.error && missingLeads(leadsRes.error.message);
   const h = headers();
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("x-forwarded-host") ?? h.get("host")}`;
-  const sources: LeadSourceView[] = ((sourcesRes.data ?? []) as any[]).map((s) => ({
-    id: s.id,
-    kind: s.kind,
-    label: s.label,
-    status: s.status,
-    last_error: s.last_error,
-    last_received_at: s.last_received_at,
-    last_synced_at: s.last_synced_at,
-    created_at: s.created_at,
-    hookUrl: s.kind === "meta" ? null : hookUrl(origin, s.id),
-    key: s.kind === "meta" ? null : s.secret,
-  }));
+  const sources: LeadSourceView[] = ((sourcesRes.data ?? []) as any[]).map((s) => sourceView(origin, s));
 
   return (
     <LeadsView
