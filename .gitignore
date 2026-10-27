@@ -22,3 +22,5 @@ TyloTech_Hub_Brief (1).pdf
 
 # Client intake sheet contains real client names — keep out of the public repo
 docs/*.xlsx
+# Filled-in SQL with secrets (e.g. supabase/leads_poll_cron.local.sql)
+*.local.sql

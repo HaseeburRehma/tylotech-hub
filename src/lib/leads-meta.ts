@@ -269,17 +269,32 @@ export async function handleLeadgenEvent(admin: SupabaseClient, ev: { leadgen_id
  * Pull recent leads from every lead form of a partner's Meta pages (or all
  * partners when clientId is omitted). New ones notify only when `notify`.
  */
-export async function syncMetaLeads(admin: SupabaseClient, opts: { clientId?: string; days?: number; notify?: boolean } = {}) {
+export interface MetaSyncOptions {
+  clientId?: string;
+  days?: number;
+  notify?: boolean;
+  /** Poll mode: look back only this far past the last sync (default: one day). */
+  overlapMinutes?: number;
+  /** Poll mode: skip archived/draft forms (they can't receive leads) to save Graph calls. */
+  activeFormsOnly?: boolean;
+  /** Alert only for leads younger than this — older ones are stored silently. */
+  notifyMaxAgeMinutes?: number;
+}
+
+export async function syncMetaLeads(admin: SupabaseClient, opts: MetaSyncOptions = {}) {
   let q = admin.from("lead_sources").select("id,client_id,access_token,external_id,last_synced_at").eq("kind", "meta").neq("status", "disconnected");
   if (opts.clientId) q = q.eq("client_id", opts.clientId);
   const { data: sources } = await q;
   let added = 0;
   for (const s of sources ?? []) {
     if (!s.access_token || !s.external_id) continue;
-    const since = s.last_synced_at && !opts.days ? new Date(new Date(s.last_synced_at).getTime() - 86_400_000) : new Date(Date.now() - (opts.days ?? 30) * 86_400_000);
+    const overlapMs = (opts.overlapMinutes ?? 24 * 60) * 60_000;
+    const since = s.last_synced_at && !opts.days ? new Date(new Date(s.last_synced_at).getTime() - overlapMs) : new Date(Date.now() - (opts.days ?? 30) * 86_400_000);
+    // Stamped at the start: a lead arriving mid-sync is inside the next window.
+    const startedAt = new Date().toISOString();
     try {
-      const forms = await graph<{ data: { id: string; name: string }[] }>(`${s.external_id}/leadgen_forms`, s.access_token, { fields: "id,name", limit: "100" });
-      for (const f of forms.data) {
+      const forms = await graph<{ data: { id: string; name: string; status?: string }[] }>(`${s.external_id}/leadgen_forms`, s.access_token, { fields: "id,name,status", limit: "100" });
+      for (const f of forms.data.filter((x) => !opts.activeFormsOnly || !x.status || x.status === "ACTIVE")) {
         let after: string | undefined;
         for (let page = 0; page < 10; page++) {
           const res = await graph<{ data: MetaLead[]; paging?: { cursors?: { after?: string }; next?: string } }>(`${f.id}/leads`, s.access_token, {
@@ -289,14 +304,15 @@ export async function syncMetaLeads(admin: SupabaseClient, opts: { clientId?: st
             ...(after ? { after } : {}),
           });
           for (const l of res.data) {
-            const r = await storeMetaLead(admin, s, l, f.name, !!opts.notify);
+            const fresh = !opts.notifyMaxAgeMinutes || Date.now() - new Date(l.created_time).getTime() <= opts.notifyMaxAgeMinutes * 60_000;
+            const r = await storeMetaLead(admin, s, l, f.name, !!opts.notify && fresh);
             if (!("error" in r) && !r.duplicate) added++;
           }
           after = res.paging?.next ? res.paging.cursors?.after : undefined;
           if (!after) break;
         }
       }
-      await admin.from("lead_sources").update({ last_synced_at: new Date().toISOString(), status: "active", last_error: null }).eq("id", s.id);
+      await admin.from("lead_sources").update({ last_synced_at: startedAt, status: "active", last_error: null }).eq("id", s.id);
     } catch (e) {
       await admin.from("lead_sources").update({ status: "error", last_error: (e as Error).message.slice(0, 300) }).eq("id", s.id);
     }

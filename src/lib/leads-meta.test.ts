@@ -130,3 +130,73 @@ describe("handleLeadgenEvent", () => {
     expect(mockIngest).not.toHaveBeenCalled();
   });
 });
+
+describe("syncMetaLeads — 1-minute poll mode", () => {
+  const LAST = "2026-10-27T08:00:00.000Z";
+  let updates: any[] = [];
+  const admin: any = {
+    from: () => ({
+      select: () => ({ eq: () => ({ neq: async () => ({ data: [{ id: "s1", client_id: "c1", access_token: "pt", external_id: "77", last_synced_at: LAST }] }) }) }),
+      update: (u: any) => ({ eq: async () => (updates.push(u), {}) }),
+    }),
+  };
+  const sinceOf = () => {
+    const c = calls.find((x) => x.startsWith("F1/leads"));
+    return c;
+  };
+  beforeEach(() => {
+    updates = [];
+    mockIngest.mockReset().mockResolvedValue({ id: "l", lead_no: 1 });
+  });
+
+  it("skips archived forms, alerts fresh leads, stores old ones silently", async () => {
+    const now = Date.now();
+    routes["77/leadgen_forms"] = { data: [{ id: "F1", name: "Live", status: "ACTIVE" }, { id: "F2", name: "Old", status: "ARCHIVED" }] };
+    routes["F1/leads"] = {
+      data: [
+        { id: "fresh", created_time: new Date(now - 60_000).toISOString(), field_data: [] },
+        { id: "stale", created_time: new Date(now - 3 * 86_400_000).toISOString(), field_data: [] },
+      ],
+    };
+    const added = await (await import("./leads-meta")).syncMetaLeads(admin, { notify: true, overlapMinutes: 15, activeFormsOnly: true, notifyMaxAgeMinutes: 24 * 60 });
+    expect(added).toBe(2);
+    expect(calls.some((c) => c.startsWith("F2/"))).toBe(false);
+    const notifyById = Object.fromEntries(mockIngest.mock.calls.map((c) => [c[1].externalId, c[1].notify]));
+    expect(notifyById).toEqual({ fresh: true, stale: false });
+    expect(sinceOf()).toBeTruthy();
+  });
+
+  it("looks back 15 minutes past the last sync and stamps the start time", async () => {
+    let filtering = "";
+    routes["77/leadgen_forms"] = { data: [{ id: "F1", name: "Live", status: "ACTIVE" }] };
+    routes["F1/leads"] = { data: [] };
+    const realFetch = (await import("@/lib/http")).fetchWithRetry as any;
+    const spy = vi.fn(async (url: string, init: any) => {
+      if (url.includes("F1/leads")) filtering = new URL(url).searchParams.get("filtering") ?? "";
+      return realFetch(url, init);
+    });
+    const http = await import("@/lib/http");
+    vi.spyOn(http, "fetchWithRetry").mockImplementation(spy as any);
+    const before = Date.now();
+    await (await import("./leads-meta")).syncMetaLeads(admin, { notify: true, overlapMinutes: 15, activeFormsOnly: true });
+    const since = JSON.parse(filtering)[0].value * 1000;
+    expect(since).toBe(new Date(LAST).getTime() - 15 * 60_000);
+    expect(new Date(updates[0].last_synced_at).getTime()).toBeGreaterThanOrEqual(before - 5);
+    expect(updates[0]).toMatchObject({ status: "active", last_error: null });
+  });
+
+  it("doesn't alert twice for a lead the webhook already delivered", async () => {
+    routes["77/leadgen_forms"] = { data: [{ id: "F1", name: "Live", status: "ACTIVE" }] };
+    routes["F1/leads"] = { data: [{ id: "dup", created_time: new Date().toISOString(), field_data: [] }] };
+    mockIngest.mockResolvedValue({ id: "l", lead_no: 1, duplicate: true });
+    const added = await (await import("./leads-meta")).syncMetaLeads(admin, { notify: true, overlapMinutes: 15 });
+    expect(added).toBe(0);
+  });
+
+  it("marks the source as errored (and moves on) when Meta refuses", async () => {
+    routes["77/leadgen_forms"] = undefined as any;
+    const added = await (await import("./leads-meta")).syncMetaLeads(admin, { notify: true, overlapMinutes: 15 });
+    expect(added).toBe(0);
+    expect(updates[0].status).toBe("error");
+  });
+});
