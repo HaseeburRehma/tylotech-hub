@@ -34,6 +34,8 @@ function MfaVerifyForm() {
       else setError(t(listErr ? "mfa.sessionExpired" : "mfa.noFactor"));
     });
     inputRef.current?.focus();
+    // Once on mount: the factor doesn't change while this page is open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function signOut() {

@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { ShieldCheck } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
@@ -77,14 +76,8 @@ export function AuthShell({
 
         {/* Centered form */}
         <div className="flex flex-1 items-center justify-center">
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-[440px]"
-          >
-            {children}
-          </motion.div>
+          {/* CSS fade-up (no animation library on the sign-in page; skipped with reduced motion). */}
+          <div className="w-full max-w-[440px] motion-safe:animate-fade-up">{children}</div>
         </div>
 
         {/* Footer */}
@@ -109,30 +102,20 @@ export function AuthShell({
         <BrandMark size={34} logoUrl={brand?.logoUrl} company={brand?.company} dark />
 
         <div className="max-w-lg">
-          <motion.h1
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className="font-display text-4xl font-semibold leading-[1.1] tracking-tight text-white xl:text-[2.75rem]"
+          <h1
+            className="motion-safe:animate-fade-up font-display text-4xl font-semibold leading-[1.1] tracking-tight text-white xl:text-[2.75rem]"
           >
             <StyledHeadline text={headlineFormatted} />
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.6 }}
-            className="mt-5 max-w-md text-title leading-relaxed text-white/65"
+          </h1>
+          <p
+            style={{ animationDelay: "100ms" }}
+            className="motion-safe:animate-fade-up mt-5 max-w-md text-title leading-relaxed text-white/65"
           >
             {panelTagline ?? brand?.tagline ?? t("auth.tagline")}
-          </motion.p>
+          </p>
 
           {/* Stats row */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.6 }}
-            className="mt-8 flex gap-8"
-          >
+          <div style={{ animationDelay: "200ms" }} className="motion-safe:animate-fade-up mt-8 flex gap-8">
             <div>
               <p className="font-display text-2xl font-semibold tracking-[-0.02em] text-white">{new Intl.NumberFormat(dl, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(2109)}</p>
               <p className="mt-1 text-sm text-white/50">{t("auth.statBudget")}</p>
@@ -145,7 +128,7 @@ export function AuthShell({
               <p className="font-display text-2xl font-semibold tracking-[-0.02em] text-white">10</p>
               <p className="mt-1 text-sm text-white/50">{t("auth.statClients")}</p>
             </div>
-          </motion.div>
+          </div>
         </div>
 
         {/* Bottom row */}

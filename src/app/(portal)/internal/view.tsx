@@ -7,7 +7,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, Panel, PanelHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
-import { MrrBars } from "@/components/charts/mrr-bars";
+import { MrrBars } from "@/components/charts/lazy";
 import { HealthBadge } from "@/components/health/health";
 import { InboxCard } from "@/components/chat/inbox-card";
 import type { ClientHealth } from "@/lib/health";

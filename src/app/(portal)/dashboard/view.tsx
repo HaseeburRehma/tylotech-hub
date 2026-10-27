@@ -16,7 +16,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, Panel, PanelHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { PendingApprovalsBanner } from "@/components/approvals/approvals-list";
-import { PerfArea } from "@/components/charts/perf-area";
+import { PerfArea } from "@/components/charts/lazy";
 import { PROJECT_STATUS, UPDATE_META } from "@/lib/status";
 import { cn, formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { useUser } from "@/components/providers/user-provider";
