@@ -40,7 +40,10 @@ const TRACKING = new Set(
     "anbewerbungensheet", "emailgesendet", "mailgesendet",
   ].map(norm),
 );
-const TIME_KEYS = ["zeitstempel", "datum", "timestamp", "date", "erstelltam", "createdat", "submittedat", "eingang"];
+const TIME_KEYS = [
+  "zeitstempel", "datum", "timestamp", "date", "erstelltam", "createdat", "submittedat", "eingang",
+  "eingegangen", "eingegangenam", "eingangsdatum", "zeitpunkt", "datumuhrzeit", "uhrzeit", "received", "receivedat", "submitted", "time",
+];
 const STATUS_KEYS = ["status", "leadstatus"];
 const FORM_KEYS = ["formular", "form", "formname"];
 

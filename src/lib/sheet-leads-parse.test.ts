@@ -123,6 +123,18 @@ describe("tabToLeads", () => {
     expect(tabToLeads("x", [["Name", "Frage"], ["Jo Doe", "a"]], TZ)).toHaveLength(1);
   });
 
+  it("Oh My Acai franchise tab: 'Eingegangen' is the time column", () => {
+    const [l] = tabToLeads(
+      "Franchise",
+      [["Eingegangen", "Name", "E-Mail", "Telefon", "Stadt / Region", "Kapital", "Start", "Gastro-Erfahrung", "Status"], ["25.10.2026 20:26", "Max Muster", "max@example.de", "0151 1", "Köln", "50k", "sofort", "ja", "Neu"]],
+      "Etc/GMT",
+      TZ,
+    );
+    expect(l.createdAt).toBe("2026-10-25T19:26:00.000Z");
+    expect(l.fields.map((f) => f.label)).not.toContain("Eingegangen");
+    expect(l.tags).toEqual(["Vollständig"]);
+  });
+
   it("copes with ragged rows, numbers and an empty tab", () => {
     expect(tabToLeads("x", [], TZ)).toEqual([]);
     expect(tabToLeads("x", [["Email"]], TZ)).toEqual([]);
