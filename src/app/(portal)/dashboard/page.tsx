@@ -91,7 +91,7 @@ export default async function DashboardPage() {
       myActiveTasks={myActiveTasks}
       updates={updates}
       activeClients={clients.filter((c) => !isDemoClient(c)).length}
-      newClientsThisMonth={clients.filter((c) => c.created_at && new Date(c.created_at) >= monthStart).length}
+      newClientsThisMonth={clients.filter((c) => !isDemoClient(c) && c.created_at && new Date(c.created_at) >= monthStart).length}
     />
   );
 }

@@ -119,10 +119,14 @@ export function metaLeads(actions: { action_type?: string; value?: string | numb
     const hit = (actions ?? []).find((a) => a.action_type === type);
     if (hit) return Number(hit.value ?? 0) || 0;
   }
-  // Some accounts only report Meta-attributed variants (e.g.
-  // offsite_content_view_add_meta_leads). They overlap too, so take the largest
-  // rather than summing — and never fall to 0 when Meta reports leads.
-  const others = (actions ?? []).filter((a) => /lead/i.test(a.action_type ?? "")).map((a) => Number(a.value ?? 0) || 0);
+  // Other real lead events end in "lead"/"lead_grouped" (e.g. a custom
+  // offsite_conversion.custom.…lead). The "*_add_meta_leads" family is NOT leads:
+  // it counts content views, searches or registrations from Meta's lead
+  // audiences (Light of Hope reported 556 content views as "leads"). Overlapping
+  // types: take the largest, never a sum.
+  const others = (actions ?? [])
+    .filter((a) => /(^|[._])lead(_grouped)?$/i.test(a.action_type ?? "") && !/add_meta_leads/i.test(a.action_type ?? ""))
+    .map((a) => Number(a.value ?? 0) || 0);
   return others.length ? Math.max(...others) : 0;
 }
 

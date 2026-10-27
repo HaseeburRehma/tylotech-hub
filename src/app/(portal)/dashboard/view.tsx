@@ -409,14 +409,22 @@ export function StaffDashboardView({
   const dl = useIntlLocale();
   const { active: activeClient } = useActiveClient();
   const firstName = user.name.split(" ")[0];
-  const period = new Date().toLocaleDateString(dl, { timeZone: APP_TZ, month: "long", year: "numeric" });
+  // The tiles cover the last 30 complete days (ending yesterday), compared with
+  // the 30 before (lib/data getPortfolioSummary): say exactly that, not "October".
+  const day = (offset: number) => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - offset);
+    return d;
+  };
+  const short = new Intl.DateTimeFormat(dl, { timeZone: APP_TZ, day: "numeric", month: "short" });
+  const range = t("dash.range", { from: short.format(day(30)), to: short.format(day(1)) });
 
   return (
     <div className="space-y-4 sm:space-y-5">
       <DashHeader
         title={t("dash.welcome", { name: firstName })}
-        subtitle={t("dash.staff.subtitle", { period })}
-        period={period}
+        subtitle={t("dash.staff.subtitle", { period: range })}
+        period={t("dash.last30days")}
         action={
           <Button
             size="sm"
@@ -462,7 +470,7 @@ export function StaffDashboardView({
             value={String(activeClients)}
             delta={newClientsThisMonth > 0 ? newClientsThisMonth : undefined}
             deltaUnit=""
-            suffix={t("dash.vsPrevMonth")}
+            suffix={newClientsThisMonth > 0 ? t("dash.newThisMonth") : undefined}
           />
         </KpiStrip>
         <div className="flex items-center gap-4 px-4 pt-4 text-xs sm:px-6">
