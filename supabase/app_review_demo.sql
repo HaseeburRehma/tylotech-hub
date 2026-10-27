@@ -73,7 +73,11 @@ begin
     set client_id = excluded.client_id, email = excluded.email, name = excluded.name, role = excluded.role;
 
   -- 3) the TyloTech side of the sample chat
-  select id into v_staff from public.users where email = 'dev@tylotech.de' and role in ('admin', 'team');
+  -- Sofia Lind (Head of Support) answers in the demo chat; any active teammate otherwise.
+  select id into v_staff from public.users
+   where role in ('admin', 'team') and deactivated_at is null
+   order by (name = 'Sofia Lind') desc, created_at
+   limit 1;
 
   -- 4) reset the sample content
   delete from public.kpis          where client_id = v_cid;
@@ -117,9 +121,9 @@ begin
 
   if v_staff is not null then
     insert into public.messages (client_id, sender_id, sender_name, sender_role, content, created_at) values
-      (v_cid, v_staff, 'TyloTech Team', 'team',   'Guten Morgen Lena! Die Herbstkampagne ist seit heute früh live.', now() - interval '26 hours'),
+      (v_cid, v_staff, 'Sofia Lind',    'team',   'Guten Morgen Lena! Die Herbstkampagne ist seit heute früh live.', now() - interval '26 hours'),
       (v_cid, v_uid,   'Lena Hoffmann', 'client', 'Super, danke! Können wir das Budget für Instagram etwas erhöhen?', now() - interval '25 hours'),
-      (v_cid, v_staff, 'TyloTech Team', 'team',   'Gern – wir gehen ab morgen auf 40 € pro Tag. Den Entwurf für die neue Landingpage findest du unter Projekte.', now() - interval '24 hours'),
+      (v_cid, v_staff, 'Sofia Lind',    'team',   'Gern, wir gehen ab morgen auf 40 € pro Tag. Den Entwurf für die neue Landingpage findest du unter Projekte.', now() - interval '24 hours'),
       (v_cid, v_uid,   'Lena Hoffmann', 'client', 'Perfekt, schaue ich mir heute Nachmittag an 👍', now() - interval '3 hours');
   end if;
 
@@ -129,7 +133,7 @@ begin
     (v_cid, 'Rechnung 2026-0142.pdf',           v_cid || '/demo-invoice.pdf',  'invoice',  '1 KB');
 
   insert into public.notifications (user_id, title, body, href, read, type, created_at) values
-    (v_uid, 'Neue Nachricht von TyloTech', 'Gern – wir gehen ab morgen auf 40 € pro Tag.', '/chat', false, 'message', now() - interval '24 hours'),
+    (v_uid, 'Neue Nachricht von TyloTech', 'Gern, wir gehen ab morgen auf 40 € pro Tag.', '/chat', false, 'message', now() - interval '24 hours'),
     (v_uid, 'Neues Dokument: Monatsbericht September 2026', 'Der Bericht ist jetzt verfügbar.', '/documents', false, 'update', now() - interval '70 hours');
 
   raise notice 'Review demo ready: client % (%), login %', v_slug, v_cid, v_email;
