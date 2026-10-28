@@ -97,24 +97,15 @@ export async function metaCampaignStats(token: string, accountId: string, since:
 }
 
 /** Google Ads: campaign + ad group level (ad groups stand in for creatives). */
-export async function googleCampaignStats(
-  accessToken: string,
-  customerId: string,
-  loginCustomerId: string | null | undefined,
-  since: string | null,
-  until: string | null,
-): Promise<StatsResult> {
+/** GAQL runner for one customer (through the manager account when given); null when not connected. */
+function googleSearcher(accessToken: string, customerId: string, loginCustomerId: string | null | undefined) {
   const cid = (customerId ?? "").replace(/[^0-9]/g, "");
-  if (!accessToken || !cid) return { error: "Google Ads is not connected." };
+  if (!accessToken || !cid) return null;
   const headers: Record<string, string> = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
   if (process.env.GOOGLE_ADS_DEVELOPER_TOKEN) headers["developer-token"] = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
   const login = (loginCustomerId || "").replace(/[^0-9]/g, "");
   if (login && login !== cid) headers["login-customer-id"] = login;
-  const safe = (d: string | null, fb: string) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : fb);
-  const from = safe(since, "2015-01-01");
-  const to = safe(until, new Date().toISOString().slice(0, 10));
-
-  const search = async (query: string) => {
+  return async (query: string): Promise<{ results: any[] } | { error: string }> => {
     const res = await fetchWithRetry(`https://googleads.googleapis.com/${GOOGLE_ADS_VERSION}/customers/${cid}/googleAds:searchStream`, {
       method: "POST",
       headers,
@@ -125,6 +116,47 @@ export async function googleCampaignStats(
     const json: any = await res.json().catch(() => null);
     return { results: ((Array.isArray(json) ? json : [json]) as any[]).flatMap((b) => b?.results ?? []) };
   };
+}
+
+/**
+ * Which campaign and ad group each click came from (Google Ads click_view:
+ * one day per query, the last 90 days only). gclids not found are left out.
+ */
+export async function googleClickAttribution(
+  accessToken: string,
+  customerId: string,
+  loginCustomerId: string | null | undefined,
+  day: string,
+  gclids: string[],
+): Promise<{ clicks: Map<string, { campaignId: string; adGroupId: string }> } | { error: string }> {
+  const search = googleSearcher(accessToken, customerId, loginCustomerId);
+  if (!search) return { error: "Google Ads is not connected." };
+  const ids = gclids.filter((g) => /^[\w-]{20,200}$/.test(g));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !ids.length) return { clicks: new Map() };
+  const r = await search(
+    `SELECT click_view.gclid, campaign.id, ad_group.id FROM click_view WHERE segments.date = '${day}' AND click_view.gclid IN (${ids.map((g) => `'${g}'`).join(",")})`,
+  );
+  if ("error" in r) return r;
+  const clicks = new Map<string, { campaignId: string; adGroupId: string }>();
+  for (const row of r.results) {
+    const g = row.clickView?.gclid;
+    if (g && row.campaign?.id) clicks.set(String(g), { campaignId: String(row.campaign.id), adGroupId: String(row.adGroup?.id ?? "") });
+  }
+  return { clicks };
+}
+
+export async function googleCampaignStats(
+  accessToken: string,
+  customerId: string,
+  loginCustomerId: string | null | undefined,
+  since: string | null,
+  until: string | null,
+): Promise<StatsResult> {
+  const search = googleSearcher(accessToken, customerId, loginCustomerId);
+  if (!search) return { error: "Google Ads is not connected." };
+  const safe = (d: string | null, fb: string) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : fb);
+  const from = safe(since, "2015-01-01");
+  const to = safe(until, new Date().toISOString().slice(0, 10));
 
   const r = await search(
     `SELECT campaign.id, campaign.name, ad_group.id, ad_group.name, metrics.cost_micros, metrics.impressions, metrics.clicks, metrics.conversions FROM ad_group WHERE segments.date BETWEEN '${from}' AND '${to}' AND metrics.impressions > 0`,

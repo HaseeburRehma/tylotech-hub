@@ -1,8 +1,9 @@
 /**
  * Leads by campaign and creative, joined with what the ad platforms spent
- * (pure, client-safe). A lead belongs to the campaign and ad it names (Meta
- * lead forms carry campaign, ad set and ad name; website leads their
- * utm_campaign). Leads without one are grouped by how they arrived.
+ * (pure, client-safe). A lead belongs to the campaign and ad it names, by name
+ * or by id (Meta lead forms carry names; website leads utm ids, Google's
+ * gad_campaignid or the campaign and ad group behind their gclid). Leads
+ * without one are grouped by how they arrived.
  */
 
 export interface AdStat {
@@ -70,6 +71,14 @@ export interface CampaignRow {
   leadIds: string[];
 }
 
+/** What a lead's campaign and ad resolved to (names, also when the lead only had ids). */
+export interface LeadLabel {
+  campaign: string;
+  ad: string | null;
+  adset: string | null;
+  thumbnail: string | null;
+}
+
 export const norm = (s: string | null | undefined) => (s ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("de");
 
 /** Which group a lead without a matching ad campaign belongs to. */
@@ -100,9 +109,17 @@ const cplOf = (spend: number | null, leads: number) => (spend != null && spend >
  * Join leads (already filtered to the date range) with platform stats for the
  * same range. Test and invalid leads don't count.
  */
-export function classifyLeads(leads: LeadForClassify[], campaigns: CampaignStat[], lang: "de" | "en" = "de"): { rows: CampaignRow[]; totals: { spend: number; leads: number; platformLeads: number; cpl: number | null; unmatched: number } } {
+export function classifyLeads(
+  leads: LeadForClassify[],
+  campaigns: CampaignStat[],
+  lang: "de" | "en" = "de",
+): { rows: CampaignRow[]; totals: { spend: number; leads: number; platformLeads: number; cpl: number | null; unmatched: number }; labels: Map<string, LeadLabel> } {
   const counted = leads.filter((l) => !l.is_test && l.status !== "invalid");
   const rows = new Map<string, CampaignRow>();
+  // Ids → the row / ad they belong to (several campaign ids can share a name row).
+  const rowById = new Map<string, CampaignRow>();
+  const adById = new Map<string, AdRow>();
+  const idOf = (s: string | null) => (s && /^\d{5,24}$/.test(s.trim()) ? s.trim() : null);
 
   // Platform campaigns first (by name per platform, so spend is never split).
   for (const c of campaigns) {
@@ -120,21 +137,31 @@ export function classifyLeads(leads: LeadForClassify[], campaigns: CampaignStat[
       cpl: null,
       leadIds: [],
     }));
+    c.ads.forEach((a, i) => a.id && adById.set(a.id, ads[i]));
     if (prev) {
+      rowById.set(c.id, prev);
       prev.spend = (prev.spend ?? 0) + c.spend;
       prev.impressions = (prev.impressions ?? 0) + c.impressions;
       prev.clicks = (prev.clicks ?? 0) + c.clicks;
       prev.platformLeads = (prev.platformLeads ?? 0) + c.platformLeads;
       prev.ads.push(...ads);
     } else {
-      rows.set(key, { key, name: c.name, kind: c.platform, spend: c.spend, impressions: c.impressions, clicks: c.clicks, platformLeads: c.platformLeads, leads: 0, won: 0, cpl: null, ads, leadIds: [] });
+      const row: CampaignRow = { key, name: c.name, kind: c.platform, spend: c.spend, impressions: c.impressions, clicks: c.clicks, platformLeads: c.platformLeads, leads: 0, won: 0, cpl: null, ads, leadIds: [] };
+      rows.set(key, row);
+      rowById.set(c.id, row);
     }
   }
 
   let unmatched = 0;
+  const labels = new Map<string, LeadLabel>();
   for (const l of counted) {
     const platformKey = l.source === "meta" || ["facebook", "instagram"].includes((l.platform ?? "").toLowerCase()) ? "meta" : "google";
-    let row = l.campaign ? rows.get(`${platformKey}:${norm(l.campaign)}`) ?? rows.get(`${platformKey === "meta" ? "google" : "meta"}:${norm(l.campaign)}`) : undefined;
+    const campaignId = idOf(l.campaign);
+    let row = l.campaign
+      ? (campaignId ? rowById.get(campaignId) : undefined) ??
+        rows.get(`${platformKey}:${norm(l.campaign)}`) ??
+        rows.get(`${platformKey === "meta" ? "google" : "meta"}:${norm(l.campaign)}`)
+      : undefined;
     if (!row && l.campaign && l.source === "meta" && !/organisch|organic/i.test(l.campaign)) {
       // A Meta campaign with no spend in this range (paused, or leads from before): still its own row.
       const key = `meta:${norm(l.campaign)}`;
@@ -154,18 +181,26 @@ export function classifyLeads(leads: LeadForClassify[], campaigns: CampaignStat[
     row.leads++;
     row.leadIds.push(l.id);
     if (l.status === "won") row.won++;
-    if (l.ad && row.spend !== null) {
+    if (row.spend === null) continue;
+    // The ad by id (Meta ad id; for Google the ad group id), else by name.
+    const r = row;
+    const byId = [idOf(l.ad), idOf(l.ad_group)].map((id) => (id ? adById.get(id) : undefined)).find((a) => a && r.ads.includes(a));
+    let ad: AdRow | undefined = byId;
+    if (!ad && l.ad) {
       // Same ad name in two ad sets: prefer the one the lead names.
       const exact = row.ads.find((a) => norm(a.name) === norm(l.ad) && norm(a.adset) === norm(l.ad_group));
-      let ad = exact ?? row.ads.find((a) => norm(a.name) === norm(l.ad));
-      if (!ad) {
+      ad = exact ?? row.ads.find((a) => norm(a.name) === norm(l.ad));
+      if (!ad && !idOf(l.ad)) {
         ad = { key: `${row.key}|${norm(l.ad_group)}|${norm(l.ad)}`, name: l.ad, adset: l.ad_group, thumbnail: null, spend: 0, platformLeads: 0, leads: 0, won: 0, cpl: null, leadIds: [] };
         row.ads.push(ad);
       }
+    }
+    if (ad) {
       ad.leads++;
       ad.leadIds.push(l.id);
       if (l.status === "won") ad.won++;
     }
+    labels.set(l.id, { campaign: row.name, ad: ad?.name ?? (idOf(l.ad) ? null : l.ad), adset: ad?.adset ?? (idOf(l.ad_group) ? null : l.ad_group), thumbnail: ad?.thumbnail ?? null });
   }
 
   const out = Array.from(rows.values())
@@ -194,5 +229,6 @@ export function classifyLeads(leads: LeadForClassify[], campaigns: CampaignStat[
       cpl: cplOf(spend, paidLeads),
       unmatched,
     },
+    labels,
   };
 }

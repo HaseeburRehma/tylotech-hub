@@ -15,7 +15,13 @@ export interface SheetLead {
   createdAt: string | null;
   fields: LeadField[];
   tags: string[];
+  /** Campaign name or id (utm_campaign, else Google's gad_campaignid in the page URL). */
   campaign: string | null;
+  /** Ad set / ad group (utm_term) and ad (utm_content), names or ids. */
+  adGroup: string | null;
+  ad: string | null;
+  /** Google click id: resolved to campaign and ad group via Google Ads, never stored. */
+  gclid: string | null;
   form: string | null;
   platform: string;
   contact: { name: string | null; email: string | null; phone: string | null };
@@ -177,17 +183,23 @@ export function tabToLeads(tab: string, values: Cell[][], tz: string, textTz: st
     // Any other status (e.g. the team's own "abgeschlossen") stays visible as an answer.
     if (status && !PROGRESS.test(status)) fields.push({ label: "Status (Sheet)", value: status.slice(0, 200) });
 
-    const gclid = at(r, "gclid") || at(r, "gbraid") || at(r, "wbraid");
+    const gclid = at(r, "gclid");
+    const google = gclid || at(r, "gbraid") || at(r, "wbraid");
     const fb = at(r, "fbclid") || at(r, "fbc");
     const utmSource = at(r, "utmsource");
+    // Google auto-tagging puts the campaign id into the landing page URL.
+    const gadCampaign = r.map((v) => text(v).match(/[?&]gad_campaignid=(\d{5,20})/)?.[1]).find(Boolean) ?? null;
     out.push({
       externalId: externalId.slice(0, 200),
       createdAt: created,
       fields,
       tags,
-      campaign: at(r, "utmcampaign") || null,
+      campaign: (at(r, "utmcampaign") || gadCampaign || "").slice(0, 200) || null,
+      adGroup: at(r, "utmterm").slice(0, 200) || null,
+      ad: at(r, "utmcontent").slice(0, 200) || null,
+      gclid: /^[\w-]{20,200}$/.test(gclid) ? gclid : null,
       form: (formCol >= 0 && text(r[formCol])) || (retreat ? "Retreat-Bewerbung" : "Website-Formular"),
-      platform: gclid ? "google" : fb ? "facebook" : utmSource ? utmSource.toLowerCase().slice(0, 60) : "website",
+      platform: google ? "google" : fb ? "facebook" : utmSource ? utmSource.toLowerCase().slice(0, 60) : "website",
       contact,
       complete,
     });
@@ -217,6 +229,9 @@ export function mergeSheetLeads(lists: SheetLead[][]): SheetLead[] {
       for (const t of l.tags) if (!prev.tags.includes(t)) prev.tags.push(t);
       if (l.createdAt && (!prev.createdAt || l.createdAt < prev.createdAt)) prev.createdAt = l.createdAt;
       prev.campaign ??= l.campaign;
+      prev.adGroup ??= l.adGroup;
+      prev.ad ??= l.ad;
+      prev.gclid ??= l.gclid;
       if (prev.platform === "website" && l.platform !== "website") prev.platform = l.platform;
       prev.contact = {
         name: prev.contact.name ?? l.contact.name,
@@ -237,7 +252,8 @@ export function mergeSheetLeads(lists: SheetLead[][]): SheetLead[] {
 /** Fingerprint of what the sales team sees, to skip rows that didn't change. */
 export function leadFingerprint(l: SheetLead): string {
   return createHash("sha1")
-    .update(JSON.stringify([l.fields, l.tags, l.createdAt, l.campaign, l.form, l.platform]))
+    // Ad set / ad only when known, so older fingerprints stay valid.
+    .update(JSON.stringify([l.fields, l.tags, l.createdAt, l.campaign, l.form, l.platform, ...(l.adGroup || l.ad ? [l.adGroup, l.ad] : [])]))
     .digest("base64url")
     .slice(0, 16);
 }

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { alertNewLead } from "@/lib/lead-alerts";
 import { ingestLead, leadRow, logLeadActivity, type IncomingLead } from "@/lib/leads";
+import { googleClickAttribution } from "@/lib/integrations/campaigns";
 import { refreshGoogleAccessToken } from "@/lib/integrations/oauth";
 import { leadFingerprint, mergeSheetLeads, tabToLeads, type Cell, type SheetLead } from "@/lib/sheet-leads-parse";
 
@@ -28,6 +29,75 @@ export interface SheetConfig {
   hashes?: Record<string, string>;
   /** Set once the first import is through; until then only very fresh leads alert. */
   importedAt?: string;
+  /** gclid lookups per lead id: "campaignId|adGroupId" once found, "?<time of last try>" while not. */
+  clicks?: Record<string, string>;
+}
+
+// Google keeps click data 90 days and it shows up with a few hours' delay.
+const CLICK_MAX_AGE_MS = 89 * 86_400_000;
+const CLICK_RETRY_MS = 3 * 3_600_000;
+const CLICK_GIVE_UP_MS = 3 * 86_400_000;
+const berlinDay = (ms: number) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(new Date(ms));
+
+/**
+ * Website leads from Google ads often carry nothing but a gclid. Ask the
+ * partner's Google Ads account (click_view) which campaign and ad group each
+ * click came from, so the lead counts towards that campaign's cost per lead.
+ * Results are kept per lead; misses are retried while the lead is young.
+ */
+export async function resolveSheetClicks(admin: SupabaseClient, clientId: string, leads: SheetLead[], cache: Record<string, string>, deadline: number) {
+  const now = Date.now();
+  const todo = leads.filter((l) => {
+    if (!l.gclid || !l.createdAt) return false;
+    const age = now - Date.parse(l.createdAt);
+    const c = cache[l.externalId];
+    if (c && !c.startsWith("?")) return false;
+    if (age > CLICK_MAX_AGE_MS) return false;
+    // Not found before: only worth asking again while click data may still arrive.
+    return !c || (age < CLICK_GIVE_UP_MS && now - Date.parse(c.slice(1)) > CLICK_RETRY_MS);
+  });
+  if (!todo.length) return;
+  const { data: g } = await admin.from("integrations").select("refresh_token,meta").eq("client_id", clientId).eq("provider", "google_ads").eq("status", "connected").maybeSingle();
+  const meta = (g?.meta ?? {}) as { accountId?: string; loginCustomerId?: string };
+  if (!g?.refresh_token || !meta.accountId) return;
+  const token = await refreshGoogleAccessToken(g.refresh_token);
+  if (!token) return;
+
+  // A click from late yesterday can become a lead today: ask both days.
+  const byDay = new Map<string, Set<string>>();
+  for (const l of todo) {
+    const t = Date.parse(l.createdAt!);
+    for (const day of [berlinDay(t), berlinDay(t - 86_400_000)]) {
+      if (!byDay.has(day)) byDay.set(day, new Set());
+      byDay.get(day)!.add(l.gclid!);
+    }
+  }
+  const found = new Map<string, string>();
+  const asked = new Set<string>();
+  const days = Array.from(byDay.keys()).sort().reverse();
+  for (let i = 0; i < days.length && Date.now() < deadline; i += 4) {
+    await Promise.all(
+      days.slice(i, i + 4).map(async (day) => {
+        const ids = Array.from(byDay.get(day)!);
+        for (let j = 0; j < ids.length; j += 200) {
+          const r = await googleClickAttribution(token, meta.accountId!, meta.loginCustomerId, day, ids.slice(j, j + 200));
+          if ("error" in r) return;
+          r.clicks.forEach((v, gclid) => found.set(gclid, `${v.campaignId}|${v.adGroupId}`));
+        }
+        asked.add(day);
+      }),
+    );
+  }
+  const stamp = `?${new Date().toISOString()}`;
+  for (const l of todo) {
+    const hit = found.get(l.gclid!);
+    if (hit) cache[l.externalId] = hit;
+    else {
+      const t = Date.parse(l.createdAt!);
+      // Only a real miss when both days were answered.
+      if (asked.has(berlinDay(t)) && asked.has(berlinDay(t - 86_400_000))) cache[l.externalId] = stamp;
+    }
+  }
 }
 
 export class SheetError extends Error {
@@ -133,6 +203,16 @@ export async function syncSheetSource(
   // write them (German local time unless configured otherwise).
   const tz = cfg.timeZone || "Europe/Berlin";
   const leads = mergeSheetLeads(tabs.map((t) => tabToLeads(t, data[t] ?? [], tz, cfg.textTimeZone || "Europe/Berlin")));
+  // Campaign and ad group behind each Google click (at most a third of the time budget).
+  const clicks: Record<string, string> = { ...(cfg.clicks ?? {}) };
+  await resolveSheetClicks(admin, src.client_id, leads, clicks, t0 + budget / 3).catch(() => null);
+  for (const l of leads) {
+    const c = clicks[l.externalId];
+    if (!c || c.startsWith("?")) continue;
+    const [campaignId, adGroupId] = c.split("|");
+    l.campaign ??= campaignId || null;
+    l.adGroup ??= adGroupId || null;
+  }
   // Oldest first, so lead numbers follow the order people sent their forms.
   leads.sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
   const old = cfg.hashes ?? {};
@@ -166,6 +246,8 @@ export async function syncSheetSource(
     createdAt: l.createdAt,
     fields: l.fields,
     campaign: l.campaign,
+    adGroup: l.adGroup,
+    ad: l.ad,
     form: l.form,
     platform: l.platform,
     tags: l.tags,
@@ -230,6 +312,8 @@ export async function syncSheetSource(
     const patch: Record<string, unknown> = {
       fields: base.fields,
       campaign: base.campaign,
+      ad_group: base.ad_group,
+      ad: base.ad,
       form: base.form,
       platform: base.platform,
       updated_at: new Date().toISOString(),
@@ -267,7 +351,8 @@ export async function syncSheetSource(
   await admin
     .from("lead_sources")
     .update({
-      config: { ...curCfg, hashes: next, ...(res.pending === 0 && !curCfg.importedAt ? { importedAt: now } : {}) },
+      // Lookups only for leads still in the sheet.
+      config: { ...curCfg, hashes: next, clicks: Object.fromEntries(leads.filter((l) => clicks[l.externalId]).map((l) => [l.externalId, clicks[l.externalId]])), ...(res.pending === 0 && !curCfg.importedAt ? { importedAt: now } : {}) },
       last_synced_at: now,
       status: res.error ? "error" : "active",
       last_error: res.error ? `Einige Zeilen konnten nicht gespeichert werden: ${res.error.slice(0, 200)}` : null,

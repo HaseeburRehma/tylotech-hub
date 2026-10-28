@@ -89,4 +89,38 @@ describe("classifyLeads", () => {
     expect(rows.map((r) => r.name)).toEqual(["Search DE", "Franchise Ads", "Website / direkt"]);
     expect(rows[1].leadIds).toHaveLength(1);
   });
+
+  it("matches by id: Meta campaign / ad ids from utm, Google campaign + ad group ids from the click", () => {
+    const camps: CampaignStat[] = [
+      { ...META[0], id: "120255826547290348", name: "Retreat Kampagne - Web Form", ads: [{ ...META[0].ads[0], id: "120255859650460348", name: "Retreat Video", adset: "Broad DE" }] },
+      { ...GOOGLE[0], id: "24000570148", name: "LOH - Keine Wartezeit + Test", ads: [{ ...GOOGLE[0].ads[0], id: "201124111674", name: "Keine Wartezeit" }] },
+    ];
+    const meta = lead({ source: "webhook", platform: "facebook", campaign: "120255826547290348", ad_group: "120255826547300348", ad: "120255859650460348" });
+    const google = lead({ source: "webhook", platform: "google", campaign: "24000570148", ad_group: "201124111674", ad: null });
+    const { rows, labels, totals } = classifyLeads([meta, google], camps, "en");
+    const retreat = rows.find((r) => r.name === "Retreat Kampagne - Web Form")!;
+    expect(retreat.leads).toBe(1);
+    expect(retreat.ads[0]).toMatchObject({ name: "Retreat Video", leads: 1 });
+    expect(rows.find((r) => r.kind === "google")!.ads[0]).toMatchObject({ name: "Keine Wartezeit", leads: 1 });
+    expect(totals.unmatched).toBe(0);
+    expect(labels.get(meta.id)).toEqual({ campaign: "Retreat Kampagne - Web Form", ad: "Retreat Video", adset: "Broad DE", thumbnail: "https://x/1.jpg" });
+    expect(labels.get(google.id)).toMatchObject({ campaign: "LOH - Keine Wartezeit + Test", ad: "Keine Wartezeit" });
+  });
+
+  it("an unknown ad id doesn't become a creative named by a number", () => {
+    const l = lead({ source: "webhook", platform: "facebook", campaign: "Franchise Ads", ad_group: "120299999999999990", ad: "120299999999999999" });
+    const { rows, labels } = classifyLeads([l], META);
+    const r = rows.find((x) => x.name === "Franchise Ads")!;
+    expect(r.leads).toBe(1);
+    expect(r.ads.some((a) => /^\d+$/.test(a.name))).toBe(false);
+    expect(labels.get(l.id)).toMatchObject({ campaign: "Franchise Ads", ad: null, adset: null });
+  });
+
+  it("an id with no spend in the range stays in its arrival group, no label", () => {
+    const l = lead({ source: "webhook", platform: "google", campaign: "24145005768", ad_group: null, ad: null });
+    const { rows, labels } = classifyLeads([l], GOOGLE, "en");
+    expect(rows.map((r) => r.name)).toContain("Website, via Google ad");
+    expect(labels.has(l.id)).toBe(false);
+  });
 });
+

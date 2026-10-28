@@ -7,6 +7,8 @@ vi.mock("@/lib/auth", () => ({ getAuthUser: vi.fn(), isStaff: () => true }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => null }));
 const refresh = vi.fn(async (t: string) => (t === "rt-ok" ? "at-ok" : null));
 vi.mock("@/lib/integrations/oauth", () => ({ refreshGoogleAccessToken: (t: string) => refresh(t) }));
+const clickLookup = vi.fn();
+vi.mock("@/lib/integrations/campaigns", () => ({ googleClickAttribution: (...a: unknown[]) => clickLookup(...a) }));
 
 import { syncSheetLeads, syncSheetSource, type SheetConfig } from "./leads-sheets";
 
@@ -209,3 +211,104 @@ describe("syncSheetLeads", () => {
     expect(r.added).toBe(5);
   });
 });
+
+describe("Google clicks → campaign and ad group", () => {
+  const HEAD = ["LeadID", "Zeitstempel", "Vorname", "Telefon", "gclid", "Seite", "utm_campaign", "utm_term", "utm_content"];
+  const G1 = "Cj0KCQjwAAAAAAAAAAAAAAAAAAAA1";
+  const G2 = "Cj0KCQjwBBBBBBBBBBBBBBBBBBBB2";
+  const G3 = "Cj0KCQjwCCCCCCCCCCCCCCCCCCCC3";
+  // Which (day, gclid) Google Ads knows.
+  let known: Record<string, Record<string, { campaignId: string; adGroupId: string }>>;
+  let failDays: Set<string>;
+  beforeEach(() => {
+    tabs = {
+      Leads: [
+        HEAD,
+        ["lead_a_00000000001", "2026-10-27 11:00:00", "Anna", "0151 1", G1, "/tt-online", "", "", ""],
+        ["lead_b_00000000001", "2026-10-26 12:00:00", "Ben", "0151 2", G2, "/keinewartezeit", "", "", ""],
+        ["lead_c_00000000001", "2026-10-25 09:00:00", "Cem", "0151 3", G3, "https://lightofhope.foundation/tt-online?gad_source=1&gad_campaignid=24145005768&gclid=x", "", "", ""],
+        ["lead_d_00000000001", "2026-10-27 08:00:00", "Dana", "0151 4", "", "/lebensretreat", "120255826547290348", "120255826547300348", "120255859650460348"],
+      ],
+    };
+    known = { "2026-10-27": { [G1]: { campaignId: "111", adGroupId: "222" } }, "2026-10-24": { [G3]: { campaignId: "24145005768", adGroupId: "333" } } };
+    failDays = new Set();
+    clickLookup.mockReset().mockImplementation(async (_t: string, _c: string, _l: string, day: string, ids: string[]) => {
+      if (failDays.has(day)) return { error: "Google Ads request failed." };
+      return { clicks: new Map(ids.filter((g) => known[day]?.[g]).map((g) => [g, known[day][g]])) };
+    });
+    db.integrations = [{ client_id: CLIENT, provider: "google_ads", status: "connected", refresh_token: "rt-ok", meta: { accountId: "185-986-0474", loginCustomerId: "132-838-6899" } }];
+  });
+
+  it("resolves gclids to campaign + ad group ids (lead day and the day before), keeps utm and gad ids", async () => {
+    await syncSheetSource(admin, source());
+    expect(lead("lead_a_00000000001")).toMatchObject({ campaign: "111", ad_group: "222", platform: "google" });
+    expect(lead("lead_b_00000000001")).toMatchObject({ campaign: null, ad_group: null });
+    // Campaign from the landing page URL, ad group from the click (clicked the evening before).
+    expect(lead("lead_c_00000000001")).toMatchObject({ campaign: "24145005768", ad_group: "333" });
+    expect(lead("lead_d_00000000001")).toMatchObject({ campaign: "120255826547290348", ad_group: "120255826547300348", ad: "120255859650460348" });
+    const days = clickLookup.mock.calls.map((c) => c[3]).sort();
+    expect(days).toEqual(["2026-10-24", "2026-10-25", "2026-10-26", "2026-10-27"]);
+    expect(clickLookup.mock.calls[0].slice(0, 3)).toEqual(["at-ok", "185-986-0474", "132-838-6899"]);
+    const c = cfgNow().clicks!;
+    expect(c["lead_a_00000000001"]).toBe("111|222");
+    expect(c["lead_b_00000000001"]).toMatch(/^\?2026-10-27T10:30/);
+    expect(c["lead_d_00000000001"]).toBeUndefined();
+    // The click id itself is never stored as an answer.
+    expect(JSON.stringify(db.leads)).not.toContain(G1);
+  });
+
+  it("asks Google once per lead; a miss is retried after 3 h while the lead is under 3 days old", async () => {
+    await syncSheetSource(admin, source());
+    clickLookup.mockClear();
+    await syncSheetSource(admin, db.lead_sources[0] as any);
+    expect(clickLookup).not.toHaveBeenCalled();
+
+    vi.setSystemTime(new Date("2026-10-27T14:00:00Z"));
+    known["2026-10-26"] = { [G2]: { campaignId: "444", adGroupId: "555" } };
+    await syncSheetSource(admin, db.lead_sources[0] as any);
+    expect(clickLookup.mock.calls.map((c) => c[4]).flat()).toEqual([G2, G2]);
+    expect(lead("lead_b_00000000001")).toMatchObject({ campaign: "444", ad_group: "555" });
+  });
+
+  it("gives up on a click after 3 days", async () => {
+    known = {};
+    await syncSheetSource(admin, source());
+    clickLookup.mockClear();
+    vi.setSystemTime(new Date("2026-10-31T10:30:00Z"));
+    await syncSheetSource(admin, db.lead_sources[0] as any);
+    expect(clickLookup).not.toHaveBeenCalled();
+  });
+
+  it("a failed Google day isn't a miss: those leads are asked again next run", async () => {
+    failDays = new Set(["2026-10-26"]);
+    await syncSheetSource(admin, source());
+    const c = cfgNow().clicks!;
+    expect(c["lead_a_00000000001"]).toBe("111|222");
+    expect(c["lead_b_00000000001"]).toBeUndefined();
+    failDays.clear();
+    clickLookup.mockClear();
+    await syncSheetSource(admin, db.lead_sources[0] as any);
+    expect(clickLookup.mock.calls.length).toBeGreaterThan(0);
+    expect(cfgNow().clicks!["lead_b_00000000001"]).toMatch(/^\?/);
+  });
+
+  it("without a connected Google Ads account nothing is looked up, leads still arrive", async () => {
+    db.integrations = [];
+    const r = await syncSheetSource(admin, source());
+    expect(clickLookup).not.toHaveBeenCalled();
+    expect(r.added).toBe(4);
+    expect(lead("lead_a_00000000001")).toMatchObject({ campaign: null, platform: "google" });
+  });
+
+  it("a found campaign updates a lead imported before the lookup (once)", async () => {
+    db.integrations = [];
+    await syncSheetSource(admin, source());
+    expect(lead("lead_a_00000000001").campaign).toBeNull();
+    db.integrations = [{ client_id: CLIENT, provider: "google_ads", status: "connected", refresh_token: "rt-ok", meta: { accountId: "185-986-0474" } }];
+    const r = await syncSheetSource(admin, db.lead_sources[0] as any);
+    expect(lead("lead_a_00000000001")).toMatchObject({ campaign: "111", ad_group: "222" });
+    expect(r.updated).toBe(2); // A and C got their ad groups
+    expect(alerts.filter((a) => a.name === "Anna")).toHaveLength(1);
+  });
+});
+

@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/input";
 import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { LEAD_STATUSES, dialable, prettyLabel, type Lead, type LeadActivity, type LeadPerson, type LeadStatus } from "@/lib/leads-shared";
 import { createClient } from "@/lib/supabase/client";
+import type { LeadLabel } from "@/lib/campaign-classify";
 import { cn } from "@/lib/utils";
 import { LeadTags, STATUS_VARIANT, SourceBadge, fmtDateTime } from "./lead-bits";
 
@@ -45,6 +46,9 @@ async function call(url: string, method: string, body?: unknown) {
   return { ok: !!res?.ok, data, error: (data.error as string | undefined) ?? null };
 }
 
+/** "Name (id)" when a stored id resolved to a name, else what is stored. */
+const named = (name: string | null | undefined, stored: string | null) => (name && stored && name !== stored ? (/^\d{5,24}$/.test(stored) ? `${name} (${stored})` : stored) : stored ?? name ?? null);
+
 export function LeadDrawer({
   lead,
   people,
@@ -52,8 +56,11 @@ export function LeadDrawer({
   onClose,
   onChange,
   onDeleted,
+  label,
 }: {
   lead: Lead;
+  /** Names the lead's campaign / ad ids resolved to (Leads page, for the chosen period). */
+  label?: LeadLabel;
   people: LeadPerson[];
   staff: boolean;
   onClose: () => void;
@@ -344,9 +351,10 @@ export function LeadDrawer({
             <p className="eyebrow mb-2">{t("leads.origin")}</p>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
               {[
-                [t("leads.f.campaign"), lead.campaign],
-                [t("leads.f.adGroup"), lead.ad_group],
-                [t("leads.f.ad"), lead.ad],
+                [t("leads.f.campaign"), named(label?.campaign, lead.campaign)],
+                // Google: the "ad" a lead resolves to is its ad group.
+                [t("leads.f.adGroup"), named(label?.adset ?? (lead.ad ? null : label?.ad), lead.ad_group)],
+                [t("leads.f.ad"), lead.ad ? named(label?.ad, lead.ad) : null],
                 [t("leads.f.form"), lead.form],
                 [t("leads.f.platform"), lead.platform],
                 [t("leads.f.received"), fmtDateTime(lead.received_at)],

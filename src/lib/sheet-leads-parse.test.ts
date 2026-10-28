@@ -183,3 +183,44 @@ describe("helpers", () => {
     expect(looksLikeLeadTab(["Kampagne", "Kosten"])).toBe(false);
   });
 });
+
+describe("ad tracking", () => {
+  it("Google: campaign id from gad_campaignid in the page URL; the gclid is kept aside, not shown", () => {
+    const [l] = tabToLeads(
+      "Google",
+      [
+        ["LeadID", "Zeitstempel", "Vorname", "Telefon", "Seite", "gclid"],
+        ["lead_x_0000000001", "2026-10-27 10:00:00", "Ida", "0151 1", "https://www.example.org/tt-online?gad_source=1&gad_campaignid=24145005768&gclid=Cj0KCQjwXXXXXXXXXXXXXXXX", "Cj0KCQjwXXXXXXXXXXXXXXXX"],
+      ],
+      TZ,
+    );
+    expect(l).toMatchObject({ campaign: "24145005768", adGroup: null, ad: null, gclid: "Cj0KCQjwXXXXXXXXXXXXXXXX", platform: "google" });
+    expect(JSON.stringify(l.fields)).not.toMatch(/gclid|Cj0KCQ|gad_campaignid/);
+  });
+
+  it("Meta: utm_campaign / utm_term / utm_content ids become campaign, ad set and ad", () => {
+    const [l] = tabToLeads(
+      "Retreat Leads",
+      [
+        ["LeadID", "Zeitstempel", "Vorname", "E-Mail", "utm_source", "utm_campaign", "utm_term", "utm_content", "fbclid"],
+        ["r-0000000000001", "2026-10-27 10:00:00", "Lena", "lena@example.de", "ig", "120255826547290348", "120255826547300348", "120255859650460348", "IwZX"],
+      ],
+      TZ,
+    );
+    expect(l).toMatchObject({ campaign: "120255826547290348", adGroup: "120255826547300348", ad: "120255859650460348", gclid: null, platform: "facebook" });
+  });
+
+  it("a junk gclid (too short, odd characters) is not looked up", () => {
+    const [l] = tabToLeads("T", [["LeadID", "Vorname", "Telefon", "gclid"], ["lead_y_0000000001", "Ute", "0151", "x' OR 1=1"]], TZ);
+    expect(l.gclid).toBeNull();
+    expect(l.platform).toBe("google");
+  });
+
+  it("leads without ad set / ad keep their old fingerprint (no mass re-update)", async () => {
+    const { createHash } = await import("node:crypto");
+    const [l] = tabToLeads("Google", GOOGLE_TAB, TZ);
+    const old = createHash("sha1").update(JSON.stringify([l.fields, l.tags, l.createdAt, l.campaign, l.form, l.platform])).digest("base64url").slice(0, 16);
+    expect(leadFingerprint(l)).toBe(old);
+    expect(leadFingerprint({ ...l, adGroup: "1" })).not.toBe(old);
+  });
+});

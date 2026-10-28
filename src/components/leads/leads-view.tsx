@@ -3,7 +3,7 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, CalendarClock, Download, Inbox, Plug, Plus, Search, Sparkles, Trophy, UserPlus, Users, X } from "lucide-react";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { FilterMenu } from "@/components/ui/filter-menu";
-import { classifyLeads, norm, type CampaignStat } from "@/lib/campaign-classify";
+import { classifyLeads, type CampaignStat } from "@/lib/campaign-classify";
 import { inRange, presetRange, type DateRange } from "@/lib/date-range";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -196,12 +196,6 @@ export function LeadsView({
   // Leads of the period: the base for the campaign breakdown and the table.
   const inPeriod = useMemo(() => leads.filter((l) => inRange(l.created_at, range)), [leads, range]);
   const classified = useMemo(() => classifyLeads(inPeriod, campData?.campaigns ?? [], dl.startsWith("de") ? "de" : "en"), [inPeriod, campData, dl]);
-  // Creative thumbnail per campaign + ad name, for the table rows.
-  const thumbOf = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const c of campData?.campaigns ?? []) for (const a of c.ads) if (a.thumbnail) m.set(`${norm(c.name)}|${norm(a.name)}`, a.thumbnail);
-    return m;
-  }, [campData]);
   const selectedIds = useMemo(() => (selection ? new Set(selection.leadIds) : null), [selection]);
 
   const shown = useMemo(() => {
@@ -506,7 +500,9 @@ export function LeadsView({
             })}
           </div>
           <ul className="divide-y divide-border">
-            {pageRows.map((l) => (
+            {pageRows.map((l) => {
+              const lab = classified.labels.get(l.id);
+              return (
               <li key={l.id}>
                 {/* A row, not a button: it holds its own buttons (status, owner, WhatsApp). */}
                 <div
@@ -537,14 +533,14 @@ export function LeadsView({
                     <span className="flex min-w-0 items-center gap-1.5">
                       <SourceBadge lead={l} />
                       <LeadTags tags={l.tags} max={2} />
-                      <span className="truncate text-xs font-medium text-foreground" title={l.campaign ?? l.form ?? ""}>
-                        {l.campaign ?? l.form ?? ""}
+                      <span className="truncate text-xs font-medium text-foreground" title={lab?.campaign ?? l.campaign ?? l.form ?? ""}>
+                        {lab?.campaign ?? l.campaign ?? l.form ?? ""}
                       </span>
                     </span>
-                    {l.ad && (
-                      <span className="mt-1 flex min-w-0 items-center gap-1.5" title={[l.ad_group, l.ad].filter(Boolean).join(" › ")}>
-                        <AdThumb src={thumbOf.get(`${norm(l.campaign)}|${norm(l.ad)}`) ?? null} size={18} />
-                        <span className="truncate text-xs text-muted">{l.ad}</span>
+                    {(lab ? lab.ad : l.ad) && (
+                      <span className="mt-1 flex min-w-0 items-center gap-1.5" title={[lab ? lab.adset : l.ad_group, lab ? lab.ad : l.ad].filter(Boolean).join(" › ")}>
+                        <AdThumb src={lab?.thumbnail ?? null} size={18} />
+                        <span className="truncate text-xs text-muted">{lab ? lab.ad : l.ad}</span>
                       </span>
                     )}
                   </span>
@@ -563,7 +559,8 @@ export function LeadsView({
                   </span>
                 </div>
               </li>
-            ))}
+            );
+            })}
           </ul>
           <div className="flex flex-col items-center justify-between gap-3 border-t border-border px-4 py-3 sm:flex-row">
             <div className="flex items-center gap-3 text-xs text-muted">
@@ -593,6 +590,7 @@ export function LeadsView({
       {open && (
         <LeadDrawer
           lead={open}
+          label={classified.labels.get(open.id)}
           people={people}
           staff={staff}
           onClose={() => {
