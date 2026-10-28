@@ -48,17 +48,23 @@ export async function metaCampaignStats(token: string, accountId: string, since:
   let warning: string | undefined;
   const ids = Array.from(new Set(rows.map((r) => String(r.ad_id ?? "")).filter(Boolean)));
   for (let i = 0; i < ids.length; i += 50) {
-    const q = new URLSearchParams({ ids: ids.slice(i, i + 50).join(","), fields: "creative{thumbnail_url,image_url}", access_token: token });
-    const res = await fetchWithRetry(`${base}/?${q}`, { cache: "no-store" }).catch(() => null);
+    // `?ids=` batch reads are gone in newer Graph versions: ask the ad account for these ads.
+    const q = new URLSearchParams({
+      fields: "id,creative{thumbnail_url,image_url}",
+      filtering: JSON.stringify([{ field: "id", operator: "IN", value: ids.slice(i, i + 50) }]),
+      limit: "50",
+      access_token: token,
+    });
+    const res = await fetchWithRetry(`${base}/${acct}/ads?${q}`, { cache: "no-store" }).catch(() => null);
     if (!res?.ok) {
       // Thumbnails are a nice-to-have: keep the numbers, say why pictures are missing.
       warning ??= `Thumbnails: ${(await errorFor(res)).detail ?? "unavailable"}`;
       continue;
     }
     const j: any = await res.json().catch(() => null);
-    for (const [id, ad] of Object.entries(j ?? {})) {
-      const url = (ad as any)?.creative?.thumbnail_url ?? (ad as any)?.creative?.image_url;
-      if (typeof url === "string" && url.startsWith("https://")) thumbs.set(id, url);
+    for (const ad of (j?.data ?? []) as any[]) {
+      const url = ad?.creative?.thumbnail_url ?? ad?.creative?.image_url;
+      if (ad?.id && typeof url === "string" && url.startsWith("https://")) thumbs.set(String(ad.id), url);
     }
   }
 
