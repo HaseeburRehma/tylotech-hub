@@ -88,6 +88,6 @@ describe("GET /api/leads/campaigns", () => {
   it("no ad accounts connected: empty, not an error", async () => {
     rows = [];
     const body = await (await call("")).json();
-    expect(body).toMatchObject({ campaigns: [], errors: [], connected: [] });
+    expect(body).toMatchObject({ campaigns: [], errors: [], warnings: [], connected: [] });
   });
 });

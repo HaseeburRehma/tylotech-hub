@@ -59,15 +59,17 @@ export async function GET(req: Request) {
   const done = await Promise.all(jobs);
   const campaigns: CampaignStat[] = [];
   const errors: { provider: string; error: string }[] = [];
+  const warnings: string[] = [];
   let currency = "EUR";
   for (const d of done) {
     if ("error" in d.result) errors.push({ provider: d.provider, error: d.result.error.slice(0, 200) });
     else {
       campaigns.push(...d.result.campaigns);
+      if (d.result.warning) warnings.push(d.result.warning.slice(0, 200));
       currency = d.result.currency || currency;
     }
   }
-  const body = { from, to, currency, campaigns, errors, connected: done.map((d) => d.provider) };
+  const body = { from, to, currency, campaigns, errors, warnings, connected: done.map((d) => d.provider) };
   // Only cache complete answers; a failed platform is retried on the next request.
   if (!errors.length) cache.set(key, { at: Date.now(), body });
   if (cache.size > 500) cache.delete(cache.keys().next().value as string);

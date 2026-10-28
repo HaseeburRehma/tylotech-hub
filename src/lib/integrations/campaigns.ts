@@ -9,7 +9,7 @@ import type { AdStat, CampaignStat } from "@/lib/campaign-classify";
  * the same days (account time zone).
  */
 
-export type StatsResult = { campaigns: CampaignStat[]; currency: string } | { error: string };
+export type StatsResult = { campaigns: CampaignStat[]; currency: string; warning?: string } | { error: string };
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -45,12 +45,17 @@ export async function metaCampaignStats(token: string, accountId: string, since:
 
   // Creative thumbnails, 50 ads per request.
   const thumbs = new Map<string, string>();
+  let warning: string | undefined;
   const ids = Array.from(new Set(rows.map((r) => String(r.ad_id ?? "")).filter(Boolean)));
   for (let i = 0; i < ids.length; i += 50) {
     const q = new URLSearchParams({ ids: ids.slice(i, i + 50).join(","), fields: "creative{thumbnail_url,image_url}", access_token: token });
-    const j: any = await fetchWithRetry(`${base}/?${q}`, { cache: "no-store" })
-      .then((r) => (r?.ok ? r.json() : null))
-      .catch(() => null);
+    const res = await fetchWithRetry(`${base}/?${q}`, { cache: "no-store" }).catch(() => null);
+    if (!res?.ok) {
+      // Thumbnails are a nice-to-have: keep the numbers, say why pictures are missing.
+      warning ??= `Thumbnails: ${(await errorFor(res)).detail ?? "unavailable"}`;
+      continue;
+    }
+    const j: any = await res.json().catch(() => null);
     for (const [id, ad] of Object.entries(j ?? {})) {
       const url = (ad as any)?.creative?.thumbnail_url ?? (ad as any)?.creative?.image_url;
       if (typeof url === "string" && url.startsWith("https://")) thumbs.set(id, url);
@@ -82,7 +87,7 @@ export async function metaCampaignStats(token: string, accountId: string, since:
     c.platformLeads += ad.platformLeads;
   }
   const campaigns = Array.from(byCampaign.values()).map((c) => ({ ...c, spend: round2(c.spend), ads: c.ads.sort((a, b) => b.spend - a.spend) }));
-  return { campaigns, currency: String(acc?.currency ?? "EUR") };
+  return { campaigns, currency: String(acc?.currency ?? "EUR"), ...(warning ? { warning } : {}) };
 }
 
 /** Google Ads: campaign + ad group level (ad groups stand in for creatives). */
