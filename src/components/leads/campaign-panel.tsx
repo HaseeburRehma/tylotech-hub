@@ -57,6 +57,7 @@ export function CampaignPanel({
   selected,
   onSelect,
   integrationsHref,
+  colors,
 }: {
   rows: CampaignRow[];
   totals: { spend: number; leads: number; platformLeads: number; cpl: number | null; unmatched: number };
@@ -67,6 +68,8 @@ export function CampaignPanel({
   selected: CampaignSelection | null;
   onSelect: (s: CampaignSelection | null) => void;
   integrationsHref: string;
+  /** Row key → color, the same as the stripe on its leads below. */
+  colors?: Map<string, string>;
 }) {
   const t = useT();
   const locale = useIntlLocale();
@@ -171,6 +174,7 @@ export function CampaignPanel({
                         >
                           {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </button>
+                        {colors?.get(r.key) && <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: colors.get(r.key) }} />}
                         <PlatformBadge kind={r.kind} />
                         <button
                           type="button"

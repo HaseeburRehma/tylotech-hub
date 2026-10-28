@@ -113,7 +113,13 @@ export function classifyLeads(
   leads: LeadForClassify[],
   campaigns: CampaignStat[],
   lang: "de" | "en" = "de",
-): { rows: CampaignRow[]; totals: { spend: number; leads: number; platformLeads: number; cpl: number | null; unmatched: number }; labels: Map<string, LeadLabel> } {
+): {
+  rows: CampaignRow[];
+  totals: { spend: number; leads: number; platformLeads: number; cpl: number | null; unmatched: number };
+  labels: Map<string, LeadLabel>;
+  /** Row key per counted lead (campaign or arrival group), for its color. */
+  groupOf: Map<string, string>;
+} {
   const counted = leads.filter((l) => !l.is_test && l.status !== "invalid");
   const rows = new Map<string, CampaignRow>();
   // Ids → the row / ad they belong to (several campaign ids can share a name row).
@@ -154,6 +160,7 @@ export function classifyLeads(
 
   let unmatched = 0;
   const labels = new Map<string, LeadLabel>();
+  const groupOf = new Map<string, string>();
   for (const l of counted) {
     const platformKey = l.source === "meta" || ["facebook", "instagram"].includes((l.platform ?? "").toLowerCase()) ? "meta" : "google";
     const campaignId = idOf(l.campaign);
@@ -180,6 +187,7 @@ export function classifyLeads(
     }
     row.leads++;
     row.leadIds.push(l.id);
+    groupOf.set(l.id, row.key);
     if (l.status === "won") row.won++;
     if (row.spend === null) continue;
     // The ad by id (Meta ad id; for Google the ad group id), else by name.
@@ -230,5 +238,37 @@ export function classifyLeads(
       unmatched,
     },
     labels,
+    groupOf,
   };
 }
+
+/** One color per campaign (stripe on the lead, dot in the campaign list); distinct for up to 12. */
+export const CLASS_COLORS = ["#3B82F6", "#F97316", "#8B5CF6", "#10B981", "#EC4899", "#06B6D4", "#EAB308", "#EF4444", "#6366F1", "#84CC16", "#14B8A6", "#F43F5E"];
+/** Leads not tied to a campaign (website direct, unmatched clicks, manual). */
+export const UNCLASSIFIED_COLOR = "#94A3B8";
+
+/**
+ * Color per row key. Seeded by the key, so a campaign keeps its color when the
+ * period changes; collisions move to the next free color.
+ */
+export function classColors(keys: string[]): Map<string, string> {
+  const out = new Map<string, string>();
+  const used = new Set<number>();
+  const hash = (k: string) => {
+    let h = 2166136261;
+    for (let i = 0; i < k.length; i++) h = Math.imul(h ^ k.charCodeAt(i), 16777619);
+    return (h >>> 0) % CLASS_COLORS.length;
+  };
+  for (const k of Array.from(new Set(keys)).sort()) {
+    if (k.startsWith("group:")) {
+      out.set(k, UNCLASSIFIED_COLOR);
+      continue;
+    }
+    let i = hash(k);
+    for (let n = 0; n < CLASS_COLORS.length && used.has(i); n++) i = (i + 1) % CLASS_COLORS.length;
+    used.add(i);
+    out.set(k, CLASS_COLORS[i]);
+  }
+  return out;
+}
+

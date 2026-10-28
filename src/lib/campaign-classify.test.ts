@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyLeads, type CampaignStat, type LeadForClassify } from "./campaign-classify";
+import { CLASS_COLORS, UNCLASSIFIED_COLOR, classColors, classifyLeads, type CampaignStat, type LeadForClassify } from "./campaign-classify";
 
 const META: CampaignStat[] = [
   {
@@ -121,6 +121,34 @@ describe("classifyLeads", () => {
     const { rows, labels } = classifyLeads([l], GOOGLE, "en");
     expect(rows.map((r) => r.name)).toContain("Website, via Google ad");
     expect(labels.has(l.id)).toBe(false);
+  });
+});
+
+describe("classColors", () => {
+  it("distinct colors per campaign, grey for leads without a campaign", () => {
+    const keys = Array.from({ length: 12 }, (_, i) => `meta:campaign ${i}`).concat("group:website", "group:website_google");
+    const c = classColors(keys);
+    const campaignColors = keys.slice(0, 12).map((k) => c.get(k));
+    expect(new Set(campaignColors).size).toBe(12);
+    expect(campaignColors.every((x) => CLASS_COLORS.includes(x!))).toBe(true);
+    expect(c.get("group:website")).toBe(UNCLASSIFIED_COLOR);
+  });
+
+  it("a campaign keeps its color whatever order the rows come in", () => {
+    const a = classColors(["meta:a", "google:b", "meta:c"]);
+    const b = classColors(["meta:c", "meta:a", "google:b"]);
+    expect(Array.from(a.entries()).sort()).toEqual(Array.from(b.entries()).sort());
+  });
+
+  it("every counted lead has a group; test and invalid leads none", () => {
+    const ok = lead({});
+    const test = lead({ is_test: true });
+    const bad = lead({ status: "invalid" });
+    const web = lead({ source: "webhook", platform: null, campaign: null, ad: null, ad_group: null });
+    const { groupOf } = classifyLeads([ok, test, bad, web], META);
+    expect(groupOf.get(ok.id)).toBe("meta:franchise ads");
+    expect(groupOf.get(web.id)).toBe("group:website");
+    expect(groupOf.has(test.id) || groupOf.has(bad.id)).toBe(false);
   });
 });
 

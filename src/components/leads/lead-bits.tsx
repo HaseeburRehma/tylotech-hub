@@ -42,7 +42,16 @@ export function SourceBadge({ lead }: { lead: Pick<Lead, "source" | "platform"> 
   return <span className={cn("inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-caption font-semibold", color)}>{name}</span>;
 }
 
-/** Labels from the source ("Vollständig", "Teil-Lead", "Retreat"): finished green, partial amber. */
+/** Color of a source label: finished green, partial amber, anonymous grey, retreat / application violet. */
+export function tagClass(tag: string) {
+  if (/anonym/i.test(tag)) return "bg-surface-2 text-muted";
+  if (/vollst|complete/i.test(tag)) return "bg-success/15 text-success";
+  if (/teil|partial/i.test(tag)) return "bg-warning/15 text-warning";
+  if (/retreat|bewerbung|application/i.test(tag)) return "bg-[#8B5CF6]/15 text-[#8B5CF6]";
+  return "bg-surface-2 text-foreground";
+}
+
+/** Labels from the source ("Vollständig", "Teil-Lead", "Retreat"). */
 export function LeadTags({ tags, max }: { tags?: string[] | null; max?: number }) {
   if (!tags?.length) return null;
   const shown = max ? tags.slice(0, max) : tags;
@@ -53,7 +62,7 @@ export function LeadTags({ tags, max }: { tags?: string[] | null; max?: number }
           key={tag}
           className={cn(
             "inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-caption font-medium",
-            /vollst|complete/i.test(tag) ? "bg-success/15 text-success" : /teil|partial/i.test(tag) ? "bg-warning/15 text-warning" : "bg-surface-2 text-foreground",
+            tagClass(tag),
           )}
         >
           {tag}

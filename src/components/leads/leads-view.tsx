@@ -3,8 +3,8 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, CalendarClock, Download, Inbox, Plug, Plus, Search, Sparkles, Trophy, UserPlus, Users, X } from "lucide-react";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { FilterMenu } from "@/components/ui/filter-menu";
-import { classifyLeads, type CampaignStat } from "@/lib/campaign-classify";
-import { inRange, presetRange, type DateRange } from "@/lib/date-range";
+import { classColors, classifyLeads, type CampaignStat } from "@/lib/campaign-classify";
+import { berlinToday, inRange, presetRange, type DateRange } from "@/lib/date-range";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
@@ -78,6 +78,8 @@ export function LeadsView({
   const [source, setSource] = useState<"all" | Lead["source"]>("all");
   const [owner, setOwner] = useState<OwnerFilter>("all");
   const [tag, setTag] = useState<string>("all");
+  // Quick filter: only leads that came in today (Berlin).
+  const [todayOnly, setTodayOnly] = useState(false);
   const [range, setRange] = useState<DateRange>(() => presetRange("maximum"));
   const [selection, setSelection] = useState<CampaignSelection | null>(null);
   const [campData, setCampData] = useState<CampaignData | null>(null);
@@ -197,6 +199,11 @@ export function LeadsView({
   const inPeriod = useMemo(() => leads.filter((l) => inRange(l.created_at, range)), [leads, range]);
   const classified = useMemo(() => classifyLeads(inPeriod, campData?.campaigns ?? [], dl.startsWith("de") ? "de" : "en"), [inPeriod, campData, dl]);
   const selectedIds = useMemo(() => (selection ? new Set(selection.leadIds) : null), [selection]);
+  // One color per campaign: the stripe on each lead and the dot in the campaign list.
+  const colors = useMemo(() => classColors(classified.rows.map((r) => r.key)), [classified]);
+  const today = berlinToday();
+  const isToday = (iso: string) => berlinToday(new Date(iso)) === today;
+  const todayCount = useMemo(() => inPeriod.filter((l) => !l.is_test && berlinToday(new Date(l.created_at)) === today).length, [inPeriod, today]);
 
   const shown = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -208,13 +215,14 @@ export function LeadsView({
       if (owner === "none" && l.assigned_to) return false;
       if (owner !== "all" && owner !== "me" && owner !== "none" && l.assigned_to !== owner) return false;
       if (tag !== "all" && !(l.tags ?? []).includes(tag)) return false;
+      if (todayOnly && berlinToday(new Date(l.created_at)) !== today) return false;
       if (!term) return true;
       return (
         String(l.lead_no) === term.replace(/^#/, "") ||
         [l.name, l.email, l.phone, l.campaign, l.ad_group, l.ad, l.form, ...(l.tags ?? []), ...l.fields.map((f) => f.value)].some((v) => v?.toLowerCase().includes(term))
       );
     });
-  }, [inPeriod, selectedIds, q, status, source, owner, tag, user.id]);
+  }, [inPeriod, selectedIds, q, status, source, owner, tag, todayOnly, today, user.id]);
 
   // Sorted, then cut into pages.
   const sorted = useMemo(() => {
@@ -256,15 +264,16 @@ export function LeadsView({
   const last = Math.min(current * pageSize, sorted.length);
 
   // New filters or order: back to the first page.
-  useEffect(() => setPage(1), [q, status, source, owner, tag, range, selection, sort, pageSize]);
+  useEffect(() => setPage(1), [q, status, source, owner, tag, todayOnly, range, selection, sort, pageSize]);
 
-  const filtersActive = q.trim() !== "" || status !== "open" || source !== "all" || owner !== "all" || tag !== "all" || range.preset !== "maximum" || !!selection;
+  const filtersActive = q.trim() !== "" || status !== "open" || source !== "all" || owner !== "all" || tag !== "all" || todayOnly || range.preset !== "maximum" || !!selection;
   const clearFilters = () => {
     setQ("");
     setStatus("open");
     setSource("all");
     setOwner("all");
     setTag("all");
+    setTodayOnly(false);
     changeRange(presetRange("maximum"));
   };
   const updateLead = (l: Lead) => setLeads((all) => all.map((x) => (x.id === l.id ? l : x)));
@@ -392,6 +401,7 @@ export function LeadsView({
         hasAds={!!campData?.connected.length}
         selected={selection}
         onSelect={setSelection}
+        colors={colors}
         integrationsHref={`/integrations${staff && clientId ? `?client=${clientId}` : ""}`}
       />
 
@@ -448,6 +458,19 @@ export function LeadsView({
                 options={[{ value: "all", label: t("leads.filter.allTags") }, ...allTags.map((x) => ({ value: x, label: x, count: counts[`t:${x}`] ?? 0 }))]}
               />
             )}
+            <button
+              type="button"
+              onClick={() => setTodayOnly((v) => !v)}
+              aria-pressed={todayOnly}
+              disabled={!todayCount && !todayOnly}
+              className={cn(
+                "inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-medium outline-none transition-colors field-focus disabled:opacity-50",
+                todayOnly ? "border-success/50 bg-success/15 text-success" : "border-border bg-bg text-foreground hover:bg-surface-2/60",
+              )}
+            >
+              <span className={cn("h-2 w-2 rounded-full bg-success", todayCount > 0 && "animate-pulse")} />
+              {t("leads.today.count", { n: todayCount })}
+            </button>
             {filtersActive && (
               <Button size="sm" variant="ghost" className="h-10" onClick={clearFilters}>
                 <X className="h-4 w-4" /> {t("leads.filter.clear")}
@@ -502,6 +525,8 @@ export function LeadsView({
           <ul className="divide-y divide-border">
             {pageRows.map((l) => {
               const lab = classified.labels.get(l.id);
+              const color = colors.get(classified.groupOf.get(l.id) ?? "");
+              const fresh = isToday(l.created_at);
               return (
               <li key={l.id}>
                 {/* A row, not a button: it holds its own buttons (status, owner, WhatsApp). */}
@@ -516,13 +541,21 @@ export function LeadsView({
                     }
                   }}
                   aria-label={`Lead #${l.lead_no}`}
-                  className={cn(GRID, "cursor-pointer py-3 text-left outline-none transition-colors hover:bg-surface-2/60 focus-visible:bg-surface-2/60")}
+                  // Campaign color as a stripe on the left edge (test / invalid leads have none).
+                  style={color ? { boxShadow: `inset 3px 0 0 ${color}` } : undefined}
+                  className={cn(GRID, "cursor-pointer py-3 text-left outline-none transition-colors hover:bg-surface-2/60 focus-visible:bg-surface-2/60", fresh && "bg-success/[0.04]")}
                 >
                   <span className="font-mono text-xs text-muted">#{l.lead_no}</span>
                   <span className="flex min-w-0 items-center gap-2">
                     <span className="min-w-0 flex-1">
                       <span className={cn("block truncate text-sm text-foreground", l.status === "new" && "font-semibold")}>
                         {l.name ?? l.email ?? l.phone ?? t("leads.noName")}
+                        {fresh && !l.is_test && (
+                          <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-success/15 px-1.5 py-0.5 align-middle text-eyebrow font-semibold text-success">
+                            <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                            {t("leads.today.badge")}
+                          </span>
+                        )}
                         {l.is_test && <span className="ml-2 rounded bg-warning/15 px-1 text-eyebrow font-semibold text-warning">TEST</span>}
                       </span>
                       <span className="block truncate text-xs text-muted">{[l.phone, l.email].filter(Boolean).join(" · ") || "-"}</span>
@@ -533,8 +566,9 @@ export function LeadsView({
                     <span className="flex min-w-0 items-center gap-1.5">
                       <SourceBadge lead={l} />
                       <LeadTags tags={l.tags} max={2} />
-                      <span className="truncate text-xs font-medium text-foreground" title={lab?.campaign ?? l.campaign ?? l.form ?? ""}>
-                        {lab?.campaign ?? l.campaign ?? l.form ?? ""}
+                      <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground" title={lab?.campaign ?? l.campaign ?? l.form ?? ""}>
+                        {color && <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />}
+                        <span className="truncate">{lab?.campaign ?? l.campaign ?? l.form ?? ""}</span>
                       </span>
                     </span>
                     {(lab ? lab.ad : l.ad) && (
