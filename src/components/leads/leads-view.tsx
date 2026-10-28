@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
 import { useUser } from "@/components/providers/user-provider";
 import { useT, useIntlLocale } from "@/lib/i18n/provider";
-import { OPEN_STATUSES, LEAD_STATUSES, type Lead, type LeadPerson, type LeadSourceView, type LeadStatus } from "@/lib/leads-shared";
+import { OPEN_STATUSES, LEAD_STATUSES, findDuplicates, type Lead, type LeadPerson, type LeadSourceView, type LeadStatus } from "@/lib/leads-shared";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { LeadTags, STATUS_VARIANT, SourceBadge, fmtDateTime, since } from "./lead-bits";
@@ -36,6 +36,8 @@ const RANGE_KEY = "leads.range";
 const DOT: Record<string, string> = { info: "bg-info", neutral: "bg-muted", warning: "bg-warning", brand: "bg-brand", success: "bg-success", danger: "bg-danger", outline: "bg-border" };
 
 interface CampaignData {
+  /** Which partner + period these numbers are for. */
+  key?: string;
   campaigns: CampaignStat[];
   currency: string;
   errors: { provider: string; error: string }[];
@@ -82,7 +84,7 @@ export function LeadsView({
   const [beforeToday, setBeforeToday] = useState<DateRange | null>(null);
   const [range, setRange] = useState<DateRange>(() => presetRange("maximum"));
   const [selection, setSelection] = useState<CampaignSelection | null>(null);
-  const [campData, setCampData] = useState<CampaignData | null>(null);
+  const [campLoaded, setCampData] = useState<CampaignData | null>(null);
   const [campLoading, setCampLoading] = useState(false);
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "received", dir: "desc" });
   const [page, setPage] = useState(1);
@@ -127,16 +129,19 @@ export function LeadsView({
       qs.set("from", range.since);
       qs.set("to", range.until);
     }
+    const key = `${clientId}|${range.since}|${range.until}`;
     fetch(`/api/leads/campaigns?${qs}`, { signal: ctrl.signal })
       .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
       .then(({ ok, j }) => {
-        if (ok) setCampData(j as CampaignData);
-        else setCampData({ campaigns: [], currency: "EUR", errors: [{ provider: "meta_ads", error: String(j?.error ?? "Error") }], connected: [] });
+        if (ok) setCampData({ ...(j as CampaignData), key });
+        else setCampData({ key, campaigns: [], currency: "EUR", errors: [{ provider: "meta_ads", error: String(j?.error ?? "Error") }], connected: [] });
       })
       .catch(() => {})
       .finally(() => !ctrl.signal.aborted && setCampLoading(false));
     return () => ctrl.abort();
   }, [clientId, staff, unavailable, range.since, range.until]);
+  // Spend of the previous period must never meet the leads of the new one.
+  const campData = campLoaded?.key === `${clientId}|${range.since}|${range.until}` ? campLoaded : null;
 
   // ?lead=<id> (from a notification) opens it; ?meta=… reports the Meta connect result.
   useEffect(() => {
@@ -203,6 +208,8 @@ export function LeadsView({
   const colors = useMemo(() => classColors(classified.rows.map((r) => r.key)), [classified]);
   const today = berlinToday();
   const isToday = (iso: string) => berlinToday(new Date(iso)) === today;
+  // Same person again (phone or email of an earlier lead): sales sees "duplicate of #n".
+  const duplicateOf = useMemo(() => findDuplicates(leads), [leads]);
   // From all leads: ranges like "last 30 days" end yesterday, like Ads Manager.
   const todayCount = useMemo(() => leads.filter((l) => !l.is_test && berlinToday(new Date(l.created_at)) === today).length, [leads, today]);
   const todayOnly = range.preset === "today";
@@ -564,6 +571,11 @@ export function LeadsView({
                           <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-success/15 px-1.5 py-0.5 align-middle text-eyebrow font-semibold text-success">
                             <span className="h-1.5 w-1.5 rounded-full bg-success" />
                             {t("leads.today.badge")}
+                          </span>
+                        )}
+                        {duplicateOf.has(l.id) && (
+                          <span className="ml-2 inline-flex items-center rounded-full bg-warning/15 px-1.5 py-0.5 align-middle text-eyebrow font-semibold text-warning">
+                            {t("leads.duplicateOf", { n: duplicateOf.get(l.id)! })}
                           </span>
                         )}
                         {l.is_test && <span className="ml-2 rounded bg-warning/15 px-1 text-eyebrow font-semibold text-warning">TEST</span>}

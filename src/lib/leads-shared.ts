@@ -137,3 +137,23 @@ export function dialable(phone: string, forWhatsApp = false) {
   if (p.startsWith("0")) p = `+49${p.slice(1)}`;
   return forWhatsApp ? p.replace(/^\+/, "") : p;
 }
+
+/**
+ * Leads that repeat an earlier lead's phone (last 9 digits, so +49 / 0049 / 0
+ * spellings match) or email: lead id → lead number of the first one. Test
+ * leads are ignored.
+ */
+export function findDuplicates(leads: Pick<Lead, "id" | "lead_no" | "phone" | "email" | "created_at" | "is_test">[]): Map<string, number> {
+  const first = new Map<string, number>();
+  const out = new Map<string, number>();
+  const sorted = leads.filter((l) => !l.is_test).sort((a, b) => a.created_at.localeCompare(b.created_at) || a.lead_no - b.lead_no);
+  for (const l of sorted) {
+    const digits = (l.phone ?? "").replace(/\D/g, "");
+    const keys = [digits.length >= 8 ? `p:${digits.slice(-9)}` : null, l.email?.trim() ? `e:${l.email.trim().toLowerCase()}` : null].filter(Boolean) as string[];
+    const hit = keys.map((k) => first.get(k)).find((n) => n != null);
+    if (hit != null) out.set(l.id, hit);
+    for (const k of keys) if (!first.has(k)) first.set(k, hit ?? l.lead_no);
+  }
+  return out;
+}
+
