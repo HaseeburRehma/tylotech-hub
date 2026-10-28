@@ -11,6 +11,8 @@ export default async function SettingsPage() {
       title={user?.title ?? ""}
       avatarUrl={user?.avatarUrl ?? null}
       notifyEmail={user?.notifyEmail ?? true}
+      leadEmail={user?.leadEmail ?? true}
+      staff={!!user && user.role !== "client"}
     />
   );
 }

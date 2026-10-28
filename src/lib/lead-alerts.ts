@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendLeadEmail } from "@/lib/email";
-import type { LeadField, LeadSource } from "@/lib/leads-shared";
+import { wantsLeadEmail, type LeadField, type LeadSource } from "@/lib/leads-shared";
 import { sendPush } from "@/lib/push";
 
 /**
@@ -8,9 +8,35 @@ import { sendPush } from "@/lib/push";
  * partner's own people and the TyloTech team — gets, right away,
  *   · an in-app notification (the web shows the 60-second card live),
  *   · an urgent push (the TyloHQ app opens the countdown screen),
- *   · an email with the contact details and a call button.
+ *   · an email with the contact details and a call button, to partner users
+ *     (unless they switched it off) and staff who switched it on.
  * No email cooldown here: a lead is time-critical, unlike chat.
  */
+
+// Email preferences live in auth metadata: cached briefly so a burst of leads
+// doesn't look every person up again for each one.
+const PREF_TTL_MS = 60_000;
+const prefCache = new Map<string, { at: number; meta: Record<string, unknown> | null }>();
+
+async function leadEmailWanted(admin: SupabaseClient, p: { id: string; role: string }): Promise<boolean> {
+  const hit = prefCache.get(p.id);
+  if (hit && Date.now() - hit.at < PREF_TTL_MS) return wantsLeadEmail(p.role, hit.meta);
+  let meta: Record<string, unknown> | null = null;
+  try {
+    const { data } = await admin.auth.admin.getUserById(p.id);
+    meta = (data?.user?.user_metadata as Record<string, unknown> | undefined) ?? null;
+  } catch {
+    // Lookup failed: fall back to the role's default.
+  }
+  prefCache.set(p.id, { at: Date.now(), meta });
+  if (prefCache.size > 2000) prefCache.delete(prefCache.keys().next().value as string);
+  return wantsLeadEmail(p.role, meta);
+}
+
+/** Forget a cached preference (after the person changed it). */
+export function forgetLeadEmailPref(userId: string) {
+  prefCache.delete(userId);
+}
 
 export interface AlertLead {
   id: string;
@@ -63,8 +89,10 @@ export async function alertNewLead(admin: SupabaseClient, lead: AlertLead) {
       : null;
   });
 
-  const emails = recipients
-    .filter((p) => p.email)
+  const withEmail = recipients.filter((p) => p.email);
+  const wanted = await Promise.all(withEmail.map((p) => leadEmailWanted(admin, p)));
+  const emails = withEmail
+    .filter((_, i) => wanted[i])
     .map((p) =>
       sendLeadEmail(p.email!, {
         partner,
@@ -82,5 +110,5 @@ export async function alertNewLead(admin: SupabaseClient, lead: AlertLead) {
     );
 
   const results = await Promise.all([...pushes, ...emails]);
-  return { recipients: recipients.length, emailsSent: results.slice(pushes.length).filter(Boolean).length };
+  return { recipients: recipients.length, emailsSent: results.slice(pushes.length).filter(Boolean).length, emailsSkipped: withEmail.length - emails.length };
 }

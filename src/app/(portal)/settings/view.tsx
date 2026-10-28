@@ -32,6 +32,8 @@ export function SettingsView({
   title,
   avatarUrl,
   notifyEmail,
+  leadEmail,
+  staff,
 }: {
   name: string;
   email: string;
@@ -39,6 +41,8 @@ export function SettingsView({
   title: string;
   avatarUrl: string | null;
   notifyEmail: boolean;
+  leadEmail: boolean;
+  staff: boolean;
 }) {
   const router = useRouter();
   const t = useT();
@@ -69,6 +73,8 @@ export function SettingsView({
 
   const [emailNotif, setEmailNotif] = useState(notifyEmail);
   const [notifSaving, setNotifSaving] = useState(false);
+  const [leadMail, setLeadMail] = useState(leadEmail);
+  const [leadSaving, setLeadSaving] = useState(false);
 
   const dirty = displayName.trim() !== name || jobTitle.trim() !== title;
 
@@ -139,6 +145,18 @@ export function SettingsView({
     }).catch(() => null);
     setNotifSaving(false);
     if (!res?.ok) setEmailNotif(!next);
+  }
+
+  async function toggleLeadMail(next: boolean) {
+    setLeadMail(next);
+    setLeadSaving(true);
+    const res = await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leadEmail: next }),
+    }).catch(() => null);
+    setLeadSaving(false);
+    if (!res?.ok) setLeadMail(!next);
   }
 
   async function signOut() {
@@ -337,6 +355,13 @@ export function SettingsView({
                   <p className="text-xs text-muted">{t("settings.emailNotifDesc", { email })}</p>
                 </div>
                 <Switch checked={emailNotif} onChange={toggleEmailNotif} disabled={notifSaving} label={t("settings.emailNotif")} />
+              </div>
+              <div className="flex items-center gap-4 rounded-xl border border-line bg-bg px-4 py-3.5">
+                <div className="flex-1">
+                  <p className="text-sm font-semibold">{t("settings.leadEmail")}</p>
+                  <p className="text-xs text-muted">{t(staff ? "settings.leadEmailDescStaff" : "settings.leadEmailDesc", { email })}</p>
+                </div>
+                <Switch checked={leadMail} onChange={toggleLeadMail} disabled={leadSaving} label={t("settings.leadEmail")} />
               </div>
               <div className="flex items-center gap-4 rounded-xl border border-line bg-bg px-4 py-3.5">
                 <div className="flex-1">

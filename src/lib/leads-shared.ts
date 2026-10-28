@@ -157,3 +157,15 @@ export function findDuplicates(leads: Pick<Lead, "id" | "lead_no" | "phone" | "e
   return out;
 }
 
+/**
+ * Does this person get an email for every new lead? Partner users: yes unless
+ * they switched it off. TyloTech staff: only if they switched it on (push and
+ * in-app alerts reach them anyway; an email per lead per person used up the
+ * daily email quota). Stored as `lead_email` in the auth user's metadata.
+ */
+export function wantsLeadEmail(role: string, meta?: { lead_email?: unknown } | null): boolean {
+  if (meta?.lead_email === true) return true;
+  if (meta?.lead_email === false) return false;
+  return role === "client";
+}
+

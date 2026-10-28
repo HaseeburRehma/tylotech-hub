@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { STAFF_TAG } from "@/lib/workflows";
 import { getAuthUser } from "@/lib/auth";
+import { forgetLeadEmailPref } from "@/lib/lead-alerts";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -13,7 +14,7 @@ export async function PATCH(req: Request) {
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
 
-  const b = (await req.json().catch(() => ({}))) as { name?: string; title?: string | null; notifyEmail?: boolean; phone?: string };
+  const b = (await req.json().catch(() => ({}))) as { name?: string; title?: string | null; notifyEmail?: boolean; leadEmail?: boolean; phone?: string };
   const row: Record<string, string | null> = {};
   const meta: Record<string, unknown> = {};
 
@@ -39,6 +40,10 @@ export async function PATCH(req: Request) {
     if (typeof b.notifyEmail !== "boolean") return NextResponse.json({ error: "Invalid preference." }, { status: 400 });
     meta.notify_email = b.notifyEmail;
   }
+  if (b.leadEmail !== undefined) {
+    if (typeof b.leadEmail !== "boolean") return NextResponse.json({ error: "Invalid preference." }, { status: 400 });
+    meta.lead_email = b.leadEmail;
+  }
   if (!Object.keys(row).length && !Object.keys(meta).length) {
     return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
   }
@@ -53,6 +58,7 @@ export async function PATCH(req: Request) {
   if (Object.keys(meta).length) {
     const { data } = await admin.auth.admin.getUserById(user.id);
     await admin.auth.admin.updateUserById(user.id, { user_metadata: { ...(data.user?.user_metadata ?? {}), ...meta } });
+    if ("lead_email" in meta) forgetLeadEmailPref(user.id);
   }
 
   revalidateTag(STAFF_TAG);

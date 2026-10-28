@@ -14,6 +14,7 @@ export const STAFF_USER: AuthUser = {
   title: "Developer",
   avatarUrl: null,
   notifyEmail: false,
+  leadEmail: false,
 };
 
 export const ADMIN_USER: AuthUser = {
@@ -29,6 +30,7 @@ export const ADMIN_USER: AuthUser = {
   title: "Founder / Strategy",
   avatarUrl: null,
   notifyEmail: false,
+  leadEmail: false,
 };
 
 export const CLIENT_USER: AuthUser = {
@@ -44,6 +46,7 @@ export const CLIENT_USER: AuthUser = {
   title: null,
   avatarUrl: null,
   notifyEmail: true,
+  leadEmail: true,
 };
 
 export const OTHER_CLIENT_USER: AuthUser = {
@@ -59,6 +62,7 @@ export const OTHER_CLIENT_USER: AuthUser = {
   title: null,
   avatarUrl: null,
   notifyEmail: true,
+  leadEmail: true,
 };
 
 export function mockAuth(user: AuthUser | null) {

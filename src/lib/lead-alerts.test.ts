@@ -5,7 +5,7 @@ const mockEmail = vi.fn();
 vi.mock("@/lib/push", () => ({ sendPush: (...a: unknown[]) => mockPush(...a) }));
 vi.mock("@/lib/email", () => ({ sendLeadEmail: (...a: unknown[]) => mockEmail(...a) }));
 
-import { alertNewLead, type AlertLead } from "./lead-alerts";
+import { alertNewLead, forgetLeadEmailPref, type AlertLead } from "./lead-alerts";
 
 const CLIENT = "c-1";
 const PEOPLE = [
@@ -17,7 +17,19 @@ const PEOPLE = [
 ];
 
 let inserted: any[] = [];
+// Auth metadata per user (the email preference); a throwing lookup is allowed for.
+let meta: Record<string, Record<string, unknown> | "throw"> = {};
+const lookups: string[] = [];
 const admin: any = {
+  auth: {
+    admin: {
+      getUserById: async (id: string) => {
+        lookups.push(id);
+        if (meta[id] === "throw") throw new Error("auth down");
+        return { data: { user: { id, user_metadata: meta[id] ?? {} } } };
+      },
+    },
+  },
   from: (t: string) => {
     if (t === "clients") return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { company: "Nouh-Wehres", slug: "nouh-wehres" } }) }) }) };
     if (t === "users") return { select: () => ({ or: async () => ({ data: PEOPLE }) }) };
@@ -44,6 +56,9 @@ const LEAD: AlertLead = {
 beforeEach(() => {
   vi.clearAllMocks();
   inserted = [];
+  meta = {};
+  lookups.length = 0;
+  for (const p of PEOPLE) forgetLeadEmailPref(p.id);
   mockPush.mockResolvedValue(undefined);
   mockEmail.mockResolvedValue(true);
 });
@@ -74,17 +89,50 @@ describe("alertNewLead", () => {
     expect(staff.n).toMatchObject({ type: "lead", urgent: true, href: "/leads?client=nouh-wehres&lead=l-1", data: { leadId: "l-1", createdAt: LEAD.created_at } });
   });
 
-  it("emails everyone with an address right away, with the lead's details", async () => {
+  it("emails the partner right away; staff only when they switched lead emails on", async () => {
     const r = await alertNewLead(admin, LEAD);
-    expect(mockEmail.mock.calls.map((c) => c[0]).sort()).toEqual(["admin@tylotech.de", "sales@partner.de"]);
+    expect(mockEmail.mock.calls.map((c) => c[0])).toEqual(["sales@partner.de"]);
     expect(mockEmail.mock.calls[0][1]).toMatchObject({ partner: "Nouh-Wehres", leadNo: 47, phone: "+49 170 1234567", source: "Meta", isTest: false });
-    expect(r.emailsSent).toBe(2);
+    expect(r).toMatchObject({ emailsSent: 1, emailsSkipped: 1 });
+    // Push + in-app still reach every staff member.
+    expect(inserted.map((n) => n.user_id)).toContain("u-admin");
+  });
+
+  it("staff who opted in get the email; a partner who opted out doesn't", async () => {
+    meta = { "u-admin": { lead_email: true }, "u-partner": { lead_email: false } };
+    const r = await alertNewLead(admin, LEAD);
+    expect(mockEmail.mock.calls.map((c) => c[0])).toEqual(["admin@tylotech.de"]);
+    expect(mockEmail.mock.calls[0][1].path).toBe("/leads?client=nouh-wehres&lead=l-1");
+    expect(r.emailsSkipped).toBe(1);
+  });
+
+  it("the messages switch (notify_email) doesn't silence lead emails", async () => {
+    meta = { "u-partner": { notify_email: false } };
+    await alertNewLead(admin, LEAD);
+    expect(mockEmail.mock.calls.map((c) => c[0])).toEqual(["sales@partner.de"]);
+  });
+
+  it("if the preference can't be read, the role's default applies", async () => {
+    meta = { "u-partner": "throw", "u-admin": "throw" };
+    await alertNewLead(admin, LEAD);
+    expect(mockEmail.mock.calls.map((c) => c[0])).toEqual(["sales@partner.de"]);
+  });
+
+  it("a burst of leads looks each person up once (60 s cache); a changed setting is re-read", async () => {
+    for (let i = 0; i < 5; i++) await alertNewLead(admin, { ...LEAD, id: `l-${i}`, lead_no: 100 + i });
+    expect(lookups.filter((x) => x === "u-admin")).toHaveLength(1);
+    expect(mockEmail).toHaveBeenCalledTimes(5);
+    meta = { "u-admin": { lead_email: true } };
+    forgetLeadEmailPref("u-admin");
+    mockEmail.mockClear();
+    await alertNewLead(admin, LEAD);
+    expect(mockEmail.mock.calls.map((c) => c[0]).sort()).toEqual(["admin@tylotech.de", "sales@partner.de"]);
   });
 
   it("labels test leads and survives a failing email", async () => {
     mockEmail.mockRejectedValueOnce(new Error("resend down"));
     const r = await alertNewLead(admin, { ...LEAD, is_test: true, name: null });
     expect(inserted[0].title).toBe("Test-Lead #47: max@example.com");
-    expect(r.emailsSent).toBe(1);
+    expect(r.emailsSent).toBe(0);
   });
 });

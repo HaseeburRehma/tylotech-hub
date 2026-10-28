@@ -3,6 +3,7 @@ import { Role } from "@/types";
 import { bearerToken, createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { isTransientAuthError } from "@/lib/supabase/session-errors";
+import { wantsLeadEmail } from "@/lib/leads-shared";
 import { TYLOTECH_GOLD } from "@/lib/theme/themes";
 
 export interface AuthUser {
@@ -19,6 +20,8 @@ export interface AuthUser {
   avatarUrl: string | null;
   /** Email notifications for new messages/files (opt-out, stored in auth metadata). */
   notifyEmail: boolean;
+  /** An email for every new lead (partners: on by default, staff: off; auth metadata). */
+  leadEmail: boolean;
 }
 
 /** Demo identity used only when Supabase isn't configured. */
@@ -35,6 +38,7 @@ export const DEMO_USER: AuthUser = {
   title: null,
   avatarUrl: null,
   notifyEmail: true,
+  leadEmail: true,
 };
 
 /**
@@ -103,6 +107,7 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
     title: profile.title ?? null,
     avatarUrl: profile.avatar_url ?? null,
     notifyEmail: user.user_metadata?.notify_email !== false,
+    leadEmail: wantsLeadEmail(profile.role, user.user_metadata),
   };
 });
 
