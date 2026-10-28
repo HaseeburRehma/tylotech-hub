@@ -1,6 +1,10 @@
 "use client";
 
 import { ArrowDown, ArrowUp, ArrowUpDown, CalendarClock, Download, Inbox, Plug, Plus, Search, Sparkles, Trophy, UserPlus, Users, X } from "lucide-react";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { FilterMenu } from "@/components/ui/filter-menu";
+import { classifyLeads, norm, type CampaignStat } from "@/lib/campaign-classify";
+import { inRange, presetRange, type DateRange } from "@/lib/date-range";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
@@ -13,27 +17,29 @@ import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { OPEN_STATUSES, LEAD_STATUSES, type Lead, type LeadPerson, type LeadSourceView, type LeadStatus } from "@/lib/leads-shared";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { LeadTags, SourceBadge, StatusBadge, fmtDateTime, since } from "./lead-bits";
+import { LeadTags, STATUS_VARIANT, SourceBadge, fmtDateTime, since } from "./lead-bits";
+import { AdThumb, CampaignPanel, type CampaignSelection } from "./campaign-panel";
+import { ContactButtons, OwnerMenu, StatusMenu } from "./lead-row-controls";
 import { LeadDrawer } from "./lead-drawer";
 import { AddLeadModal, InviteSalesModal, MetaPagesModal, SheetTabsModal, SourcesModal } from "./lead-modals";
 
 type OwnerFilter = "all" | "me" | "none" | string;
 type SortKey = "no" | "name" | "source" | "status" | "owner" | "received";
-type Period = "all" | "today" | "7d" | "30d";
 
 // One grid for the header and every row, so the columns always line up.
 const GRID =
-  "grid w-full grid-cols-[auto_1fr_auto] items-center gap-3 px-4 md:grid-cols-[3rem_minmax(0,1.5fr)_minmax(0,1.2fr)_auto] xl:grid-cols-[3.5rem_minmax(0,1.6fr)_minmax(0,1.2fr)_9rem_8rem_8rem]";
+  "grid w-full grid-cols-[auto_1fr_auto] items-center gap-3 px-4 md:grid-cols-[3rem_minmax(0,1.5fr)_minmax(0,1.2fr)_auto] xl:grid-cols-[3.5rem_minmax(0,1.5fr)_minmax(0,1.4fr)_10rem_9rem_7rem]";
 const PAGE_SIZES = [25, 50, 100] as const;
 const PAGE_SIZE_KEY = "leads.pageSize";
 
-/** Start of "today" in Berlin, as a timestamp. */
-function berlinMidnight() {
-  const now = new Date();
-  const ymd = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
-  const local = new Date(`${ymd}T00:00:00Z`).getTime();
-  const offset = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Berlin" })).getTime() - new Date(now.toLocaleString("en-US", { timeZone: "UTC" })).getTime();
-  return local - offset;
+const RANGE_KEY = "leads.range";
+const DOT: Record<string, string> = { info: "bg-info", neutral: "bg-muted", warning: "bg-warning", brand: "bg-brand", success: "bg-success", danger: "bg-danger", outline: "bg-border" };
+
+interface CampaignData {
+  campaigns: CampaignStat[];
+  currency: string;
+  errors: { provider: string; error: string }[];
+  connected: string[];
 }
 
 /**
@@ -72,7 +78,10 @@ export function LeadsView({
   const [source, setSource] = useState<"all" | Lead["source"]>("all");
   const [owner, setOwner] = useState<OwnerFilter>("all");
   const [tag, setTag] = useState<string>("all");
-  const [period, setPeriod] = useState<Period>("all");
+  const [range, setRange] = useState<DateRange>(() => presetRange("maximum"));
+  const [selection, setSelection] = useState<CampaignSelection | null>(null);
+  const [campData, setCampData] = useState<CampaignData | null>(null);
+  const [campLoading, setCampLoading] = useState(false);
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "received", dir: "desc" });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(25);
@@ -87,10 +96,45 @@ export function LeadsView({
     try {
       const n = Number(window.localStorage.getItem(PAGE_SIZE_KEY));
       if ((PAGE_SIZES as readonly number[]).includes(n)) setPageSize(n);
+      // The chosen preset (not its days: "Last 7 days" moves with the calendar).
+      const p = window.localStorage.getItem(RANGE_KEY);
+      if (p && p !== "custom" && p !== "maximum") setRange(presetRange(p as Exclude<DateRange["preset"], "custom">));
     } catch {
-      /* storage blocked: keep the default */
+      /* storage blocked: keep the defaults */
     }
   }, []);
+
+  const changeRange = (r: DateRange) => {
+    setRange(r);
+    setSelection(null);
+    try {
+      window.localStorage.setItem(RANGE_KEY, r.preset);
+    } catch {
+      /* storage blocked: only this visit */
+    }
+  };
+
+  // Spend per campaign / ad for the period (Meta + Google Ads), from the server.
+  useEffect(() => {
+    if (!clientId || unavailable) return;
+    const ctrl = new AbortController();
+    setCampLoading(true);
+    const qs = new URLSearchParams();
+    if (staff) qs.set("clientId", clientId);
+    if (range.since && range.until) {
+      qs.set("from", range.since);
+      qs.set("to", range.until);
+    }
+    fetch(`/api/leads/campaigns?${qs}`, { signal: ctrl.signal })
+      .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+      .then(({ ok, j }) => {
+        if (ok) setCampData(j as CampaignData);
+        else setCampData({ campaigns: [], currency: "EUR", errors: [{ provider: "meta_ads", error: String(j?.error ?? "Error") }], connected: [] });
+      })
+      .catch(() => {})
+      .finally(() => !ctrl.signal.aborted && setCampLoading(false));
+    return () => ctrl.abort();
+  }, [clientId, staff, unavailable, range.since, range.until]);
 
   // ?lead=<id> (from a notification) opens it; ?meta=… reports the Meta connect result.
   useEffect(() => {
@@ -149,24 +193,34 @@ export function LeadsView({
 
   const nameOf = useMemo(() => new Map(people.map((p) => [p.id, p.name])), [people]);
 
+  // Leads of the period: the base for the campaign breakdown and the table.
+  const inPeriod = useMemo(() => leads.filter((l) => inRange(l.created_at, range)), [leads, range]);
+  const classified = useMemo(() => classifyLeads(inPeriod, campData?.campaigns ?? [], dl.startsWith("de") ? "de" : "en"), [inPeriod, campData, dl]);
+  // Creative thumbnail per campaign + ad name, for the table rows.
+  const thumbOf = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of campData?.campaigns ?? []) for (const a of c.ads) if (a.thumbnail) m.set(`${norm(c.name)}|${norm(a.name)}`, a.thumbnail);
+    return m;
+  }, [campData]);
+  const selectedIds = useMemo(() => (selection ? new Set(selection.leadIds) : null), [selection]);
+
   const shown = useMemo(() => {
     const term = q.trim().toLowerCase();
-    const since0 = period === "today" ? berlinMidnight() : period === "7d" ? Date.now() - 7 * 86_400_000 : period === "30d" ? Date.now() - 30 * 86_400_000 : 0;
-    return leads.filter((l) => {
+    return inPeriod.filter((l) => {
+      if (selectedIds && !selectedIds.has(l.id)) return false;
       if (status === "open" ? !OPEN_STATUSES.includes(l.status) : status !== "all" && l.status !== status) return false;
       if (source !== "all" && l.source !== source) return false;
       if (owner === "me" && l.assigned_to !== user.id) return false;
       if (owner === "none" && l.assigned_to) return false;
       if (owner !== "all" && owner !== "me" && owner !== "none" && l.assigned_to !== owner) return false;
       if (tag !== "all" && !(l.tags ?? []).includes(tag)) return false;
-      if (period !== "all" && new Date(l.created_at).getTime() < since0) return false;
       if (!term) return true;
       return (
         String(l.lead_no) === term.replace(/^#/, "") ||
-        [l.name, l.email, l.phone, l.campaign, l.form, ...(l.tags ?? []), ...l.fields.map((f) => f.value)].some((v) => v?.toLowerCase().includes(term))
+        [l.name, l.email, l.phone, l.campaign, l.ad_group, l.ad, l.form, ...(l.tags ?? []), ...l.fields.map((f) => f.value)].some((v) => v?.toLowerCase().includes(term))
       );
     });
-  }, [leads, q, status, source, owner, tag, period, user.id]);
+  }, [inPeriod, selectedIds, q, status, source, owner, tag, user.id]);
 
   // Sorted, then cut into pages.
   const sorted = useMemo(() => {
@@ -208,17 +262,27 @@ export function LeadsView({
   const last = Math.min(current * pageSize, sorted.length);
 
   // New filters or order: back to the first page.
-  useEffect(() => setPage(1), [q, status, source, owner, tag, period, sort, pageSize]);
+  useEffect(() => setPage(1), [q, status, source, owner, tag, range, selection, sort, pageSize]);
 
-  const filtersActive = q.trim() !== "" || status !== "open" || source !== "all" || owner !== "all" || tag !== "all" || period !== "all";
+  const filtersActive = q.trim() !== "" || status !== "open" || source !== "all" || owner !== "all" || tag !== "all" || range.preset !== "maximum" || !!selection;
   const clearFilters = () => {
     setQ("");
     setStatus("open");
     setSource("all");
     setOwner("all");
     setTag("all");
-    setPeriod("all");
+    changeRange(presetRange("maximum"));
   };
+  const updateLead = (l: Lead) => setLeads((all) => all.map((x) => (x.id === l.id ? l : x)));
+  const counts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const l of inPeriod) {
+      c[`s:${l.status}`] = (c[`s:${l.status}`] ?? 0) + 1;
+      c[`src:${l.source}`] = (c[`src:${l.source}`] ?? 0) + 1;
+      for (const tg of l.tags ?? []) c[`t:${tg}`] = (c[`t:${tg}`] ?? 0) + 1;
+    }
+    return c;
+  }, [inPeriod]);
   const toggleSort = (key: SortKey) =>
     setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "received" || key === "no" ? "desc" : "asc" }));
   const changePageSize = (n: number) => {
@@ -320,6 +384,23 @@ export function LeadsView({
         ))}
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted">{t("leads.range.hint")}</p>
+        <DateRangePicker value={range} onChange={changeRange} />
+      </div>
+
+      <CampaignPanel
+        rows={classified.rows}
+        totals={classified.totals}
+        currency={campData?.currency ?? "EUR"}
+        loading={campLoading}
+        errors={campData?.errors ?? []}
+        hasAds={!!campData?.connected.length}
+        selected={selection}
+        onSelect={setSelection}
+        integrationsHref={`/integrations${staff && clientId ? `?client=${clientId}` : ""}`}
+      />
+
       <Card className="p-0">
         <div className="flex flex-col gap-3 border-b border-border p-4 lg:flex-row lg:items-center">
           <div className="relative min-w-0 flex-1">
@@ -327,47 +408,51 @@ export function LeadsView({
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("leads.searchPh")} className="input-base h-10 py-0 pl-9 text-sm" aria-label={t("leads.searchPh")} />
           </div>
           <div className="flex flex-wrap gap-2">
-            <select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="input-base h-10 w-auto appearance-none py-0 pr-8 text-sm" aria-label={t("leads.filter.status")}>
-              <option value="open">{t("leads.filter.open")}</option>
-              <option value="all">{t("leads.filter.all")}</option>
-              {LEAD_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {t(`leads.status.${s}`)}
-                </option>
-              ))}
-            </select>
-            <select value={source} onChange={(e) => setSource(e.target.value as typeof source)} className="input-base h-10 w-auto appearance-none py-0 pr-8 text-sm" aria-label={t("leads.filter.source")}>
-              <option value="all">{t("leads.filter.allSources")}</option>
-              <option value="meta">Meta</option>
-              <option value="google_ads">Google Ads</option>
-              <option value="webhook">{t("leads.src.website")}</option>
-              <option value="manual">{t("leads.source.manual")}</option>
-            </select>
-            <select value={owner} onChange={(e) => setOwner(e.target.value)} className="input-base h-10 w-auto appearance-none py-0 pr-8 text-sm" aria-label={t("leads.filter.owner")}>
-              <option value="all">{t("leads.filter.everyone")}</option>
-              <option value="me">{t("leads.filter.mine")}</option>
-              <option value="none">{t("leads.filter.unassigned")}</option>
-              {people.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-            <select value={period} onChange={(e) => setPeriod(e.target.value as Period)} className="input-base h-10 w-auto appearance-none py-0 pr-8 text-sm" aria-label={t("leads.filter.period")}>
-              <option value="all">{t("leads.filter.anyTime")}</option>
-              <option value="today">{t("leads.filter.today")}</option>
-              <option value="7d">{t("leads.filter.7d")}</option>
-              <option value="30d">{t("leads.filter.30d")}</option>
-            </select>
+            <FilterMenu
+              label={t("leads.filter.status")}
+              value={status}
+              defaultValue="open"
+              onChange={(v) => setStatus(v as typeof status)}
+              options={[
+                { value: "open", label: t("leads.filter.open") },
+                { value: "all", label: t("leads.filter.all"), count: inPeriod.length },
+                ...LEAD_STATUSES.map((s) => ({ value: s, label: t(`leads.status.${s}`), icon: <span className={cn("h-2 w-2 rounded-full", DOT[STATUS_VARIANT[s]])} />, count: counts[`s:${s}`] ?? 0 })),
+              ]}
+            />
+            <FilterMenu
+              label={t("leads.filter.source")}
+              value={source}
+              defaultValue="all"
+              onChange={(v) => setSource(v as typeof source)}
+              options={[
+                { value: "all", label: t("leads.filter.allSources") },
+                { value: "meta", label: "Meta", count: counts["src:meta"] ?? 0 },
+                { value: "google_ads", label: "Google Ads", count: counts["src:google_ads"] ?? 0 },
+                { value: "webhook", label: t("leads.src.website"), count: counts["src:webhook"] ?? 0 },
+                { value: "manual", label: t("leads.source.manual"), count: counts["src:manual"] ?? 0 },
+              ]}
+            />
+            <FilterMenu
+              label={t("leads.filter.owner")}
+              value={owner}
+              defaultValue="all"
+              onChange={setOwner}
+              width={260}
+              options={[
+                { value: "all", label: t("leads.filter.everyone") },
+                { value: "me", label: t("leads.filter.mine") },
+                { value: "none", label: t("leads.filter.unassigned") },
+                ...people.map((p) => ({ value: p.id, label: p.name, icon: <Avatar name={p.name} size={18} /> })),
+              ]}
+            />
             {allTags.length > 0 && (
-              <select value={tag} onChange={(e) => setTag(e.target.value)} className="input-base h-10 w-auto appearance-none py-0 pr-8 text-sm" aria-label={t("leads.filter.tag")}>
-                <option value="all">{t("leads.filter.allTags")}</option>
-                {allTags.map((x) => (
-                  <option key={x} value={x}>
-                    {x}
-                  </option>
-                ))}
-              </select>
+              <FilterMenu
+                label={t("leads.filter.tag")}
+                value={tag}
+                defaultValue="all"
+                onChange={setTag}
+                options={[{ value: "all", label: t("leads.filter.allTags") }, ...allTags.map((x) => ({ value: x, label: x, count: counts[`t:${x}`] ?? 0 }))]}
+              />
             )}
             {filtersActive && (
               <Button size="sm" variant="ghost" className="h-10" onClick={clearFilters}>
@@ -397,7 +482,7 @@ export function LeadsView({
               [
                 ["no", t("leads.col.no"), ""],
                 ["name", t("leads.col.lead"), ""],
-                ["source", t("leads.col.source"), "hidden md:flex"],
+                ["source", t("leads.col.campaign"), "hidden md:flex"],
                 ["status", t("leads.col.status"), "justify-self-end md:justify-self-start"],
                 ["owner", t("leads.col.owner"), "hidden xl:flex"],
                 ["received", t("leads.col.received"), "hidden xl:flex xl:justify-self-end"],
@@ -423,43 +508,60 @@ export function LeadsView({
           <ul className="divide-y divide-border">
             {pageRows.map((l) => (
               <li key={l.id}>
-                <button type="button" onClick={() => setOpenId(l.id)} className={cn(GRID, "py-3 text-left transition-colors hover:bg-surface-2/60")}>
+                {/* A row, not a button: it holds its own buttons (status, owner, WhatsApp). */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setOpenId(l.id)}
+                  onKeyDown={(e) => {
+                    if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      setOpenId(l.id);
+                    }
+                  }}
+                  aria-label={`Lead #${l.lead_no}`}
+                  className={cn(GRID, "cursor-pointer py-3 text-left outline-none transition-colors hover:bg-surface-2/60 focus-visible:bg-surface-2/60")}
+                >
                   <span className="font-mono text-xs text-muted">#{l.lead_no}</span>
-                  <span className="min-w-0">
-                    <span className={cn("block truncate text-sm text-foreground", l.status === "new" && "font-semibold")}>
-                      {l.name ?? l.email ?? l.phone ?? t("leads.noName")}
-                      {l.is_test && <span className="ml-2 rounded bg-warning/15 px-1 text-eyebrow font-semibold text-warning">TEST</span>}
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="min-w-0 flex-1">
+                      <span className={cn("block truncate text-sm text-foreground", l.status === "new" && "font-semibold")}>
+                        {l.name ?? l.email ?? l.phone ?? t("leads.noName")}
+                        {l.is_test && <span className="ml-2 rounded bg-warning/15 px-1 text-eyebrow font-semibold text-warning">TEST</span>}
+                      </span>
+                      <span className="block truncate text-xs text-muted">{[l.phone, l.email].filter(Boolean).join(" · ") || "-"}</span>
                     </span>
-                    <span className="block truncate text-xs text-muted">{[l.phone, l.email].filter(Boolean).join(" · ") || "-"}</span>
+                    <ContactButtons lead={l} onChange={updateLead} />
                   </span>
                   <span className="hidden min-w-0 md:block">
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex min-w-0 items-center gap-1.5">
                       <SourceBadge lead={l} />
                       <LeadTags tags={l.tags} max={2} />
-                      <span className="truncate text-xs text-muted">{l.campaign ?? l.form ?? ""}</span>
+                      <span className="truncate text-xs font-medium text-foreground" title={l.campaign ?? l.form ?? ""}>
+                        {l.campaign ?? l.form ?? ""}
+                      </span>
                     </span>
-                  </span>
-                  <span className="justify-self-end md:justify-self-start">
-                    <StatusBadge status={l.status} />
-                  </span>
-                  <span className="hidden items-center gap-1.5 xl:flex">
-                    {l.assigned_to ? (
-                      <>
-                        <Avatar name={nameOf.get(l.assigned_to) ?? "?"} size={22} />
-                        <span className="truncate text-xs text-muted">{(nameOf.get(l.assigned_to) ?? "-").split(" ")[0]}</span>
-                      </>
-                    ) : (
-                      <span className="text-xs text-muted/60">{t("leads.unassigned")}</span>
+                    {l.ad && (
+                      <span className="mt-1 flex min-w-0 items-center gap-1.5" title={[l.ad_group, l.ad].filter(Boolean).join(" › ")}>
+                        <AdThumb src={thumbOf.get(`${norm(l.campaign)}|${norm(l.ad)}`) ?? null} size={18} />
+                        <span className="truncate text-xs text-muted">{l.ad}</span>
+                      </span>
                     )}
                   </span>
-                  <span className="hidden text-right text-xs text-muted xl:block">
+                  <span className="justify-self-end md:justify-self-start">
+                    <StatusMenu lead={l} onChange={updateLead} onError={setNotice} />
+                  </span>
+                  <span className="hidden min-w-0 xl:flex">
+                    <OwnerMenu lead={l} people={people} onChange={updateLead} onError={setNotice} />
+                  </span>
+                  <span className="hidden text-right text-xs text-muted xl:block" title={fmtDateTime(l.created_at)}>
                     {l.appointment_at && l.status === "appointment_set" ? (
                       <span className="text-brand-ink">📅 {fmtDateTime(l.appointment_at)}</span>
                     ) : (
                       since(l.created_at, t)
                     )}
                   </span>
-                </button>
+                </div>
               </li>
             ))}
           </ul>

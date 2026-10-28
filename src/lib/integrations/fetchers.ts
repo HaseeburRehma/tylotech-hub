@@ -50,7 +50,7 @@ export type FetchResult = FetchedData | FetchError | null;
 export const isFetchError = (r: FetchResult): r is FetchError => !!r && "error" in r;
 
 export const META_GRAPH_VERSION = "v25.0";
-const GOOGLE_ADS_VERSION = "v25";
+export const GOOGLE_ADS_VERSION = "v25";
 const WINDOW_DAYS = 30;
 const PERIOD = "Last 30d";
 
@@ -95,7 +95,7 @@ function change(cur: number, prev: number | null | undefined): number | null {
  * OAuthException code 190, which must also count as "reconnect needed" — not a
  * transient error that is silently retried forever.
  */
-async function errorFor(res: Response | null): Promise<FetchError> {
+export async function errorFor(res: Response | null): Promise<FetchError> {
   if (!res) return { error: "api", detail: "network error" };
   const raw: any = await res.json().catch(() => null);
   // Google Ads searchStream wraps errors in a list: [{ error: {...} }].
