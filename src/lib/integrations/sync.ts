@@ -96,6 +96,18 @@ export async function syncClient(
 
     const cfg = (row.meta ?? {}) as { accountId?: string; siteUrl?: string; propertyId?: string; loginCustomerId?: string; [k: string]: unknown };
 
+    // "Connected" without any sign-in (an old sandbox / manual slot) can never
+    // sync: say so on the card instead of showing it as connected.
+    if (!row.access_token && !row.refresh_token) {
+      await admin
+        .from("integrations")
+        .update({ status: "error", meta: { ...cfg, lastError: "auth", lastErrorAt: nowIso, lastErrorDetail: "Not signed in yet. Connect the account to load its data." } })
+        .eq("id", row.id);
+      await dropSourceKpis(admin, clientId, row.provider);
+      results.push({ provider: row.provider, synced: false, reason: "not signed in. Connect" });
+      continue;
+    }
+
     // Google access tokens expire hourly → refresh from the stored refresh_token first.
     let accessToken: string | null = row.access_token;
     if (GOOGLE_PROVIDERS.has(row.provider) && row.refresh_token) {

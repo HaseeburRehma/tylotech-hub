@@ -89,4 +89,14 @@ describe("stale KPIs", () => {
     await syncClient(admin, "c1");
     expect(db.kpis).toHaveLength(1);
   });
+
+  it("a card marked connected without any sign-in is flagged, not shown as connected", async () => {
+    db.integrations = [{ id: "i1", client_id: "c1", provider: "google_ads", status: "connected", access_token: null, refresh_token: null, meta: { accountId: "724-877-0862" } }];
+    db.kpis = [kpi("Google Ads", 1)];
+    const r = await syncClient(admin, "c1");
+    expect(db.integrations[0]).toMatchObject({ status: "error", meta: { accountId: "724-877-0862", lastError: "auth" } });
+    expect(db.kpis).toHaveLength(0);
+    expect(r.results[0].reason).toMatch(/not signed in/);
+  });
 });
+
