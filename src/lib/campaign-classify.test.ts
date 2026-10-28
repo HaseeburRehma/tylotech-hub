@@ -125,16 +125,18 @@ describe("classifyLeads", () => {
 });
 
 describe("classColors", () => {
-  it("distinct colors per campaign, grey for leads without a campaign", () => {
-    const keys = Array.from({ length: 12 }, (_, i) => `meta:campaign ${i}`).concat("group:website", "group:website_google");
+  it("distinct colors per campaign (palette order), grey for leads without a campaign", () => {
+    const keys = Array.from({ length: 10 }, (_, i) => `meta:campaign ${i}`).concat("group:website", "group:website_google");
     const c = classColors(keys);
-    const campaignColors = keys.slice(0, 12).map((k) => c.get(k));
-    expect(new Set(campaignColors).size).toBe(12);
-    expect(campaignColors.every((x) => CLASS_COLORS.includes(x!))).toBe(true);
+    const campaignColors = keys.slice(0, 10).map((k) => c.get(k));
+    expect(new Set(campaignColors).size).toBe(10);
     expect(c.get("group:website")).toBe(UNCLASSIFIED_COLOR);
+    // Two campaigns: the first two colors (blue, orange), never two similar ones.
+    const two = classColors(["google:loh - keine wartezeit", "google:loh – online therapie"]);
+    expect(Array.from(two.values())).toEqual(CLASS_COLORS.slice(0, 2));
   });
 
-  it("a campaign keeps its color whatever order the rows come in", () => {
+  it("the order the rows come in doesn't change the colors", () => {
     const a = classColors(["meta:a", "google:b", "meta:c"]);
     const b = classColors(["meta:c", "meta:a", "google:b"]);
     expect(Array.from(a.entries()).sort()).toEqual(Array.from(b.entries()).sort());

@@ -242,33 +242,23 @@ export function classifyLeads(
   };
 }
 
-/** One color per campaign (stripe on the lead, dot in the campaign list); distinct for up to 12. */
-export const CLASS_COLORS = ["#3B82F6", "#F97316", "#8B5CF6", "#10B981", "#EC4899", "#06B6D4", "#EAB308", "#EF4444", "#6366F1", "#84CC16", "#14B8A6", "#F43F5E"];
+/**
+ * One color per campaign (stripe on the lead, dot in the campaign list). Hues
+ * far apart, so two campaigns never look alike; after these they repeat.
+ */
+export const CLASS_COLORS = ["#2563EB", "#F97316", "#9333EA", "#16A34A", "#DB2777", "#CA8A04", "#DC2626", "#0891B2", "#92400E", "#4F46E5"];
 /** Leads not tied to a campaign (website direct, unmatched clicks, manual). */
 export const UNCLASSIFIED_COLOR = "#94A3B8";
 
 /**
- * Color per row key. Seeded by the key, so a campaign keeps its color when the
- * period changes; collisions move to the next free color.
+ * Color per row key: campaigns in name order get the palette in order, so the
+ * colors on one page are always distinct; leads without a campaign are grey.
  */
 export function classColors(keys: string[]): Map<string, string> {
   const out = new Map<string, string>();
-  const used = new Set<number>();
-  const hash = (k: string) => {
-    let h = 2166136261;
-    for (let i = 0; i < k.length; i++) h = Math.imul(h ^ k.charCodeAt(i), 16777619);
-    return (h >>> 0) % CLASS_COLORS.length;
-  };
+  let n = 0;
   for (const k of Array.from(new Set(keys)).sort()) {
-    if (k.startsWith("group:")) {
-      out.set(k, UNCLASSIFIED_COLOR);
-      continue;
-    }
-    let i = hash(k);
-    for (let n = 0; n < CLASS_COLORS.length && used.has(i); n++) i = (i + 1) % CLASS_COLORS.length;
-    used.add(i);
-    out.set(k, CLASS_COLORS[i]);
+    out.set(k, k.startsWith("group:") ? UNCLASSIFIED_COLOR : CLASS_COLORS[n++ % CLASS_COLORS.length]);
   }
   return out;
 }
-

@@ -78,8 +78,8 @@ export function LeadsView({
   const [source, setSource] = useState<"all" | Lead["source"]>("all");
   const [owner, setOwner] = useState<OwnerFilter>("all");
   const [tag, setTag] = useState<string>("all");
-  // Quick filter: only leads that came in today (Berlin).
-  const [todayOnly, setTodayOnly] = useState(false);
+  // "N new today" jumps to the Today range and back to the range before.
+  const [beforeToday, setBeforeToday] = useState<DateRange | null>(null);
   const [range, setRange] = useState<DateRange>(() => presetRange("maximum"));
   const [selection, setSelection] = useState<CampaignSelection | null>(null);
   const [campData, setCampData] = useState<CampaignData | null>(null);
@@ -203,7 +203,18 @@ export function LeadsView({
   const colors = useMemo(() => classColors(classified.rows.map((r) => r.key)), [classified]);
   const today = berlinToday();
   const isToday = (iso: string) => berlinToday(new Date(iso)) === today;
-  const todayCount = useMemo(() => inPeriod.filter((l) => !l.is_test && berlinToday(new Date(l.created_at)) === today).length, [inPeriod, today]);
+  // From all leads: ranges like "last 30 days" end yesterday, like Ads Manager.
+  const todayCount = useMemo(() => leads.filter((l) => !l.is_test && berlinToday(new Date(l.created_at)) === today).length, [leads, today]);
+  const todayOnly = range.preset === "today";
+  const toggleToday = () => {
+    if (todayOnly) {
+      changeRange(beforeToday ?? presetRange("maximum"));
+      setBeforeToday(null);
+    } else {
+      setBeforeToday(range);
+      changeRange(presetRange("today"));
+    }
+  };
 
   const shown = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -215,14 +226,13 @@ export function LeadsView({
       if (owner === "none" && l.assigned_to) return false;
       if (owner !== "all" && owner !== "me" && owner !== "none" && l.assigned_to !== owner) return false;
       if (tag !== "all" && !(l.tags ?? []).includes(tag)) return false;
-      if (todayOnly && berlinToday(new Date(l.created_at)) !== today) return false;
       if (!term) return true;
       return (
         String(l.lead_no) === term.replace(/^#/, "") ||
         [l.name, l.email, l.phone, l.campaign, l.ad_group, l.ad, l.form, ...(l.tags ?? []), ...l.fields.map((f) => f.value)].some((v) => v?.toLowerCase().includes(term))
       );
     });
-  }, [inPeriod, selectedIds, q, status, source, owner, tag, todayOnly, today, user.id]);
+  }, [inPeriod, selectedIds, q, status, source, owner, tag, user.id]);
 
   // Sorted, then cut into pages.
   const sorted = useMemo(() => {
@@ -264,16 +274,16 @@ export function LeadsView({
   const last = Math.min(current * pageSize, sorted.length);
 
   // New filters or order: back to the first page.
-  useEffect(() => setPage(1), [q, status, source, owner, tag, todayOnly, range, selection, sort, pageSize]);
+  useEffect(() => setPage(1), [q, status, source, owner, tag, range, selection, sort, pageSize]);
 
-  const filtersActive = q.trim() !== "" || status !== "open" || source !== "all" || owner !== "all" || tag !== "all" || todayOnly || range.preset !== "maximum" || !!selection;
+  const filtersActive = q.trim() !== "" || status !== "open" || source !== "all" || owner !== "all" || tag !== "all" || range.preset !== "maximum" || !!selection;
   const clearFilters = () => {
     setQ("");
     setStatus("open");
     setSource("all");
     setOwner("all");
     setTag("all");
-    setTodayOnly(false);
+    setBeforeToday(null);
     changeRange(presetRange("maximum"));
   };
   const updateLead = (l: Lead) => setLeads((all) => all.map((x) => (x.id === l.id ? l : x)));
@@ -460,7 +470,7 @@ export function LeadsView({
             )}
             <button
               type="button"
-              onClick={() => setTodayOnly((v) => !v)}
+              onClick={toggleToday}
               aria-pressed={todayOnly}
               disabled={!todayCount && !todayOnly}
               className={cn(
