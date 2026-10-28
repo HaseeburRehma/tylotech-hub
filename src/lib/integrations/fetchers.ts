@@ -118,6 +118,12 @@ export async function errorFor(res: Response | null): Promise<FetchError> {
 const sum = <T,>(rows: T[], f: (r: T) => number) => rows.reduce((a, r) => a + f(r), 0);
 
 /**
+ * "Cost per lead €0" without leads and "ROAS 0" without tracked purchase value
+ * read as real results. Leave those cards out instead.
+ */
+const meaningful = (k: { metric_name: string }, c: { leads?: number; roas: number }) => !(k.metric_name === "cpl" && !c.leads) && !(k.metric_name === "roas" && !c.roas);
+
+/**
  * Meta reports overlapping lead action types (lead, onsite_conversion.lead_grouped,
  * offsite_conversion.fb_pixel_lead, …). Taking the first /lead/ match made the
  * count depend on response order. Use the aggregate "lead" when present, then the
@@ -188,12 +194,12 @@ export async function fetchMetaAds(accessToken: string, accountId: string): Prom
 
   return {
     series,
-    kpis: [
+    kpis: ([
       { metric_name: "ad_spend", label: "Monthly Ad Spend", value: Number(c.spend.toFixed(2)), unit: "currency", delta: change(c.spend, p?.spend), period: PERIOD, source: "Meta Ads" },
       { metric_name: "leads", label: "Leads Generated", value: c.leads, unit: "number", delta: change(c.leads, p?.leads), period: PERIOD, source: "Meta Ads" },
       { metric_name: "cpl", label: "Cost per Lead", value: Number(c.cpl.toFixed(2)), unit: "currency", delta: c.cpl && p?.cpl ? change(c.cpl, p.cpl) : null, period: PERIOD, source: "Meta Ads" },
       { metric_name: "roas", label: "ROAS", value: Number(c.roas.toFixed(2)), unit: "ratio", delta: c.roas && p?.roas ? change(c.roas, p.roas) : null, period: PERIOD, source: "Meta Ads" },
-    ],
+    ] satisfies FetchedKpi[]).filter((k) => meaningful(k, c)),
   };
 }
 
@@ -391,11 +397,11 @@ export async function fetchGoogleAds(accessToken: string, customerId: string, lo
 
   return {
     series,
-    kpis: [
+    kpis: ([
       { metric_name: "ad_spend", label: "Monthly Ad Spend", value: Number(c.spend.toFixed(2)), unit: "currency", delta: change(c.spend, p?.spend), period: PERIOD, source: "Google Ads" },
       { metric_name: "leads", label: "Conversions", value: Number(c.conv.toFixed(1)), unit: "number", delta: change(c.conv, p?.conv), period: PERIOD, source: "Google Ads" },
       { metric_name: "roas", label: "ROAS", value: Number(c.roas.toFixed(2)), unit: "ratio", delta: c.roas && p?.roas ? change(c.roas, p.roas) : null, period: PERIOD, source: "Google Ads" },
-    ],
+    ] satisfies FetchedKpi[]).filter((k) => meaningful(k, c)),
   };
 }
 
@@ -407,7 +413,7 @@ async function fetchSearchPages(accessToken: string, property: string, start: st
   const res = await fetchWithRetry(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(property)}/searchAnalytics/query`, {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ startDate: start, endDate: end, dimensions: ["page"], rowLimit: 50 }),
+    body: JSON.stringify({ startDate: start, endDate: end, dimensions: ["page"], rowLimit: 50, dataState: "all" }),
     cache: "no-store",
   }).catch(() => null);
   if (!res?.ok) return null;
@@ -444,7 +450,9 @@ export async function fetchSearchConsole(accessToken: string, siteUrl: string): 
       {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ startDate: w.start, endDate: w.end, dimensions: ["date"], rowLimit: 1000 }),
+        // "all" includes the last 1-2 days Google hasn't finalised yet, like the
+        // Search Console UI; without it "last 30 days" silently covered 28.
+        body: JSON.stringify({ startDate: w.start, endDate: w.end, dimensions: ["date"], rowLimit: 1000, dataState: "all" }),
         cache: "no-store",
       },
     ).catch(() => null);

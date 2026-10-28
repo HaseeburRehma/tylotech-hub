@@ -145,3 +145,43 @@ describe("Google Ads errors are readable", () => {
     expect((await withRes(401, { error: { code: 401, status: "UNAUTHENTICATED", message: "Request had invalid authentication credentials." } })).error).toBe("auth");
   });
 });
+
+describe("KPIs that would mislead are left out", () => {
+  const withFetch = async <T,>(answer: (url: string, body: any) => unknown, run: () => Promise<T>) => {
+    const orig = globalThis.fetch;
+    const bodies: any[] = [];
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+      const body = init?.body ? JSON.parse(String(init.body)) : null;
+      bodies.push({ url: String(url), body });
+      return new Response(JSON.stringify(answer(String(url), body)), { status: 200 });
+    }) as typeof fetch;
+    try {
+      return { result: await run(), bodies };
+    } finally {
+      globalThis.fetch = orig;
+    }
+  };
+  const today = new Date();
+  const day = (n: number) => new Date(today.getTime() - n * 86_400_000).toISOString().slice(0, 10);
+
+  it("Meta: spend without leads or purchases → no 'cost per lead €0' and no 'ROAS 0'", async () => {
+    const { fetchMetaAds } = await import("./fetchers");
+    const { result } = await withFetch(() => ({ data: [{ date_start: day(2), spend: "50" }, { date_start: day(3), spend: "40" }] }), () => fetchMetaAds("t", "act_1"));
+    const names = (result as any).kpis.map((k: any) => k.metric_name);
+    expect(names).toEqual(["ad_spend", "leads"]);
+  });
+
+  it("Meta: with leads the cost per lead is shown", async () => {
+    const { fetchMetaAds } = await import("./fetchers");
+    const { result } = await withFetch(() => ({ data: [{ date_start: day(2), spend: "50", actions: [{ action_type: "lead", value: "5" }] }] }), () => fetchMetaAds("t", "act_1"));
+    expect((result as any).kpis.find((k: any) => k.metric_name === "cpl").value).toBe(10);
+  });
+
+  it("Search Console asks for fresh data too (else the last 1-2 days are missing)", async () => {
+    const { fetchSearchConsole } = await import("./fetchers");
+    const { bodies } = await withFetch((_u, b) => (b?.dimensions?.[0] === "date" ? { rows: [{ keys: [day(1)], clicks: 3, impressions: 40, position: 5 }] } : { rows: [] }), () => fetchSearchConsole("t", "sc-domain:example.org"));
+    const q = bodies.filter((b) => b.url.includes("searchAnalytics"));
+    expect(q.length).toBeGreaterThan(0);
+    expect(q.every((b) => b.body.dataState === "all")).toBe(true);
+  });
+});

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { logAudit } from "@/lib/audit";
 import { getAuthUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { dropSourceKpis } from "@/lib/integrations/sync";
 import { getProvider, isProviderLive } from "@/lib/integrations/providers";
 
 export const runtime = "nodejs";
@@ -63,6 +64,8 @@ export async function POST(
       console.error("integration disconnect failed:", error.message);
       return NextResponse.json({ error: "Could not disconnect." }, { status: 400 });
     }
+    // Its numbers go with it (the dashboards would show them as current).
+    await dropSourceKpis(admin, clientId, provider.id).catch(() => null);
     await logAudit(user, { action: "integration.disconnect", clientId, targetType: "integration", targetId: provider.id }, admin);
     return NextResponse.json({ ok: true, status: "disconnected" });
   }

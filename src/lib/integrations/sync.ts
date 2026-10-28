@@ -8,6 +8,22 @@ import { CHANNEL_LABEL, emitActivity, joinDetail, leadsTitle } from "@/lib/live-
 const GOOGLE_PROVIDERS = new Set(["google_ads", "ga4", "search_console"]);
 const AUTO_MIN_AGE_MS = 25 * 60 * 1000; // auto/cron skips rows synced < 25 min ago
 const LEAD_PROVIDERS = new Set(["meta_ads", "google_ads"]);
+/** The kpis.source each provider writes. */
+export const KPI_SOURCE: Record<string, string> = { meta_ads: "Meta Ads", google_ads: "Google Ads", ga4: "GA4", search_console: "Search Console" };
+// A source that keeps failing (or reports nothing) loses its numbers after this.
+const STALE_MS = 72 * 3_600_000;
+
+/**
+ * Cards say "last 30 days": they must not outlive the data behind them. Without
+ * `olderThanMs` every card of the source goes (disconnected / sign-in broken).
+ */
+export async function dropSourceKpis(admin: SupabaseClient, clientId: string, provider: string, olderThanMs?: number) {
+  const source = KPI_SOURCE[provider];
+  if (!source) return;
+  let q = admin.from("kpis").delete().eq("client_id", clientId).eq("source", source);
+  if (olderThanMs) q = q.lt("created_at", new Date(Date.now() - olderThanMs).toISOString());
+  await q;
+}
 
 /** Today's date in Germany (ad accounts report in local time). */
 function todayBerlin() {
@@ -47,6 +63,10 @@ export async function syncClient(
   // Archived clients are no longer synced.
   const { data: client } = await admin.from("clients").select("*").eq("id", clientId).maybeSingle();
   if (!client || client.archived_at) return { synced: 0, results: [] };
+
+  // Sources that are disconnected or need a new sign-in show no old numbers.
+  const { data: dead } = await admin.from("integrations").select("provider").eq("client_id", clientId).neq("status", "connected");
+  for (const d of (dead ?? []) as { provider: string }[]) if (!opts.provider || d.provider === opts.provider) await dropSourceKpis(admin, clientId, d.provider);
 
   let query = admin
     .from("integrations")
@@ -113,6 +133,7 @@ export async function syncClient(
         .from("integrations")
         .update(data.error === "auth" ? { status: "error", meta } : { meta })
         .eq("id", row.id);
+      await dropSourceKpis(admin, clientId, row.provider, data.error === "auth" ? undefined : STALE_MS);
       results.push({ provider: row.provider, synced: false, reason: data.error === "auth" ? "token rejected. Reconnect" : "provider error" });
       continue;
     }
@@ -124,6 +145,8 @@ export async function syncClient(
       if (accessToken && target) {
         const { lastError: _e, lastErrorAt: _a, lastErrorDetail: _d, ...clean } = cfg as Record<string, unknown>;
         await admin.from("integrations").update({ last_synced_at: nowIso, meta: clean }).eq("id", row.id);
+        // Nothing in the window for days: the old cards no longer describe it.
+        await dropSourceKpis(admin, clientId, row.provider, STALE_MS);
         results.push({ provider: row.provider, synced: false, reason: "empty: no activity in the period" });
       } else {
         results.push({ provider: row.provider, synced: false, reason: "no data (connect API / set account)" });
