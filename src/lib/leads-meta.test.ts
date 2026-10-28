@@ -11,6 +11,8 @@ vi.mock("@/lib/http", () => ({
     const key = u.searchParams.get("after") ? `${path}#${u.searchParams.get("after")}` : path;
     const body = routes[key];
     if (body === undefined) return new Response(JSON.stringify({ error: { message: `no route ${key}` } }), { status: 400 });
+    const b = body as { __error?: unknown; __headers?: Record<string, string> };
+    if (b.__error) return new Response(JSON.stringify({ error: b.__error }), { status: 400, headers: b.__headers });
     return new Response(JSON.stringify(body), { status: 200 });
   },
 }));
@@ -134,9 +136,10 @@ describe("handleLeadgenEvent", () => {
 describe("syncMetaLeads — 1-minute poll mode", () => {
   const LAST = "2026-10-27T08:00:00.000Z";
   let updates: any[] = [];
+  let config: any = {};
   const admin: any = {
     from: () => ({
-      select: () => ({ eq: () => ({ neq: async () => ({ data: [{ id: "s1", client_id: "c1", access_token: "pt", external_id: "77", last_synced_at: LAST }] }) }) }),
+      select: () => ({ eq: () => ({ neq: async () => ({ data: [{ id: "s1", client_id: "c1", access_token: "pt", external_id: "77", last_synced_at: LAST, config }] }) }) }),
       update: (u: any) => ({ eq: async () => (updates.push(u), {}) }),
     }),
   };
@@ -146,6 +149,7 @@ describe("syncMetaLeads — 1-minute poll mode", () => {
   };
   beforeEach(() => {
     updates = [];
+    config = {};
     mockIngest.mockReset().mockResolvedValue({ id: "l", lead_no: 1 });
   });
 
@@ -198,5 +202,57 @@ describe("syncMetaLeads — 1-minute poll mode", () => {
     const added = await (await import("./leads-meta")).syncMetaLeads(admin, { notify: true, overlapMinutes: 15 });
     expect(added).toBe(0);
     expect(updates[0].status).toBe("error");
+  });
+
+  it("rate limited (#80005): backs off as long as Meta says, without turning the source red", async () => {
+    routes["77/leadgen_forms"] = {
+      __error: { message: "(#80005) There have been too many leadgen api calls to this Page account.", code: 80005 },
+      __headers: { "x-business-use-case-usage": JSON.stringify({ "77": [{ type: "leadgen", call_count: 12, estimated_time_to_regain_access: 7 }] }) },
+    };
+    const t0 = Date.now();
+    await (await import("./leads-meta")).syncMetaLeads(admin, { notify: true, overlapMinutes: 15 });
+    expect(updates[0].status).toBe("active");
+    expect(updates[0].last_error).toMatch(/rate limit \(#80005\)/);
+    expect(updates[0].last_synced_at).toBeUndefined(); // the next window still starts at the last good sync
+    const wait = (Date.parse(updates[0].config.retryAt) - t0) / 60_000;
+    expect(wait).toBeGreaterThanOrEqual(6.9);
+    expect(wait).toBeLessThan(7.5);
+    expect(updates[0].config.rateLimitHits).toBe(1);
+  });
+
+  it("without Meta's estimate the wait doubles per hit, capped at an hour; other config is kept", async () => {
+    routes["77/leadgen_forms"] = { __error: { message: "(#32) Page request limit reached", code: 32 } };
+    config = { rateLimitHits: 3, keep: "me" };
+    const t0 = Date.now();
+    await (await import("./leads-meta")).syncMetaLeads(admin, {});
+    expect(Math.round((Date.parse(updates[0].config.retryAt) - t0) / 60_000)).toBe(16);
+    expect(updates[0].config).toMatchObject({ rateLimitHits: 4, keep: "me" });
+    config = { rateLimitHits: 9 };
+    updates = [];
+    await (await import("./leads-meta")).syncMetaLeads(admin, {});
+    expect(Math.round((Date.parse(updates[0].config.retryAt) - t0) / 60_000)).toBe(60);
+  });
+
+  it("while backing off, Meta isn't called at all", async () => {
+    config = { retryAt: new Date(Date.now() + 5 * 60_000).toISOString(), rateLimitHits: 1 };
+    routes["77/leadgen_forms"] = { data: [] };
+    await (await import("./leads-meta")).syncMetaLeads(admin, { notify: true, overlapMinutes: 15 });
+    expect(calls).toEqual([]);
+    expect(updates).toEqual([]);
+  });
+
+  it("the first good sync after a back-off clears it", async () => {
+    config = { retryAt: new Date(Date.now() - 1000).toISOString(), rateLimitHits: 2, keep: 1 };
+    routes["77/leadgen_forms"] = { data: [] };
+    await (await import("./leads-meta")).syncMetaLeads(admin, { notify: true, overlapMinutes: 15 });
+    expect(updates[0]).toMatchObject({ status: "active", last_error: null, config: { keep: 1 } });
+    expect(updates[0].config.retryAt).toBeUndefined();
+  });
+
+  it("a non-throttling error still marks the source as errored", async () => {
+    routes["77/leadgen_forms"] = { __error: { message: "Error validating access token", code: 190 } };
+    await (await import("./leads-meta")).syncMetaLeads(admin, {});
+    expect(updates[0]).toMatchObject({ status: "error", last_error: "Error validating access token" });
+    expect(updates[0].config).toBeUndefined();
   });
 });

@@ -76,9 +76,36 @@ async function graph<T>(path: string, token: string, params: Record<string, stri
   );
   if (!res) throw new Error("Meta not reachable");
   const json = (await res.json().catch(() => ({}))) as T & { error?: { message?: string; code?: number } };
-  if (!res.ok || json.error) throw new Error(json.error?.message ?? `Graph ${res.status}`);
+  if (!res.ok || json.error) throw new GraphError(json.error?.message ?? `Graph ${res.status}`, json.error?.code ?? null, regainMinutes(res.headers.get("x-business-use-case-usage")));
   return json;
 }
+
+/** A Graph error with Meta's code and, when throttled, how long until access returns. */
+export class GraphError extends Error {
+  constructor(
+    message: string,
+    readonly code: number | null,
+    readonly regainMinutes: number | null,
+  ) {
+    super(message);
+  }
+}
+
+/** Longest `estimated_time_to_regain_access` (minutes) in a business use case usage header. */
+export function regainMinutes(header: string | null): number | null {
+  if (!header) return null;
+  try {
+    const usage = JSON.parse(header) as Record<string, { estimated_time_to_regain_access?: number }[]>;
+    const all = Object.values(usage).flat().map((u) => Number(u.estimated_time_to_regain_access) || 0);
+    return all.length ? Math.max(...all) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Throttling: app (4), user (17), page (32), API (613) and the business use case
+// limits (80000-80014; 80005 = leadgen calls per page, sized by the page's lead volume).
+export const isMetaRateLimit = (e: unknown) => e instanceof GraphError && e.code != null && ([4, 17, 32, 613].includes(e.code) || (e.code >= 80000 && e.code <= 80014));
 
 /**
  * OAuth callback for provider "meta_leads": code → long-lived user token, after
@@ -281,13 +308,24 @@ export interface MetaSyncOptions {
   notifyMaxAgeMinutes?: number;
 }
 
+interface MetaSourceConfig {
+  /** Don't call Meta for this page before this time (rate limited). */
+  retryAt?: string;
+  rateLimitHits?: number;
+  [k: string]: unknown;
+}
+
 export async function syncMetaLeads(admin: SupabaseClient, opts: MetaSyncOptions = {}) {
-  let q = admin.from("lead_sources").select("id,client_id,access_token,external_id,last_synced_at").eq("kind", "meta").neq("status", "disconnected");
+  let q = admin.from("lead_sources").select("id,client_id,access_token,external_id,last_synced_at,config").eq("kind", "meta").neq("status", "disconnected");
   if (opts.clientId) q = q.eq("client_id", opts.clientId);
   const { data: sources } = await q;
   let added = 0;
   for (const s of sources ?? []) {
     if (!s.access_token || !s.external_id) continue;
+    // Throttled by Meta: wait it out (calling anyway extends the block). The
+    // window below starts from the last good sync, so nothing is missed.
+    const cfg = (s.config ?? {}) as MetaSourceConfig;
+    if (cfg.retryAt && Date.parse(cfg.retryAt) > Date.now()) continue;
     const overlapMs = (opts.overlapMinutes ?? 24 * 60) * 60_000;
     const since = s.last_synced_at && !opts.days ? new Date(new Date(s.last_synced_at).getTime() - overlapMs) : new Date(Date.now() - (opts.days ?? 30) * 86_400_000);
     // Stamped at the start: a lead arriving mid-sync is inside the next window.
@@ -312,9 +350,24 @@ export async function syncMetaLeads(admin: SupabaseClient, opts: MetaSyncOptions
           if (!after) break;
         }
       }
-      await admin.from("lead_sources").update({ last_synced_at: startedAt, status: "active", last_error: null }).eq("id", s.id);
+      const { retryAt: _r, rateLimitHits: _h, ...rest } = cfg;
+      await admin
+        .from("lead_sources")
+        .update({ last_synced_at: startedAt, status: "active", last_error: null, ...(cfg.retryAt || cfg.rateLimitHits ? { config: rest } : {}) })
+        .eq("id", s.id);
     } catch (e) {
-      await admin.from("lead_sources").update({ status: "error", last_error: (e as Error).message.slice(0, 300) }).eq("id", s.id);
+      if (isMetaRateLimit(e)) {
+        // Not broken, just throttled: back off (Meta's estimate, else 2, 4, 8 … 60 min).
+        const hits = (cfg.rateLimitHits ?? 0) + 1;
+        const wait = Math.max((e as GraphError).regainMinutes ?? 0, Math.min(60, 2 ** hits));
+        const retryAt = new Date(Date.now() + wait * 60_000).toISOString();
+        await admin
+          .from("lead_sources")
+          .update({ status: "active", last_error: `Meta rate limit (#${(e as GraphError).code}), next try ${retryAt}`, config: { ...cfg, retryAt, rateLimitHits: hits } })
+          .eq("id", s.id);
+      } else {
+        await admin.from("lead_sources").update({ status: "error", last_error: (e as Error).message.slice(0, 300) }).eq("id", s.id);
+      }
     }
   }
   return added;
