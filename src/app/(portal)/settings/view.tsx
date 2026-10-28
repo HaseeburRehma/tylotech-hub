@@ -2,7 +2,7 @@
 
 import { Bell, Camera, Check, Globe, Loader2, LogOut, Moon, Palette, ShieldCheck, Trash2, Upload, User } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Panel, PanelHeader } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { useI18n, useT } from "@/lib/i18n/provider";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { currentLoginPath } from "@/lib/login-brand";
+import { leadSoundEnabled, playLeadSound, setLeadSoundEnabled } from "@/lib/lead-sound";
 
 const TABS = ["profile", "security", "notifications", "appearance"] as const;
 type Tab = (typeof TABS)[number];
@@ -75,6 +76,9 @@ export function SettingsView({
   const [notifSaving, setNotifSaving] = useState(false);
   const [leadMail, setLeadMail] = useState(leadEmail);
   const [leadSaving, setLeadSaving] = useState(false);
+  // Per device (localStorage), read after mount so server and client render alike.
+  const [leadSound, setLeadSound] = useState(true);
+  useEffect(() => setLeadSound(leadSoundEnabled()), []);
 
   const dirty = displayName.trim() !== name || jobTitle.trim() !== title;
 
@@ -157,6 +161,12 @@ export function SettingsView({
     }).catch(() => null);
     setLeadSaving(false);
     if (!res?.ok) setLeadMail(!next);
+  }
+
+  function toggleLeadSound(next: boolean) {
+    setLeadSound(next);
+    setLeadSoundEnabled(next);
+    if (next) void playLeadSound({ force: true });
   }
 
   async function signOut() {
@@ -362,6 +372,20 @@ export function SettingsView({
                   <p className="text-xs text-muted">{t(staff ? "settings.leadEmailDescStaff" : "settings.leadEmailDesc", { email })}</p>
                 </div>
                 <Switch checked={leadMail} onChange={toggleLeadMail} disabled={leadSaving} label={t("settings.leadEmail")} />
+              </div>
+              <div className="flex items-center gap-4 rounded-xl border border-line bg-bg px-4 py-3.5">
+                <div className="flex-1">
+                  <p className="text-sm font-semibold">{t("settings.leadSound")}</p>
+                  <p className="text-xs text-muted">{t("settings.leadSoundDesc")}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void playLeadSound({ force: true })}
+                  className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-brand-ink transition-colors hover:bg-surface-2"
+                >
+                  {t("settings.leadSoundTest")}
+                </button>
+                <Switch checked={leadSound} onChange={toggleLeadSound} label={t("settings.leadSound")} />
               </div>
               <div className="flex items-center gap-4 rounded-xl border border-line bg-bg px-4 py-3.5">
                 <div className="flex-1">

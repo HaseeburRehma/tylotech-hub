@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { armLeadSound } from "@/lib/lead-sound";
 import { createClient } from "@/lib/supabase/client";
 import type { Lead } from "@/lib/leads-shared";
 import { shouldAlert } from "@/lib/speed-to-lead";
@@ -29,6 +30,9 @@ export function SpeedToLeadProvider({
   const [queue, setQueue] = useState<Lead[]>([]);
   const offsetRef = useRef(0);
   const staff = role === "admin" || role === "team";
+
+  // Browsers only allow sound after a click in the tab: unlock it on the first one.
+  useEffect(() => armLeadSound(), []);
 
   // Measure the server-clock offset once (round-trip corrected) so a wrong
   // device clock can't shorten or extend the 60s.

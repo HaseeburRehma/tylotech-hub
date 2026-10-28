@@ -5,8 +5,12 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/lib/i18n/provider";
 import type { Lead } from "@/lib/leads-shared";
+import { playLeadSound } from "@/lib/lead-sound";
 import { OUTCOMES, countdownState, formatCountdown, remainingSeconds } from "@/lib/speed-to-lead";
 import { cn } from "@/lib/utils";
+
+/** Seconds left when an untaken lead rings a second time. */
+const REMIND_AT = 30;
 
 const STATE_RING: Record<string, string> = {
   green: "ring-success/60",
@@ -31,28 +35,6 @@ function keyAnswers(lead: Lead): { label: string; value: string }[] {
   return lead.fields.filter((f) => !/name|mail|e-?mail|telefon|phone|stadt|ort|city|plz|postal|zip/i.test(f.label) && f.value?.trim()).slice(0, 3);
 }
 
-function beep() {
-  try {
-    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = "sine";
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.5);
-    osc.onended = () => ctx.close();
-  } catch {
-    // Autoplay blocked or no audio — the visual card is enough.
-  }
-}
-
 export function LeadAlertCard({
   lead,
   tenantName,
@@ -72,14 +54,22 @@ export function LeadAlertCard({
   const [claimed, setClaimed] = useState<boolean>(!!lead.claimed_at);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const beeped = useRef(false);
+  const rang = useRef(false);
+  // One reminder at 30 s left, unless it arrived with less than that already.
+  const reminded = useRef(remaining <= REMIND_AT);
 
   useEffect(() => {
-    if (!beeped.current && !claimed) {
-      beeped.current = true;
-      beep();
+    if (!rang.current && !claimed) {
+      rang.current = true;
+      void playLeadSound();
     }
   }, [claimed]);
+
+  useEffect(() => {
+    if (claimed || reminded.current || remaining > REMIND_AT || remaining <= 0) return;
+    reminded.current = true;
+    void playLeadSound();
+  }, [claimed, remaining]);
 
   useEffect(() => {
     const tick = () => setRemaining(remainingSeconds(createdMs, Date.now() + serverOffsetMs));

@@ -26,10 +26,10 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("sendPush", () => {
-  it("staff phones get lead pushes (urgent: high priority, leads channel)", async () => {
+  it("staff phones get lead pushes (urgent: high priority, the lead chime and channel)", async () => {
     await sendPush(admin, ["client1", "staff1", "admin1"], { title: "Neuer Lead", type: "lead", urgent: true, href: "/leads?lead=x", data: { leadId: "x" } });
     expect(sent.map((m) => m.to).sort()).toEqual(["ExponentPushToken[admin1]", "ExponentPushToken[client1]", "ExponentPushToken[staff1]"]);
-    expect(sent[0]).toMatchObject({ priority: "high", channelId: "leads", ttl: 300, data: { leadId: "x", href: "/leads?lead=x", type: "lead" } });
+    expect(sent[0]).toMatchObject({ priority: "high", sound: "new_lead.wav", channelId: "new-leads", ttl: 300, data: { leadId: "x", href: "/leads?lead=x", type: "lead" } });
   });
 
   it("staff phones still don't get chat pushes", async () => {
@@ -37,6 +37,8 @@ describe("sendPush", () => {
     expect(sent.map((m) => m.to)).toEqual(["ExponentPushToken[client1]"]);
     expect(sent[0].body).toBeUndefined(); // chat text never goes through push
     expect(sent[0].priority).toBeUndefined();
+    expect(sent[0]).toMatchObject({ sound: "default" }); // only leads ring the chime
+    expect(sent[0].channelId).toBeUndefined();
   });
 
   it("an app-supplied href can't be overridden through data", async () => {

@@ -23,6 +23,10 @@ export interface PushInput {
   urgent?: boolean;
 }
 
+/** The new-lead chime bundled in the TyloHQ app, and its Android channel (tylohq-mobile src/lib/push.ts). */
+export const LEAD_SOUND = "new_lead.wav";
+export const LEAD_CHANNEL = "new-leads";
+
 /** Push types a staff phone gets; everything else stays in-app + email for staff. */
 const STAFF_PUSH_TYPES = new Set(["workflow", "lead"]);
 
@@ -44,8 +48,9 @@ export async function sendPush(admin: any, userIds: string[], n: PushInput) {
     title: n.title.slice(0, 120),
     ...(body ? { body } : {}),
     data: { ...(n.data ?? {}), href: n.href ?? "/dashboard", type: n.type ?? "info" },
-    sound: "default",
-    ...(n.urgent ? { priority: "high", channelId: "leads", ttl: 300 } : {}),
+    // Lead pushes ring the app's own chime; an app build without it plays the default sound.
+    sound: n.urgent ? LEAD_SOUND : "default",
+    ...(n.urgent ? { priority: "high", channelId: LEAD_CHANNEL, ttl: 300 } : {}),
   }));
 
   const dead: string[] = [];
