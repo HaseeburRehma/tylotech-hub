@@ -10,7 +10,7 @@ vi.mock("@/lib/integrations/oauth", () => ({ refreshGoogleAccessToken: (t: strin
 const clickLookup = vi.fn();
 vi.mock("@/lib/integrations/campaigns", () => ({ googleClickAttribution: (...a: unknown[]) => clickLookup(...a) }));
 
-import { syncSheetLeads, syncSheetSource, type SheetConfig } from "./leads-sheets";
+import { sheetDateZone, syncSheetLeads, syncSheetSource, type SheetConfig } from "./leads-sheets";
 
 /* ── A small in-memory stand-in for the Supabase query builder ── */
 type Row = Record<string, any>;
@@ -309,6 +309,33 @@ describe("Google clicks → campaign and ad group", () => {
     expect(lead("lead_a_00000000001")).toMatchObject({ campaign: "111", ad_group: "222" });
     expect(r.updated).toBe(2); // A and C got their ad groups
     expect(alerts.filter((a) => a.name === "Anna")).toHaveLength(1);
+  });
+});
+
+describe("sheetDateZone", () => {
+  const serial = (ms: number) => 25569 + ms / 86_400_000;
+  const head = ["Zeitstempel", "Vorname", "Telefon"];
+  const now = Date.UTC(2026, 9, 29, 9, 46, 30); // 10:46 in Berlin
+
+  it("a GMT sheet whose newest row is an hour ahead holds German time", () => {
+    const data = { Leads: [head, [serial(Date.UTC(2026, 9, 29, 10, 45, 44)), "Erika", "0151 1"]] };
+    expect(sheetDateZone(["Leads"], data, "Etc/GMT", "Europe/Berlin", now)).toBe("Europe/Berlin");
+  });
+
+  it("a GMT sheet with real GMT times stays GMT", () => {
+    const data = { Leads: [head, [serial(Date.UTC(2026, 9, 29, 9, 45, 44)), "Erika", "0151 1"]] };
+    expect(sheetDateZone(["Leads"], data, "Etc/GMT", "Europe/Berlin", now)).toBe("Etc/GMT");
+  });
+
+  it("text times and Berlin sheets are left alone", () => {
+    const data = { Leads: [head, ["29.10.2026, 10:45:44", "Erika", "0151 1"]] };
+    expect(sheetDateZone(["Leads"], data, "Etc/GMT", "Europe/Berlin", now)).toBe("Etc/GMT");
+    expect(sheetDateZone(["Leads"], {}, "Europe/Berlin", "Europe/Berlin", now)).toBe("Europe/Berlin");
+  });
+
+  it("a row far in the future that no zone explains doesn't flip the sheet", () => {
+    const data = { Leads: [head, [serial(Date.UTC(2026, 10, 29, 9, 0, 0)), "Typo", "0151 1"]] };
+    expect(sheetDateZone(["Leads"], data, "Etc/GMT", "Europe/Berlin", now)).toBe("Etc/GMT");
   });
 });
 

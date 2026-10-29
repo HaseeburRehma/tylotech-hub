@@ -126,8 +126,12 @@ function idColumn(headers: string[], rows: Cell[][]): number {
   return -1;
 }
 
-/** One tab → leads (one per row with any answer). */
-export function tabToLeads(tab: string, values: Cell[][], tz: string, textTz: string = tz): SheetLead[] {
+/**
+ * One tab → leads (one per row with any answer). `dateTz` overrides the zone of
+ * real date cells when a sheet's setting doesn't match what its form writes
+ * (the row ids keep using `tz`, so a correction never duplicates a lead).
+ */
+export function tabToLeads(tab: string, values: Cell[][], tz: string, textTz: string = tz, dateTz: string = tz): SheetLead[] {
   if (!values.length) return [];
   const headers = (values[0] ?? []).map((h) => text(h));
   const rows = values.slice(1);
@@ -162,8 +166,9 @@ export function tabToLeads(tab: string, values: Cell[][], tz: string, textTz: st
     const rowId = idCol >= 0 ? text(r[idCol]) : "";
     // No time in the row: ids like "lead_1793089135785_x" carry the submit time (ms).
     const idMs = Number(rowId.match(/^lead_(\d{13})_/)?.[1] ?? NaN);
-    const created =
-      (timeCol >= 0 ? parseSheetDate(r[timeCol], tz, textTz) : null) ?? (idMs > 1.4e12 && idMs < 4.1e12 ? new Date(idMs).toISOString() : null);
+    const fromId = idMs > 1.4e12 && idMs < 4.1e12 ? new Date(idMs).toISOString() : null;
+    const created = (timeCol >= 0 ? parseSheetDate(r[timeCol], dateTz, textTz) : null) ?? fromId;
+    const idTime = dateTz === tz ? created : (timeCol >= 0 ? parseSheetDate(r[timeCol], tz, textTz) : null) ?? fromId;
     const status = statusCol >= 0 ? text(r[statusCol]) : "";
     const contact = pickContact(fields);
     const reachable = !!(contact.email || contact.phone);
@@ -172,7 +177,7 @@ export function tabToLeads(tab: string, values: Cell[][], tz: string, textTz: st
     // Without an id column: the same person at the same second is the same row.
     const externalId =
       rowId ||
-      `sheet:${createHash("sha1").update(`${tab}|${created ?? ""}|${contact.email ?? ""}|${contact.phone ?? ""}`).digest("hex").slice(0, 20)}`;
+      `sheet:${createHash("sha1").update(`${tab}|${idTime ?? ""}|${contact.email ?? ""}|${contact.phone ?? ""}`).digest("hex").slice(0, 20)}`;
 
     const tags: string[] = [];
     if (retreat) tags.push("Retreat");

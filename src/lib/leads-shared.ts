@@ -169,3 +169,33 @@ export function wantsLeadEmail(role: string, meta?: { lead_email?: unknown } | n
   return role === "client";
 }
 
+
+/**
+ * Fold freshly fetched or pushed rows into the list: a known lead is replaced
+ * only by a newer copy of itself (an older realtime event can't undo a newer
+ * change), new leads are added. Returns the same array when nothing changed.
+ */
+export function mergeLeads<T extends Pick<Lead, "id" | "updated_at" | "last_activity_at" | "claimed_at">>(current: T[], incoming: T[]): { leads: T[]; added: string[] } {
+  if (!incoming.length) return { leads: current, added: [] };
+  const stamp = (l: T) => Math.max(Date.parse(l.updated_at) || 0, Date.parse(l.last_activity_at) || 0, l.claimed_at ? Date.parse(l.claimed_at) || 0 : 0);
+  const byId = new Map(current.map((l, i) => [l.id, i]));
+  const next = [...current];
+  const added: string[] = [];
+  let changed = false;
+  for (const row of incoming) {
+    const i = byId.get(row.id);
+    if (i === undefined) {
+      byId.set(row.id, next.length);
+      next.push(row);
+      added.push(row.id);
+      changed = true;
+    } else if (stamp(row) >= stamp(next[i]) && JSON.stringify(row) !== JSON.stringify(next[i])) {
+      next[i] = row;
+      changed = true;
+    }
+  }
+  return { leads: changed ? next : current, added };
+}
+
+/** PostgREST filter for "anything about a lead since `iso`": new, edited, claimed or worked on. */
+export const changedSinceFilter = (iso: string) => `received_at.gte.${iso},updated_at.gte.${iso},last_activity_at.gte.${iso},claimed_at.gte.${iso}`;

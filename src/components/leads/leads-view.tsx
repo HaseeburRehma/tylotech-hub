@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
 import { useUser } from "@/components/providers/user-provider";
 import { useT, useIntlLocale } from "@/lib/i18n/provider";
-import { OPEN_STATUSES, LEAD_STATUSES, findDuplicates, type Lead, type LeadPerson, type LeadSourceView, type LeadStatus } from "@/lib/leads-shared";
+import { OPEN_STATUSES, LEAD_STATUSES, changedSinceFilter, findDuplicates, mergeLeads, type Lead, type LeadPerson, type LeadSourceView, type LeadStatus } from "@/lib/leads-shared";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { LeadTags, STATUS_VARIANT, SourceBadge, fmtDateTime, since } from "./lead-bits";
@@ -176,11 +176,39 @@ export function LeadsView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Live: new and changed leads of this partner.
+  // Leads that arrived while the page is open: highlighted for two minutes.
+  const [justIn, setJustIn] = useState<Set<string>>(() => new Set());
+  const flagJustIn = (ids: string[]) => {
+    if (!ids.length) return;
+    setJustIn((s) => new Set(Array.from(s).concat(ids)));
+    setTimeout(() => setJustIn((s) => new Set(Array.from(s).filter((id) => !ids.includes(id)))), 120_000);
+  };
+
+  // Live: new and changed leads of this partner. Realtime pushes them; on every
+  // (re)connect, when the tab comes back and when the network returns, the page
+  // also asks what changed meanwhile, so a dropped connection never hides a lead.
   useEffect(() => {
     if (!clientId || unavailable) return;
     const sb = createClient();
     if (!sb) return;
+    // The page's data is from just before this ran; the overlap covers that gap.
+    let seen = Date.now() - 2 * 60_000;
+    let lastAsk = 0;
+    let alive = true;
+    const catchUp = async (force = false) => {
+      if (!force && Date.now() - lastAsk < 10_000) return;
+      lastAsk = Date.now();
+      const started = Date.now();
+      const since = new Date(seen - 30_000).toISOString();
+      const { data, error } = await sb.from("leads").select("*").eq("client_id", clientId).or(changedSinceFilter(since)).limit(500);
+      if (!alive || error || !data) return;
+      seen = started;
+      setLeads((l) => {
+        const r = mergeLeads(l, data as Lead[]);
+        if (r.added.length) queueMicrotask(() => flagJustIn(r.added));
+        return r.leads;
+      });
+    };
     const ch = sb
       .channel(`leads:${clientId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "leads", filter: `client_id=eq.${clientId}` }, (p) => {
@@ -190,10 +218,23 @@ export function LeadsView({
           return;
         }
         const row = p.new as Lead;
-        setLeads((l) => (l.some((x) => x.id === row.id) ? l.map((x) => (x.id === row.id ? row : x)) : [row, ...l]));
+        setLeads((l) => {
+          const r = mergeLeads(l, [row]);
+          if (r.added.length) queueMicrotask(() => flagJustIn(r.added));
+          return r.leads;
+        });
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") void catchUp(true);
+      });
+    const onVisible = () => document.visibilityState === "visible" && void catchUp();
+    const onOnline = () => void catchUp(true);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onOnline);
     return () => {
+      alive = false;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onOnline);
       sb.removeChannel(ch);
     };
   }, [clientId, unavailable]);
@@ -544,6 +585,7 @@ export function LeadsView({
               const lab = classified.labels.get(l.id);
               const color = colors.get(classified.groupOf.get(l.id) ?? "");
               const fresh = isToday(l.created_at);
+              const live = justIn.has(l.id);
               return (
               <li key={l.id}>
                 {/* A row, not a button: it holds its own buttons (status, owner, WhatsApp). */}
@@ -560,7 +602,7 @@ export function LeadsView({
                   aria-label={`Lead #${l.lead_no}`}
                   // Campaign color as a stripe on the left edge (test / invalid leads have none).
                   style={color ? { boxShadow: `inset 3px 0 0 ${color}` } : undefined}
-                  className={cn(GRID, "cursor-pointer py-3 text-left outline-none transition-colors hover:bg-surface-2/60 focus-visible:bg-surface-2/60", fresh && "bg-success/[0.04]")}
+                  className={cn(GRID, "cursor-pointer py-3 text-left outline-none transition-colors hover:bg-surface-2/60 focus-visible:bg-surface-2/60", fresh && "bg-success/[0.04]", live && "animate-lead-in bg-success/[0.09] motion-reduce:animate-none")}
                 >
                   <span className="font-mono text-xs text-muted">#{l.lead_no}</span>
                   <span className="flex min-w-0 items-center gap-2">
@@ -570,7 +612,7 @@ export function LeadsView({
                         {fresh && !l.is_test && (
                           <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-success/15 px-1.5 py-0.5 align-middle text-eyebrow font-semibold text-success">
                             <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                            {t("leads.today.badge")}
+                            {live ? t("leads.justIn") : t("leads.today.badge")}
                           </span>
                         )}
                         {duplicateOf.has(l.id) && (

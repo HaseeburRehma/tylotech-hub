@@ -89,10 +89,16 @@ const config: Config = {
           "0%": { transform: "scale(0.9)", opacity: "0.7" },
           "70%, 100%": { transform: "scale(1.6)", opacity: "0" },
         },
+        // A lead that just arrived: the row glows green twice.
+        "lead-in": {
+          "0%": { backgroundColor: "rgb(var(--success) / 0.28)" },
+          "100%": { backgroundColor: "rgb(var(--success) / 0.09)" },
+        },
       },
       animation: {
         "fade-up": "fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both",
         shimmer: "shimmer 2s infinite",
+        "lead-in": "lead-in 1.6s ease-out 2",
         "pulse-ring": "pulse-ring 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite",
       },
     },

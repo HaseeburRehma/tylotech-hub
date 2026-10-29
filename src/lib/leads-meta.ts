@@ -306,6 +306,12 @@ export interface MetaSyncOptions {
   activeFormsOnly?: boolean;
   /** Alert only for leads younger than this — older ones are stored silently. */
   notifyMaxAgeMinutes?: number;
+  /**
+   * Skip a page synced more recently than this. Lets the poll run every few
+   * seconds for sheets while each Meta page is still asked about once a minute
+   * (Meta throttles pages that are polled harder).
+   */
+  minIntervalMs?: number;
 }
 
 interface MetaSourceConfig {
@@ -319,13 +325,23 @@ export async function syncMetaLeads(admin: SupabaseClient, opts: MetaSyncOptions
   let q = admin.from("lead_sources").select("id,client_id,access_token,external_id,last_synced_at,config").eq("kind", "meta").neq("status", "disconnected");
   if (opts.clientId) q = q.eq("client_id", opts.clientId);
   const { data: sources } = await q;
+  // Pages are independent: sync them side by side, so one busy page doesn't
+  // hold up the leads of the others.
+  const counts = await Promise.all((sources ?? []).map((s) => syncMetaSource(admin, s, opts)));
+  return counts.reduce((a, b) => a + b, 0);
+}
+
+type MetaSourceRow = { id: string; client_id: string; access_token: string | null; external_id: string | null; last_synced_at: string | null; config: unknown };
+
+async function syncMetaSource(admin: SupabaseClient, s: MetaSourceRow, opts: MetaSyncOptions): Promise<number> {
   let added = 0;
-  for (const s of sources ?? []) {
-    if (!s.access_token || !s.external_id) continue;
+  {
+    if (!s.access_token || !s.external_id) return 0;
     // Throttled by Meta: wait it out (calling anyway extends the block). The
     // window below starts from the last good sync, so nothing is missed.
     const cfg = (s.config ?? {}) as MetaSourceConfig;
-    if (cfg.retryAt && Date.parse(cfg.retryAt) > Date.now()) continue;
+    if (cfg.retryAt && Date.parse(cfg.retryAt) > Date.now()) return 0;
+    if (opts.minIntervalMs && s.last_synced_at && Date.now() - Date.parse(s.last_synced_at) < opts.minIntervalMs) return 0;
     const overlapMs = (opts.overlapMinutes ?? 24 * 60) * 60_000;
     const since = s.last_synced_at && !opts.days ? new Date(new Date(s.last_synced_at).getTime() - overlapMs) : new Date(Date.now() - (opts.days ?? 30) * 86_400_000);
     // Stamped at the start: a lead arriving mid-sync is inside the next window.

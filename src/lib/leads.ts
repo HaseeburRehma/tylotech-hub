@@ -92,6 +92,15 @@ const clean = (v: unknown, max = 500) => {
  * when it was a duplicate.
  */
 /** The row a lead is stored as (cleaned, contact picked from the answers when not given). */
+/**
+ * When the lead was submitted. Never in the future: a sheet or form with a
+ * wrong clock would otherwise show "new" for hours and break the 60 s timer.
+ */
+export function submittedAt(at: string | null | undefined, now = Date.now()): string {
+  const ms = at ? Date.parse(at) : NaN;
+  return Number.isNaN(ms) || ms > now + 2 * 60_000 ? new Date(now).toISOString() : new Date(ms).toISOString();
+}
+
 export function leadRow(l: IncomingLead) {
   const fields = l.fields
     .map((f) => ({ label: clean(f.label, 200) ?? "", value: clean(f.value, 4000) ?? "" }))
@@ -113,7 +122,7 @@ export function leadRow(l: IncomingLead) {
     platform: clean(l.platform, 60),
     fields,
     is_test: !!l.isTest,
-    created_at: l.createdAt && !Number.isNaN(Date.parse(l.createdAt)) ? new Date(l.createdAt).toISOString() : new Date().toISOString(),
+    created_at: submittedAt(l.createdAt),
     // Only sent when there are tags, so sources keep working before migration 0047.
     ...(l.tags?.length ? { tags: Array.from(new Set(l.tags.map((t) => t.trim().slice(0, 40)).filter(Boolean))).slice(0, 12) } : {}),
   };

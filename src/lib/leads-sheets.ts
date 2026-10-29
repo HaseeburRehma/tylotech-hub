@@ -24,6 +24,12 @@ export interface SheetConfig {
   timeZone?: string;
   /** Zone of text timestamps written by form scripts (default Europe/Berlin). */
   textTimeZone?: string;
+  /**
+   * Zone of real date cells when it differs from the sheet's setting: a sheet
+   * set to GMT whose form writes German local time. Learned on its own (see
+   * `sheetDateZone`) and kept here.
+   */
+  dateTimeZone?: string;
   tabs?: string[];
   /** Fingerprint per lead id: unchanged rows are skipped. */
   hashes?: Record<string, string>;
@@ -37,6 +43,18 @@ export interface SheetConfig {
 const CLICK_MAX_AGE_MS = 89 * 86_400_000;
 const CLICK_RETRY_MS = 3 * 3_600_000;
 const CLICK_GIVE_UP_MS = 3 * 86_400_000;
+/**
+ * The zone a sheet's date cells really are in. A sheet set to GMT/UTC whose
+ * form writes German local time shows rows in the future (an hour in winter,
+ * two in summer); then its dates are read as Europe/Berlin.
+ */
+export function sheetDateZone(tabs: string[], data: Record<string, Cell[][]>, tz: string, textTz: string, now = Date.now()): string {
+  if (tz === "Europe/Berlin") return tz;
+  const ahead = (zone: string) =>
+    tabs.some((t) => tabToLeads(t, data[t] ?? [], tz, textTz, zone).some((l) => l.createdAt && Date.parse(l.createdAt) - now > 10 * 60_000));
+  return ahead(tz) && !ahead("Europe/Berlin") ? "Europe/Berlin" : tz;
+}
+
 const berlinDay = (ms: number) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(new Date(ms));
 
 /**
@@ -202,7 +220,9 @@ export async function syncSheetSource(
   // Real date cells are in the sheet's zone; text times as the form scripts
   // write them (German local time unless configured otherwise).
   const tz = cfg.timeZone || "Europe/Berlin";
-  const leads = mergeSheetLeads(tabs.map((t) => tabToLeads(t, data[t] ?? [], tz, cfg.textTimeZone || "Europe/Berlin")));
+  const textTz = cfg.textTimeZone || "Europe/Berlin";
+  const dateTz = cfg.dateTimeZone || sheetDateZone(tabs, data, tz, textTz);
+  const leads = mergeSheetLeads(tabs.map((t) => tabToLeads(t, data[t] ?? [], tz, textTz, dateTz)));
   // Campaign and ad group behind each Google click (at most a third of the time budget).
   const clicks: Record<string, string> = { ...(cfg.clicks ?? {}) };
   await resolveSheetClicks(admin, src.client_id, leads, clicks, t0 + budget / 3).catch(() => null);
@@ -352,7 +372,7 @@ export async function syncSheetSource(
     .from("lead_sources")
     .update({
       // Lookups only for leads still in the sheet.
-      config: { ...curCfg, hashes: next, clicks: Object.fromEntries(leads.filter((l) => clicks[l.externalId]).map((l) => [l.externalId, clicks[l.externalId]])), ...(res.pending === 0 && !curCfg.importedAt ? { importedAt: now } : {}) },
+      config: { ...curCfg, ...(dateTz !== tz ? { dateTimeZone: dateTz } : {}), hashes: next, clicks: Object.fromEntries(leads.filter((l) => clicks[l.externalId]).map((l) => [l.externalId, clicks[l.externalId]])), ...(res.pending === 0 && !curCfg.importedAt ? { importedAt: now } : {}) },
       last_synced_at: now,
       status: res.error ? "error" : "active",
       last_error: res.error ? `Einige Zeilen konnten nicht gespeichert werden: ${res.error.slice(0, 200)}` : null,

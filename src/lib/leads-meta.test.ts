@@ -249,6 +249,36 @@ describe("syncMetaLeads — 1-minute poll mode", () => {
     expect(updates[0].config.retryAt).toBeUndefined();
   });
 
+  it("a page synced less than a minute ago isn't asked again (20 s poll)", async () => {
+    const recent = new Date(Date.now() - 20_000).toISOString();
+    const a: any = { from: () => ({ select: () => ({ eq: () => ({ neq: async () => ({ data: [{ id: "s1", client_id: "c1", access_token: "pt", external_id: "77", last_synced_at: recent, config: {} }] }) }) }), update: () => ({ eq: async () => ({}) }) }) };
+    routes["77/leadgen_forms"] = { data: [] };
+    await (await import("./leads-meta")).syncMetaLeads(a, { minIntervalMs: 50_000 });
+    expect(calls).toEqual([]);
+    await (await import("./leads-meta")).syncMetaLeads(a, {});
+    expect(calls.some((c) => c.startsWith("77/leadgen_forms"))).toBe(true);
+  });
+
+  it("pages run side by side: a broken page doesn't stop the others", async () => {
+    const ups: any[] = [];
+    const a: any = {
+      from: () => ({
+        select: () => ({ eq: () => ({ neq: async () => ({ data: [
+          { id: "bad", client_id: "c1", access_token: "pt", external_id: "66", last_synced_at: LAST, config: {} },
+          { id: "good", client_id: "c2", access_token: "pt", external_id: "77", last_synced_at: LAST, config: {} },
+        ] }) }) }),
+        update: (u: any) => ({ eq: async (_k: string, id: string) => (ups.push({ id, ...u }), {}) }),
+      }),
+    };
+    routes["66/leadgen_forms"] = { __error: { message: "Error validating access token", code: 190 } };
+    routes["77/leadgen_forms"] = { data: [{ id: "F1", name: "Live", status: "ACTIVE" }] };
+    routes["F1/leads"] = { data: [{ id: "L1", created_time: new Date().toISOString(), field_data: [{ name: "full_name", values: ["Erika"] }] }] };
+    const added = await (await import("./leads-meta")).syncMetaLeads(a, { notify: true, overlapMinutes: 15 });
+    expect(added).toBe(1);
+    expect(ups.find((u) => u.id === "bad")).toMatchObject({ status: "error" });
+    expect(ups.find((u) => u.id === "good")).toMatchObject({ status: "active" });
+  });
+
   it("a non-throttling error still marks the source as errored", async () => {
     routes["77/leadgen_forms"] = { __error: { message: "Error validating access token", code: 190 } };
     await (await import("./leads-meta")).syncMetaLeads(admin, {});

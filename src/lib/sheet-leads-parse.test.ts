@@ -224,3 +224,29 @@ describe("ad tracking", () => {
     expect(leadFingerprint({ ...l, adGroup: "1" })).not.toBe(old);
   });
 });
+
+describe("sheet set to GMT, form writes German time (Light of Hope, Oct 2026)", () => {
+  // 29.10.2026 10:45:44 as a date cell: serial days in the sheet's own zone.
+  const serial = (d: number, h: number, m: number, s: number) => 25569 + (Date.UTC(2026, 9, d, h, m, s) / 86_400_000);
+  const TAB = [
+    ["Zeitstempel", "Status", "Vorname", "Telefon"],
+    [serial(29, 10, 45, 44), "Vollständig", "Erika", "0151 2345678"],
+  ];
+
+  it("reads the date cells in the zone the form really wrote", () => {
+    expect(tabToLeads("Leads", TAB, "Etc/GMT")[0].createdAt).toBe("2026-10-29T10:45:44.000Z"); // as the sheet claims
+    expect(tabToLeads("Leads", TAB, "Etc/GMT", TZ, TZ)[0].createdAt).toBe("2026-10-29T09:45:44.000Z"); // what happened
+  });
+
+  it("keeps the same row id after the correction, so nothing is duplicated", () => {
+    const before = tabToLeads("Leads", TAB, "Etc/GMT")[0].externalId;
+    const after = tabToLeads("Leads", TAB, "Etc/GMT", TZ, TZ)[0].externalId;
+    expect(before).toMatch(/^sheet:/);
+    expect(after).toBe(before);
+  });
+
+  it("summer time is two hours", () => {
+    const summer = [TAB[0], [25569 + Date.UTC(2026, 6, 15, 10, 0, 0) / 86_400_000, "Vollständig", "Max", "0170 1"]];
+    expect(tabToLeads("Leads", summer, "Etc/GMT", TZ, TZ)[0].createdAt).toBe("2026-07-15T08:00:00.000Z");
+  });
+});

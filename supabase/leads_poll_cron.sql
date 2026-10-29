@@ -1,9 +1,9 @@
 -- =====================================================================
--- Meta lead fallback: poll every minute until the Meta app is published.
+-- Lead poll: every 20 seconds (Meta pages once a minute, Google Sheets each tick).
 --
 -- While the TyloTech Hub Meta app is "Unpublished", Meta delivers no real
 -- webhooks, and Vercel's Hobby cron only runs once a day — so new leads would
--- reach TyloHQ hours late. This job calls /api/leads/meta/poll every minute;
+-- reach TyloHQ hours late. This job calls /api/leads/meta/poll every 20 seconds;
 -- new leads get the normal alerts (email, urgent push, 60-second screen).
 -- Leads already delivered by the webhook or the daily sync never alert twice.
 --
@@ -42,11 +42,12 @@ begin
 end;
 $$;
 
--- (Re)schedule: every minute.
+-- (Re)schedule: every 20 seconds (sheets each tick, each Meta page once a
+-- minute; the endpoint paces itself). Needs pg_cron 1.5+ (Supabase has it).
 select cron.unschedule(jobid) from cron.job where jobname = 'tylohq-meta-leads-poll';
 select cron.schedule(
   'tylohq-meta-leads-poll',
-  '* * * * *',
+  '20 seconds',
   $job$
   select net.http_post(
     url := 'https://www.tylohq.de/api/leads/meta/poll',
@@ -55,7 +56,7 @@ select cron.schedule(
       'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'tylohq_cron_secret')
     ),
     body := '{}'::jsonb,
-    timeout_milliseconds := 55000
+    timeout_milliseconds := 30000
   );
   $job$
 );
