@@ -106,6 +106,7 @@ const norm = (s: string) =>
     .replace(/[^a-z0-9]/g, "");
 
 const NAME_KEYS = ["fullname", "name", "vollername", "vollstandigername", "vorundnachname", "kontaktname", "ihrname", "dein name"].map(norm);
+const NAME_QUESTION = /wie hei(ß|ss)(t|en) (du|sie)|(dein|ihr|your)( (vor- und nach|voll(er|ständiger)|full))? ?name|full name|vor- und nachname|^name\b/i;
 const FIRST_KEYS = ["firstname", "vorname", "givenname"];
 const LAST_KEYS = ["lastname", "nachname", "familyname", "surname"];
 const EMAIL_KEYS = ["email", "emailaddress", "emailadresse", "mail", "useremail", "ihreemail", "deineemail"];
@@ -119,6 +120,11 @@ export function pickContact(fields: LeadField[]): { name: string | null; email: 
     const first = by(FIRST_KEYS);
     const last = by(LAST_KEYS);
     name = [first, last].filter(Boolean).join(" ") || null;
+  }
+  // Questions instead of field names (Typeform, Heyflow, Tally): "Wie heißt du?", "Your full name".
+  if (!name) {
+    name =
+      fields.find((f) => NAME_QUESTION.test(f.label) && !/firma|company|unternehmen|stadt|city|ort\b/i.test(f.label) && f.value.trim() && !/@|\d{4,}/.test(f.value))?.value.trim() ?? null;
   }
   let email = by(EMAIL_KEYS);
   if (!email) email = fields.find((f) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.value.trim()))?.value.trim() ?? null;

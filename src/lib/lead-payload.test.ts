@@ -25,7 +25,7 @@ describe("form tools", () => {
     });
     expect(p).toMatchObject({ externalId: "tok123", createdAt: "2026-10-29T09:12:00Z", form: "Beratung anfragen", campaign: "Herbst", platform: "facebook" });
     expect(p.fields).toContainEqual({ label: "Thema", value: "Heizung, Bad" });
-    expect(contact(p)).toEqual({ name: null, email: "erika@example.de", phone: "+491701234567" });
+    expect(contact(p)).toEqual({ name: "Erika Muster", email: "erika@example.de", phone: "+491701234567" });
   });
 
   it("Tally: option ids become the option text; utm fields become lead details", () => {
@@ -142,3 +142,14 @@ describe("robustness", () => {
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 });
+
+describe("names asked as questions", () => {
+  it("“Wie heißt du?”, “Ihr vollständiger Name”, “Your full name” are the person's name; company names aren't", () => {
+    for (const q of ["Wie heißt du?", "Wie heißen Sie?", "Ihr vollständiger Name", "Your full name", "Vor- und Nachname"]) {
+      expect(pickContact([{ label: q, value: "Erika Muster" }]).name).toBe("Erika Muster");
+    }
+    expect(pickContact([{ label: "Name Ihrer Firma", value: "Muster GmbH" }]).name).toBeNull();
+    expect(pickContact([{ label: "Your full name", value: "erika@example.de" }]).name).toBeNull();
+  });
+});
+

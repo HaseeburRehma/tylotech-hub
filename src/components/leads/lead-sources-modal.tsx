@@ -168,7 +168,7 @@ export function SourcesModal({
     <>
       {error && (
         <div className="flex items-start gap-2 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">
-          <span className="flex-1">{error.text}</span>
+          <span className="flex-1">{error.code && ["not_connected", "no_account", "expired"].includes(error.code) ? t(`leads.hub.err.${error.code}`) : error.text}</span>
           {(error.code === "not_connected" || error.code === "no_account") && (
             <ButtonLink href={`/integrations${staff ? `?client=${clientId}` : ""}`} size="sm" variant="secondary">
               <ExternalLink className="h-3.5 w-3.5" /> {t("leads.hub.openIntegrations")}
