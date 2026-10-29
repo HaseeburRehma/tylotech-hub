@@ -46,9 +46,12 @@ export interface DateRange {
 const pad = (n: number) => String(n).padStart(2, "0");
 export const ymd = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`;
 
+// One formatter for every call: lists call this per lead on each render.
+const BERLIN_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: APP_TZ, year: "numeric", month: "2-digit", day: "2-digit" });
+
 /** Today's date in Berlin. */
 export function berlinToday(now: Date = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: APP_TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  return BERLIN_DAY.format(now);
 }
 
 /** Day arithmetic on "YYYY-MM-DD" (calendar days, no time zone involved). */

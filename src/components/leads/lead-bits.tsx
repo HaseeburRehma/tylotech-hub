@@ -22,8 +22,9 @@ export const SOURCE_NAME: Record<string, string> = { meta: "Meta", google_ads: "
 export const fmtDateTime = (iso: string) =>
   new Date(iso).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" });
 
-export function since(iso: string, t: (k: string, v?: Record<string, string | number>) => string) {
-  const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+/** "5 min ago". Pass the page's clock (`now`) so server and browser render the same text. */
+export function since(iso: string, t: (k: string, v?: Record<string, string | number>) => string, now: number = Date.now()) {
+  const m = Math.max(0, Math.round((now - new Date(iso).getTime()) / 60000));
   if (m < 60) return t("leads.ago.min", { n: Math.max(1, m) });
   const h = Math.round(m / 60);
   if (h < 48) return t("leads.ago.h", { n: h });

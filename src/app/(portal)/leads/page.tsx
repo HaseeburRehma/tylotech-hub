@@ -48,6 +48,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: { clie
       staff={staff}
       metaReady={!!metaApp()}
       webhook={staff ? { url: `${origin}/api/leads/meta/webhook`, verifyToken: metaWebhookVerifyToken() } : null}
+      renderedAt={Date.now()}
     />
   );
 }

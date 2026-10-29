@@ -59,6 +59,7 @@ export function LeadsView({
   staff,
   metaReady,
   webhook,
+  renderedAt,
 }: {
   unavailable: boolean;
   leads: Lead[];
@@ -69,12 +70,22 @@ export function LeadsView({
   staff: boolean;
   metaReady: boolean;
   webhook: { url: string; verifyToken: string | null } | null;
+  /** Server clock at render: the first browser render uses it too (no hydration mismatch). */
+  renderedAt?: number;
 }) {
   const t = useT();
   const dl = useIntlLocale();
   const user = useUser();
   const router = useRouter();
   const [leads, setLeads] = useState<Lead[]>(initial);
+  // The page's clock: "5 min ago", today and this month all read it. Starts at
+  // the server's render time, then follows the device every 30 s.
+  const [now, setNow] = useState<number>(() => renderedAt ?? Date.now());
+  useEffect(() => {
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<"open" | "all" | LeadStatus>("open");
   const [source, setSource] = useState<"all" | Lead["source"]>("all");
@@ -247,7 +258,7 @@ export function LeadsView({
   const selectedIds = useMemo(() => (selection ? new Set(selection.leadIds) : null), [selection]);
   // One color per campaign: the stripe on each lead and the dot in the campaign list.
   const colors = useMemo(() => classColors(classified.rows.map((r) => r.key)), [classified]);
-  const today = berlinToday();
+  const today = berlinToday(new Date(now));
   const isToday = (iso: string) => berlinToday(new Date(iso)) === today;
   // Same person again (phone or email of an earlier lead): sales sees "duplicate of #n".
   const duplicateOf = useMemo(() => findDuplicates(leads), [leads]);
@@ -363,20 +374,19 @@ export function LeadsView({
   const allTags = useMemo(() => Array.from(new Set(leads.flatMap((l) => l.tags ?? []))).sort((a, b) => a.localeCompare(b, "de")), [leads]);
 
   const stats = useMemo(() => {
-    const now = Date.now();
-    const monthStart = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
-    monthStart.setDate(1);
-    monthStart.setHours(0, 0, 0, 0);
+    // This month in Berlin, whatever zone the server or device runs in.
+    const month = berlinToday(new Date(now)).slice(0, 7);
+    const inMonth = (iso: string) => berlinToday(new Date(iso)).slice(0, 7) === month;
     const real = leads.filter((l) => !l.is_test);
-    const won = real.filter((l) => l.status === "won" && new Date(l.updated_at) >= monthStart);
+    const won = real.filter((l) => l.status === "won" && inMonth(l.updated_at));
     return {
       fresh: real.filter((l) => l.status === "new").length,
-      month: real.filter((l) => new Date(l.created_at) >= monthStart).length,
+      month: real.filter((l) => inMonth(l.created_at)).length,
       appointments: real.filter((l) => l.appointment_at && new Date(l.appointment_at).getTime() > now && ["appointment_set"].includes(l.status)).length,
       won: won.length,
       wonValue: won.reduce((n, l) => n + Number(l.value ?? 0), 0),
     };
-  }, [leads]);
+  }, [leads, now]);
 
   const open = leads.find((l) => l.id === openId) ?? null;
 
@@ -652,7 +662,7 @@ export function LeadsView({
                     {l.appointment_at && l.status === "appointment_set" ? (
                       <span className="text-brand-ink">📅 {fmtDateTime(l.appointment_at)}</span>
                     ) : (
-                      since(l.created_at, t)
+                      since(l.created_at, t, now)
                     )}
                   </span>
                 </div>
