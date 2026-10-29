@@ -258,12 +258,18 @@ export async function googleAdsAccess(admin: SupabaseClient, clientId: string): 
 }
 
 async function googleAdsSince(access: { token: string; customerId: string; login?: string }, sinceMs: number) {
+  // Like the rest of the Google Ads code: the developer token is sent when configured
+  // (production works without it: the OAuth client's project carries the access).
   const dev = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
-  if (!dev) throw new ApiError("Google Ads developer token is not configured.", 503);
   const search = async (query: string) => {
     const res = await call<{ results?: unknown[] }[]>(`https://googleads.googleapis.com/${GOOGLE_ADS_VERSION}/customers/${access.customerId}/googleAds:searchStream`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${access.token}`, "developer-token": dev, "Content-Type": "application/json", ...(access.login ? { "login-customer-id": access.login } : {}) },
+      headers: {
+        Authorization: `Bearer ${access.token}`,
+        "Content-Type": "application/json",
+        ...(dev ? { "developer-token": dev } : {}),
+        ...(access.login && access.login !== access.customerId ? { "login-customer-id": access.login } : {}),
+      },
       body: JSON.stringify({ query }),
     });
     return res.flatMap((b) => b.results ?? []);

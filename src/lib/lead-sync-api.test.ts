@@ -141,13 +141,23 @@ describe("syncApiLeadSources", () => {
     expect(fetchCalls.every((c) => c.startsWith("GET https://api.pipedrive.com/"))).toBe(true);
   });
 
-  it("Google Ads: uses the partner's account; no developer token → clear error", async () => {
+  it("Google Ads: uses the partner's account; the developer token is optional (as in production)", async () => {
     rows = [{ id: "g1", client_id: "c1", kind: "google_ads", access_token: null, last_synced_at: null, config: { mode: "api" } }];
     respond = () => ({ status: 200, body: [{ results: [{ leadFormSubmissionData: { id: "x1", submissionDateTime: "2026-10-29 10:00:00+01:00", leadFormSubmissionFields: [{ fieldType: "EMAIL", fieldValue: "a@example.de" }] } }] }] });
     expect(await syncApiLeadSources(admin)).toBe(1);
     expect(fetchCalls[0]).toContain("/customers/1234567890/googleAds:searchStream");
+    expect((vi.mocked(fetch).mock.calls[0][1]!.headers as Record<string, string>)["developer-token"]).toBe("dev");
     delete process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
     updates = [];
+    vi.mocked(fetch).mockClear();
+    await syncApiLeadSources(admin);
+    expect(updates[0]).toMatchObject({ status: "active", last_error: null });
+    expect((vi.mocked(fetch).mock.calls[0][1]!.headers as Record<string, string>)["developer-token"]).toBeUndefined();
+  });
+
+  it("Google Ads: a Google error shows on the source", async () => {
+    rows = [{ id: "g1", client_id: "c1", kind: "google_ads", access_token: null, last_synced_at: null, config: { mode: "api" } }];
+    respond = () => ({ status: 403, body: { error: { message: "The caller does not have permission" } } });
     await syncApiLeadSources(admin);
     expect(updates[0]).toMatchObject({ status: "error" });
   });
