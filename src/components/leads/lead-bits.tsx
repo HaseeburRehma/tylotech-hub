@@ -2,8 +2,10 @@
 
 import { Badge } from "@/components/ui/badge";
 import { useT } from "@/lib/i18n/provider";
+import { PROVIDER_BY_ID, providerOfPlatform } from "@/lib/lead-providers";
 import type { Lead, LeadStatus } from "@/lib/leads-shared";
 import { cn } from "@/lib/utils";
+import { ProviderLogo } from "./provider-logo";
 
 export const STATUS_VARIANT: Record<LeadStatus, "info" | "neutral" | "warning" | "brand" | "success" | "danger" | "outline"> = {
   new: "info",
@@ -38,9 +40,21 @@ export function StatusBadge({ status }: { status: LeadStatus }) {
 
 export function SourceBadge({ lead }: { lead: Pick<Lead, "source" | "platform"> }) {
   const t = useT();
-  const name = lead.source === "meta" && lead.platform === "instagram" ? "Instagram" : lead.source === "meta" ? "Facebook" : SOURCE_NAME[lead.source] || t("leads.source.manual");
+  const provider = providerOfPlatform(lead.platform, lead.source);
+  const p = provider ? PROVIDER_BY_ID.get(provider) : null;
+  const name =
+    lead.platform === "instagram" ? "Instagram"
+    : lead.source === "meta" || lead.platform === "facebook" ? "Facebook"
+    : lead.source === "google_ads" || lead.platform === "google" ? "Google Ads"
+    : p && lead.source === "webhook" ? p.name
+    : SOURCE_NAME[lead.source] || t("leads.source.manual");
   const color = lead.source === "meta" ? "bg-[#1877F2]/15 text-[#5b9bff]" : lead.source === "google_ads" ? "bg-[#34A853]/15 text-[#4cc46f]" : "bg-surface-2 text-muted";
-  return <span className={cn("inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-caption font-semibold", color)}>{name}</span>;
+  return (
+    <span className={cn("inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-caption font-semibold", color)}>
+      {p && <ProviderLogo provider={p} size={13} className="shadow-none ring-0" />}
+      {name}
+    </span>
+  );
 }
 
 /** Color of a source label: finished green, partial amber, anonymous grey, retreat / application violet. */

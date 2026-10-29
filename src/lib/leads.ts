@@ -4,6 +4,7 @@ import { getAuthUser, isStaff, type AuthUser } from "@/lib/auth";
 import { inBackground } from "@/lib/background";
 import { alertNewLead } from "@/lib/lead-alerts";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { providerOfSource } from "@/lib/lead-providers";
 import { pickContact, type LeadField, type LeadSource, type LeadSourceView } from "@/lib/leads-shared";
 
 export * from "@/lib/leads-shared";
@@ -184,8 +185,9 @@ export const hookUrl = (origin: string, sourceId: string) => `${origin}/api/lead
 
 /** A lead_sources row as the UI may see it: never a token; hook URL and key only for webhook kinds. */
 export function sourceView(origin: string, s: any): LeadSourceView {
-  const hook = s.kind === "google_ads" || s.kind === "webhook";
-  const cfg = (s.config ?? {}) as { tabs?: string[]; title?: string };
+  const cfg = (s.config ?? {}) as { tabs?: string[]; title?: string; provider?: string; mode?: string; account?: string };
+  // Only sources that receive posts have a URL and key (not the ones we fetch from).
+  const hook = (s.kind === "google_ads" || s.kind === "webhook") && !!s.secret && cfg.mode !== "api";
   return {
     id: s.id,
     kind: s.kind,
@@ -198,6 +200,8 @@ export function sourceView(origin: string, s: any): LeadSourceView {
     hookUrl: hook ? hookUrl(origin, s.id) : null,
     key: hook ? s.secret : null,
     ...(s.kind === "google_sheet" ? { sheet: { tabs: Array.isArray(cfg.tabs) ? cfg.tabs : [], title: cfg.title ?? null } } : {}),
+    provider: providerOfSource(s),
+    account: cfg.account ?? null,
   };
 }
 

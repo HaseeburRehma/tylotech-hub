@@ -21,7 +21,8 @@ import { LeadTags, STATUS_VARIANT, SourceBadge, fmtDateTime, since } from "./lea
 import { AdThumb, CampaignPanel, type CampaignSelection } from "./campaign-panel";
 import { ContactButtons, OwnerMenu, StatusMenu } from "./lead-row-controls";
 import { LeadDrawer } from "./lead-drawer";
-import { AddLeadModal, InviteSalesModal, MetaPagesModal, SheetTabsModal, SourcesModal } from "./lead-modals";
+import { AddLeadModal, InviteSalesModal, MetaPagesModal, SheetTabsModal } from "./lead-modals";
+import { SourcesModal } from "./lead-sources-modal";
 
 type OwnerFilter = "all" | "me" | "none" | string;
 type SortKey = "no" | "name" | "source" | "status" | "owner" | "received";
@@ -730,6 +731,7 @@ export function LeadsView({
       {modal === "sources" && clientId && (
         <SourcesModal
           clientId={clientId}
+          company={company}
           staff={staff}
           sources={sources}
           metaReady={metaReady}

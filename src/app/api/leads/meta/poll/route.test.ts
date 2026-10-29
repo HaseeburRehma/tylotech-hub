@@ -5,6 +5,8 @@ vi.mock("@/lib/leads-meta", () => ({ syncMetaLeads: (...a: unknown[]) => mockSyn
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({}) }));
 const mockSheets = vi.fn();
 vi.mock("@/lib/leads-sheets", () => ({ syncSheetLeads: (...a: unknown[]) => mockSheets(...a) }));
+const mockApis = vi.fn();
+vi.mock("@/lib/lead-sync-api", () => ({ syncApiLeadSources: (...a: unknown[]) => mockApis(...a) }));
 let sheetsFree = true;
 const limitCalls: unknown[] = [];
 vi.mock("@/lib/rate-limit", () => ({ getRateLimiter: () => ({ limit: async (...a: unknown[]) => (limitCalls.push(a), { success: sheetsFree }) }) }));
@@ -22,6 +24,7 @@ beforeEach(() => {
   mockSheets.mockReset().mockResolvedValue({ added: 1, updated: 0, alerted: 1, pending: 0 });
   sheetsFree = true;
   limitCalls.length = 0;
+  mockApis.mockReset().mockResolvedValue(3);
 });
 afterEach(() => {
   process.env.CRON_SECRET = prev;
@@ -74,6 +77,17 @@ describe("poll also reads Google Sheets", () => {
   it("sheet runs stay inside one tick (15 s budget)", async () => {
     await call(`Bearer ${SECRET}`);
     expect(mockSheets.mock.calls[0][1]).toEqual({ budgetMs: 15_000 });
+  });
+  it("also fetches HubSpot / Pipedrive / Google Ads lead forms, each at most once a minute", async () => {
+    const r = await call(`Bearer ${SECRET}`);
+    expect(await r.json()).toMatchObject({ apis: 3 });
+    expect(mockApis.mock.calls[0][1]).toEqual({ minIntervalMs: 50_000 });
+  });
+  it("a failing API source doesn't break the poll", async () => {
+    mockApis.mockRejectedValue(new Error("hubspot down"));
+    const r = await call(`Bearer ${SECRET}`);
+    expect(r.status).toBe(200);
+    expect(await r.json()).toMatchObject({ ok: true, added: 2, apis: null });
   });
   it("unauthorised calls read nothing", async () => {
     expect((await call("Bearer nope")).status).toBe(401);

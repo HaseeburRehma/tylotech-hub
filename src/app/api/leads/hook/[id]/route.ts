@@ -1,6 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { UUID_RE, ingestLead, type LeadField } from "@/lib/leads";
+import { normalizeLeadPayload } from "@/lib/lead-payload";
+import { PROVIDER_BY_ID } from "@/lib/lead-providers";
 import { getRateLimiter } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -12,19 +14,6 @@ const same = (a: string, b: string) => {
   return x.length === y.length && timingSafeEqual(x, y);
 };
 
-/** Flatten a JSON payload into label/value pairs (two levels deep, arrays joined). */
-function flatten(obj: Record<string, unknown>, prefix = "", depth = 0): LeadField[] {
-  const out: LeadField[] = [];
-  for (const [k, v] of Object.entries(obj)) {
-    if (v == null || v === "") continue;
-    const label = prefix ? `${prefix} ${k}` : k;
-    if (Array.isArray(v)) out.push({ label, value: v.map((x) => (typeof x === "object" ? JSON.stringify(x) : String(x))).join(", ") });
-    else if (typeof v === "object" && depth < 1) out.push(...flatten(v as Record<string, unknown>, label, depth + 1));
-    else out.push({ label, value: typeof v === "object" ? JSON.stringify(v) : String(v) });
-  }
-  return out;
-}
-
 const pick = (o: Record<string, unknown>, ...keys: string[]) => {
   for (const k of keys) {
     const v = o[k];
@@ -34,8 +23,8 @@ const pick = (o: Record<string, unknown>, ...keys: string[]) => {
   return null;
 };
 
-// Keys that describe the lead, not answers from the person.
-const META_KEYS = new Set(["key", "google_key", "api_version", "is_test", "lead_id", "id", "external_id", "form_id", "campaign_id", "adgroup_id", "creative_id", "gcl_id", "lead_submit_time", "submitted_at", "created_at", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "campaign", "form", "source", "platform"]);
+/** Bigger bodies are not a lead form (uploads, abuse). */
+const MAX_BODY = 256 * 1024;
 
 /**
  * Receives leads for one source. Google Ads lead forms (Lead form → "Export
@@ -50,14 +39,25 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
 
+  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY) return NextResponse.json({ error: "Request too large." }, { status: 413 });
   const ctype = req.headers.get("content-type") ?? "";
+  const text = await req.text().catch(() => "");
+  if (text.length > MAX_BODY) return NextResponse.json({ error: "Request too large." }, { status: 413 });
   let body: Record<string, unknown> = {};
-  if (ctype.includes("application/json")) body = ((await req.json().catch(() => null)) as Record<string, unknown>) ?? {};
-  else if (ctype.includes("form")) body = Object.fromEntries((await req.formData().catch(() => new FormData())).entries()) as Record<string, unknown>;
-  else body = ((await req.json().catch(() => null)) as Record<string, unknown>) ?? {};
-  if (typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "Expected a JSON object." }, { status: 400 });
+  if (ctype.includes("x-www-form-urlencoded")) body = Object.fromEntries(new URLSearchParams(text));
+  else if (ctype.includes("multipart/form-data")) {
+    const fd = await new Response(text, { headers: { "content-type": ctype } }).formData().catch(() => new FormData());
+    body = Object.fromEntries(Array.from(fd.entries(), ([k, v]) => [k, typeof v === "string" ? v : v.name]));
+  } else {
+    try {
+      body = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+    } catch {
+      return NextResponse.json({ error: "Expected JSON or form data." }, { status: 400 });
+    }
+  }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "Expected a JSON object." }, { status: 400 });
 
-  const { data: src } = await admin.from("lead_sources").select("id,client_id,kind,secret,label").eq("id", params.id).maybeSingle();
+  const { data: src } = await admin.from("lead_sources").select("id,client_id,kind,secret,label,config").eq("id", params.id).maybeSingle();
   if (!src || src.kind === "meta" || !src.secret) return NextResponse.json({ error: "Unknown source." }, { status: 404 });
   const key = new URL(req.url).searchParams.get("key") ?? req.headers.get("x-lead-key") ?? pick(body, "google_key", "key") ?? "";
   if (!same(key, src.secret)) return NextResponse.json({ error: "Invalid key." }, { status: 401 });
@@ -84,19 +84,21 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       isTest: body.is_test === true || body.is_test === "true",
     };
   } else {
-    fields = flatten(Object.fromEntries(Object.entries(body).filter(([k]) => !META_KEYS.has(k.toLowerCase()))));
+    const provider = ((src.config ?? {}) as { provider?: string }).provider ?? "website";
+    const n = normalizeLeadPayload(provider, body);
+    fields = n.fields;
     if (!fields.length) return NextResponse.json({ error: "No lead fields in the request." }, { status: 400 });
     lead = {
       clientId: src.client_id,
       source: src.kind === "google_ads" ? "google_ads" : "webhook",
       sourceId: src.id,
-      externalId: pick(body, "lead_id", "external_id", "id"),
-      createdAt: pick(body, "submitted_at", "created_at"),
+      externalId: n.externalId,
+      createdAt: n.createdAt,
       fields,
-      campaign: pick(body, "campaign", "utm_campaign"),
-      form: pick(body, "form") ?? src.label,
-      platform: pick(body, "platform", "source", "utm_source") ?? "website",
-      isTest: body.is_test === true || body.is_test === "true",
+      campaign: n.campaign,
+      form: n.form ?? src.label,
+      platform: n.platform ?? PROVIDER_BY_ID.get(provider as never)?.platform ?? "website",
+      isTest: n.isTest,
     };
   }
 

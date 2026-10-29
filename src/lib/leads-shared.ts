@@ -85,6 +85,10 @@ export interface LeadSourceView {
   key?: string | null;
   /** Google Sheet sources: which tabs are read. */
   sheet?: { tabs: string[]; title: string | null };
+  /** Which integration this is (lead-providers.ts). */
+  provider?: string;
+  /** HubSpot portal / Pipedrive company, for display. */
+  account?: string | null;
 }
 
 export interface LeadPerson {
