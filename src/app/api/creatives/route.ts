@@ -21,18 +21,20 @@ export async function GET(req: Request) {
   const rl = await getRateLimiter().limit(`creatives-list:${user.id}`, { limit: 60, windowSec: 60 });
   if (!rl.success) return bad("Too many requests.", 429);
   const staff = isStaff(user);
-  let clients: { id: string; company: string; logo_url: string | null; primary_color: string | null }[] | undefined;
-  let clientId = staff ? null : user.client_id;
-  if (staff) {
-    const { data } = await admin.from("clients").select("id,company,logo_url,primary_color,archived_at").order("company");
-    clients = ((data ?? []) as { id: string; company: string; logo_url: string | null; primary_color: string | null; archived_at: string | null }[])
-      .filter((c) => !c.archived_at)
-      .map(({ archived_at: _a, ...c }) => c);
-    const asked = new URL(req.url).searchParams.get("clientId");
-    clientId = clients.find((c) => c.id === asked)?.id ?? clients[0]?.id ?? null;
-  }
+  type Partner = { id: string; company: string; logo_url: string | null; primary_color: string | null };
+  const asked = new URL(req.url).searchParams.get("clientId");
+  // The team: load the partner list and the asked partner's library at the same
+  // time; the library only counts if that partner is really in the list.
+  const [partners, early] = await Promise.all([
+    staff ? admin.from("clients").select("id,company,logo_url,primary_color,archived_at").order("company") : Promise.resolve({ data: null }),
+    staff ? (asked && UUID_RE.test(asked) ? loadCreativesLibrary(admin, asked, { campaigns: true }) : null) : user.client_id ? loadCreativesLibrary(admin, user.client_id) : null,
+  ]);
+  const clients: Partner[] | undefined = staff
+    ? ((partners.data ?? []) as (Partner & { archived_at: string | null })[]).filter((c) => !c.archived_at).map(({ archived_at: _a, ...c }) => c)
+    : undefined;
+  const clientId = staff ? clients!.find((c) => c.id === asked)?.id ?? clients![0]?.id ?? null : user.client_id;
   if (!clientId) return NextResponse.json({ staff, clients: clients ?? [], clientId: null, projects: [], folders: [], creatives: [] });
-  const lib = await loadCreativesLibrary(admin, clientId, { campaigns: staff });
+  const lib = early && (!staff || clientId === asked) ? early : await loadCreativesLibrary(admin, clientId, { campaigns: staff });
   if (lib.missing) return bad("Creatives are being set up.", 503);
   const { campaigns, sources, ...rest } = lib;
   return NextResponse.json({
