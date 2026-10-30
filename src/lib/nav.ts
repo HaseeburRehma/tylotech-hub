@@ -14,6 +14,7 @@ import {
   ListChecks,
   ShieldCheck,
   Target,
+  Images,
   type LucideIcon,
 } from "lucide-react";
 
@@ -28,6 +29,7 @@ export const CLIENT_NAV: NavItem[] = [
   { href: "/performance", label: "nav.performance", icon: LineChart },
   { href: "/leads", label: "nav.leads", icon: Target },
   { href: "/projects", label: "nav.clientProjects", icon: FolderKanban },
+  { href: "/creatives", label: "nav.creatives", icon: Images },
   { href: "/integrations", label: "nav.integrations", icon: Plug },
   { href: "/ai-tools", label: "nav.aiTools", icon: Bot },
   { href: "/chat", label: "nav.chat", icon: MessagesSquare },

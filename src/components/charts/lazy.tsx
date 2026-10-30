@@ -18,3 +18,8 @@ export const MrrBars = dynamic(() => import("./mrr-bars").then((m) => m.MrrBars)
   ssr: false,
   loading: () => <Placeholder height="100%" />,
 });
+
+export const CreativeBars = dynamic(() => import("./creative-bars").then((m) => m.CreativeBars), {
+  ssr: false,
+  loading: () => <Placeholder height={300} />,
+});

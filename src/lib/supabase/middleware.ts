@@ -17,6 +17,7 @@ const PORTAL_PREFIXES = [
   "/approvals",
   "/leads",
   "/projects",
+  "/creatives",
   "/internal",
   "/settings",
 ];

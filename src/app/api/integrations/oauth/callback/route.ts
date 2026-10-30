@@ -1,12 +1,13 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getAuthUser } from "@/lib/auth";
+import { getAuthUser, isStaff } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { META_GRAPH_VERSION } from "@/lib/integrations/fetchers";
 import { oauthConfig } from "@/lib/integrations/oauth";
 import { exchangeMetaCode, listMetaPages, META_PICK_COOKIE, META_PICK_TTL_SEC, sealMetaPick } from "@/lib/leads-meta";
 import { SHEETS_SCOPE, SheetError, sheetMeta, type SheetConfig } from "@/lib/leads-sheets";
 import { logAudit } from "@/lib/audit";
+import { completeCreativeConnect, creativesBackUrl, getFolder } from "@/lib/creatives-server";
 
 export const runtime = "nodejs";
 
@@ -44,6 +45,7 @@ export async function GET(req: Request) {
   // A cancelled Meta Lead Ads dialog goes back to Leads, where it was started.
   if (providerError && peekProvider === "meta_leads") return NextResponse.redirect(`${origin}/leads?${backTo}meta=denied`);
   if (providerError && peekProvider === "google_sheet") return NextResponse.redirect(`${origin}/leads?${backTo}sheet=denied`);
+  if (providerError && peekProvider === "creative_source") return NextResponse.redirect(`${origin}/creatives?${backTo}source=denied`);
   if (providerError) return done(`error=${encodeURIComponent(providerError.slice(0, 40))}`);
   if (!code || !state) return done("error=oauth_failed");
 
@@ -65,6 +67,24 @@ export async function GET(req: Request) {
 
   // Clients can only complete OAuth for their own tenant.
   if (user.role === "client" && clientId !== user.client_id) return done("error=forbidden");
+
+  // "Connect folder" for creatives (Google Drive) shares this registered redirect URI.
+  if (provider === "creative_source") {
+    const admin = createAdminClient();
+    let st: { p?: string; folderId?: string; link?: string } = {};
+    try {
+      st = JSON.parse(Buffer.from(state, "base64url").toString());
+    } catch {
+      /* checked below */
+    }
+    const folder = admin ? await getFolder(admin, st.folderId) : null;
+    const back = async (q: string) => NextResponse.redirect(await creativesBackUrl(admin, origin, folder, q));
+    if (!isStaff(user)) return back("source=forbidden");
+    if (!admin || !folder || folder.client_id !== clientId || st.p !== "google_drive" || typeof st.link !== "string") return back("source=failed");
+    const result = await completeCreativeConnect(admin, { provider: "google_drive", folder, link: st.link, code, origin, userId: user.id });
+    if (result === "connected") await logAudit(user, { action: "creative_source.create", clientId, targetType: "creative_folder", targetId: folder.id, summary: "google_drive" }, admin);
+    return back(`source=${result}`);
+  }
 
   // Meta Lead Ads (Leads page) shares this registered redirect URI.
   if (provider === "meta_leads") {

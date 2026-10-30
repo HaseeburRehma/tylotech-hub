@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { syncMetaLeads } from "@/lib/leads-meta";
 import { syncApiLeadSources } from "@/lib/lead-sync-api";
+import { syncCreativeSources } from "@/lib/creative-sources";
 import { syncSheetLeads } from "@/lib/leads-sheets";
 import { getRateLimiter } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -30,13 +31,15 @@ async function poll(req: Request) {
   if (!admin) return NextResponse.json({ error: "Backend not configured." }, { status: 503 });
   const t0 = Date.now();
   const sheetsFree = (await getRateLimiter().limit("lead-poll:sheets", { limit: 1, windowSec: 15 })).success;
-  const [added, sheets, apis] = await Promise.all([
+  const [added, sheets, apis, creatives] = await Promise.all([
     syncMetaLeads(admin, { notify: true, overlapMinutes: 15, activeFormsOnly: true, notifyMaxAgeMinutes: 24 * 60, minIntervalMs: 50_000 }),
     sheetsFree ? syncSheetLeads(admin, { budgetMs: 15_000 }).catch(() => null) : null,
     // HubSpot, Pipedrive, Google Ads lead forms: each at most once a minute.
     syncApiLeadSources(admin, { minIntervalMs: 50_000 }).catch(() => null),
+    // Creative folders (Drive, Dropbox, OneDrive): each every 10 minutes, a few per tick.
+    syncCreativeSources(admin, { minIntervalMs: 10 * 60_000, budgetMs: 20_000 }).catch(() => null),
   ]);
-  return NextResponse.json({ ok: true, added, sheets, apis, ms: Date.now() - t0 });
+  return NextResponse.json({ ok: true, added, sheets, apis, creatives, ms: Date.now() - t0 });
 }
 
 export const GET = poll;
