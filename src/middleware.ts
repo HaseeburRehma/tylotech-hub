@@ -24,7 +24,9 @@ function devCors(request: NextRequest) {
 export async function middleware(request: NextRequest) {
   const cors = devCors(request);
   if (cors && request.method === "OPTIONS") return new NextResponse(null, { status: 204, headers: cors });
+  const t0 = Date.now();
   const response = await updateSession(request);
+  response.headers.set("Server-Timing", `mw;dur=${Date.now() - t0}`);
   if (cors) for (const [k, v] of Object.entries(cors)) response.headers.set(k, v);
   return response;
 }

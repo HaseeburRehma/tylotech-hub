@@ -51,36 +51,51 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
   const supabase = createClient();
   if (!supabase) return null;
 
-  // Mobile app requests carry the access token instead of cookies.
-  const token = bearerToken();
-  const {
-    data: { user },
-    error: authError,
-  } = token ? await supabase.auth.getUser(token) : await supabase.auth.getUser();
+  // Mobile app requests carry the access token instead of cookies. For cookie
+  // sessions, read the token from the session (local; middleware refreshed it).
+  let token = bearerToken();
+  if (!token) {
+    const { data, error } = await supabase.auth.getSession();
+    if (!data.session && isTransientAuthError(error)) {
+      throw new Error("Authentication service temporarily unavailable");
+    }
+    token = data.session?.access_token ?? null;
+  }
+  if (!token) return null;
+  const claimedId = jwtClaim(token, "sub");
+  if (typeof claimedId !== "string" || !claimedId) return null;
+
+  // The Auth server check and the profile read run side by side: one round trip
+  // instead of two. The profile read runs under RLS with this same token, and
+  // only counts once the server has confirmed the token belongs to that user.
+  const [
+    {
+      data: { user },
+      error: authError,
+    },
+    { data: profile, error: profileError },
+  ] = await Promise.all([
+    supabase.auth.getUser(token),
+    supabase
+      .from("users")
+      // `*` keeps this tolerant of columns added by later migrations (title, avatar_url, deactivated_at…).
+      .select("*, clients(*)")
+      .eq("id", claimedId)
+      .single(),
+  ]);
   // Supabase unreachable (network, timeout, 5xx) is not "signed out": fail this
   // request (error page with retry) instead of sending the user to the login.
   if (!user && isTransientAuthError(authError)) {
     throw new Error("Authentication service temporarily unavailable");
   }
-  if (!user) return null;
+  if (!user || user.id !== claimedId) return null;
 
   // Users with 2FA enrolled must complete it before any server code (pages or
-  // API routes) treats them as signed in — a password alone is not enough.
-  if (token) {
-    // No stored session to ask, so read the assurance level from the verified token.
-    const hasFactor = (user.factors ?? []).some((f) => f.status === "verified");
-    if (hasFactor && jwtClaim(token, "aal") !== "aal2") return null;
-  } else {
-    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") return null;
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("users")
-    // `*` keeps this tolerant of columns added by later migrations (title, avatar_url, deactivated_at…).
-    .select("*, clients(*)")
-    .eq("id", user.id)
-    .single();
+  // API routes) treats them as signed in — a password alone is not enough. Both
+  // the factors and the level come from what the Auth server just verified,
+  // never from the session cookie (which the browser can edit).
+  const hasFactor = (user.factors ?? []).some((f) => f.status === "verified");
+  if (hasFactor && jwtClaim(token, "aal") !== "aal2") return null;
 
   // "No row" means no access; anything else (timeout, 5xx) is temporary.
   if (!profile && profileError && profileError.code !== "PGRST116") {
@@ -111,7 +126,7 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
   };
 });
 
-/** Read one claim from a JWT already verified by Supabase (getUser above). */
+/** Read one claim from a JWT; trusted only once getUser above has verified that token. */
 function jwtClaim(token: string, claim: string): unknown {
   try {
     const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString());

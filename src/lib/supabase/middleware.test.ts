@@ -4,19 +4,21 @@ import { AuthApiError, AuthRetryableFetchError } from "@supabase/supabase-js";
 
 vi.mock("./config", () => ({ SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "anon", isSupabaseConfigured: true }));
 
-// Fake Supabase: each test decides what getUser returns and whether the call
+// Fake Supabase: each test decides what getClaims returns and whether the call
 // "refreshed" the session (i.e. wrote new auth cookies through setAll).
-let scenario: { user: object | null; error: unknown; refresh?: boolean; aal?: { currentLevel: string; nextLevel: string } };
+let scenario: { user: object | null; error: unknown; refresh?: boolean; throws?: boolean; aal?: { currentLevel: string; nextLevel: string } };
 vi.mock("@supabase/ssr", () => ({
   createServerClient: (_u: string, _k: string, opts: { cookies: { setAll: (c: unknown[]) => void } }) => ({
     auth: {
-      getUser: async () => {
+      getClaims: async () => {
         if (scenario.refresh) {
           opts.cookies.setAll([
             { name: "sb-x-auth-token", value: "NEW-ROTATED-TOKEN", options: { path: "/", sameSite: "lax", maxAge: 34560000 } },
           ]);
         }
-        return { data: { user: scenario.user }, error: scenario.error };
+        if (scenario.throws) throw new Error("boom");
+        const user = scenario.user as { id: string } | null;
+        return { data: user ? { claims: { sub: user.id } } : null, error: scenario.error };
       },
       mfa: { getAuthenticatorAssuranceLevel: async () => ({ data: scenario.aal ?? { currentLevel: "aal1", nextLevel: "aal1" } }) },
     },
@@ -86,6 +88,18 @@ describe("session middleware — users stay signed in", () => {
     const c = setCookie(res, "sb-x-auth-token")!;
     expect(c).toContain("NEW-ROTATED-TOKEN");
     expect(c).not.toMatch(/Max-Age|Expires/i);
+  });
+
+  it("treats an unexpected verification failure as an outage, not a sign-out", async () => {
+    scenario = { user: null, error: null, throws: true };
+    const res = await updateSession(req("/dashboard"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("an unexpected verification failure without a session cookie still goes to login", async () => {
+    scenario = { user: null, error: null, throws: true };
+    expect((await updateSession(req("/dashboard", {}))).status).toBe(307);
   });
 
   it("leaves public pages alone", async () => {

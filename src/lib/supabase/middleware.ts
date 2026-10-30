@@ -45,10 +45,17 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  // getClaims refreshes an expiring session like getUser did, but verifies the
+  // token locally against the project's published signing key (cached per
+  // instance) instead of asking the Auth server on every request. This only
+  // routes; getAuthUser stays the authority and still checks with the server
+  // (revoked sessions, 2FA, deactivated users).
+  const { data: claimsData, error: authError } = await supabase.auth.getClaims().catch((e: unknown) => ({
+    data: null,
+    // Anything unexpected (e.g. a key that can't be imported) counts as an outage, not a sign-out.
+    error: { name: "ClaimsError", status: 0, message: String(e) },
+  }));
+  const user = claimsData?.claims?.sub ? { id: claimsData.claims.sub } : null;
 
   const path = request.nextUrl.pathname;
   const isPortal = PORTAL_PREFIXES.some((p) => path === p || path.startsWith(p + "/"));
