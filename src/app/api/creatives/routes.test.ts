@@ -398,3 +398,30 @@ describe("list for the mobile app", () => {
     expect((await files.GET(req("/api/creatives"))).status).toBe(401);
   });
 });
+
+describe("signed grid links are reused", () => {
+  it("a second load reuses the same links without signing again", async () => {
+    user = clientA;
+    let signs = 0;
+    const realFrom = db.client.storage.from;
+    db.client.storage.from = (bucket: string) => {
+      const b = realFrom(bucket);
+      return { ...b, createSignedUrls: (paths: string[], ttl: number) => ((signs += paths.length), b.createSignedUrls(paths, ttl)) };
+    };
+    const first = await json(await files.GET(req("/api/creatives")));
+    const afterFirst = signs;
+    const second = await json(await files.GET(req("/api/creatives")));
+    const url = (b: any) => b.creatives.find((c: any) => c.id === UP).thumb_url;
+    expect(url(second.body)).toBe(url(first.body));
+    expect(signs).toBe(afterFirst); // nothing signed the second time
+    db.client.storage.from = realFrom;
+  });
+
+  it("refused list requests return 429 and nothing else", async () => {
+    user = clientA;
+    limited = true;
+    const r = await json(await files.GET(req("/api/creatives")));
+    expect(r.status).toBe(429);
+    expect(r.body.creatives).toBeUndefined();
+  });
+});

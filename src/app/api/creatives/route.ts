@@ -20,8 +20,8 @@ export async function GET(req: Request) {
   if (!user) return bad("Unauthorized.", 401);
   const admin = createAdminClient();
   if (!admin) return bad("Backend not configured.", 503);
-  const rl = await getRateLimiter().limit(`creatives-list:${user.id}`, { limit: 60, windowSec: 60 });
-  if (!rl.success) return bad("Too many requests.", 429);
+  // The limit check runs alongside the reads; a refused request discards them.
+  const limited = getRateLimiter().limit(`creatives-list:${user.id}`, { limit: 60, windowSec: 60 });
   const staff = isStaff(user);
   type Partner = { id: string; company: string; logo_url: string | null; primary_color: string | null };
   const asked = new URL(req.url).searchParams.get("clientId");
@@ -31,6 +31,7 @@ export async function GET(req: Request) {
     staff ? admin.from("clients").select("id,company,logo_url,primary_color,archived_at").order("company") : Promise.resolve({ data: null }),
     staff ? (asked && UUID_RE.test(asked) ? loadCreativesLibrary(admin, asked, { campaigns: true }) : null) : user.client_id ? loadCreativesLibrary(admin, user.client_id) : null,
   ]);
+  if (!(await limited).success) return bad("Too many requests.", 429);
   const clients: Partner[] | undefined = staff
     ? ((partners.data ?? []) as (Partner & { archived_at: string | null })[]).filter((c) => !c.archived_at).map(({ archived_at: _a, ...c }) => c)
     : undefined;

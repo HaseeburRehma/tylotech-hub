@@ -138,21 +138,43 @@ const SMALL_IMAGE = 400 * 1024;
  * tile. Photos without a made thumbnail use the original while it is small;
  * HEIC, videos and PDFs without one get none (the page shows an icon or makes it).
  */
+// Signed links are reused while they have more than 30 minutes left: repeat
+// visits skip the signing call, and an unchanged link lets browsers and phones
+// keep the image they already have. Keyed by storage path (callers only pass
+// paths of the partner they already checked access to). Per server instance.
+const LINK_CACHE = new Map<string, { url: string; exp: number }>();
+const LINK_CACHE_MAX = 20_000;
+const REUSE_MS = 30 * 60_000;
+
 async function signThumbs(admin: SupabaseClient, rows: (Creative & { storage_path?: string | null })[]) {
   const want = new Map<string, string>(); // creative id → storage path
   for (const c of rows) {
     if (c.thumb_path) want.set(c.id, c.thumb_path);
     else if (c.storage_path && c.kind === "image" && !/\.(heic|heif)$/i.test(c.name) && (c.size_bytes ?? 0) <= SMALL_IMAGE) want.set(c.id, c.storage_path);
   }
-  const entries = Array.from(want.entries());
   const urls = new Map<string, string>();
+  const now = Date.now();
+  const entries = Array.from(want.entries()).filter(([id, path]) => {
+    const hit = LINK_CACHE.get(path);
+    if (hit && hit.exp - now > REUSE_MS) return urls.set(id, hit.url), false;
+    return true;
+  });
   await Promise.all(
     Array.from({ length: Math.ceil(entries.length / 1000) }, async (_, i) => {
       const chunk = entries.slice(i * 1000, i * 1000 + 1000);
       const { data } = await admin.storage.from("creatives").createSignedUrls(chunk.map(([, p]) => p), THUMB_LINK_SEC);
-      (data ?? []).forEach((d, j) => d.signedUrl && !d.error && urls.set(chunk[j][0], d.signedUrl));
+      (data ?? []).forEach((d, j) => {
+        if (!d.signedUrl || d.error) return;
+        urls.set(chunk[j][0], d.signedUrl);
+        LINK_CACHE.set(chunk[j][1], { url: d.signedUrl, exp: now + THUMB_LINK_SEC * 1000 });
+      });
     }),
   );
+  // Keep the cache bounded: drop the oldest entries (Map keeps insertion order).
+  for (const k of Array.from(LINK_CACHE.keys())) {
+    if (LINK_CACHE.size <= LINK_CACHE_MAX) break;
+    LINK_CACHE.delete(k);
+  }
   return urls;
 }
 
