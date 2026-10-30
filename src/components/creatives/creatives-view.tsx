@@ -225,8 +225,8 @@ export function CreativesView(p: CreativesViewProps) {
   const current = !ranged && year === p.thisYear ? buckets.find((b) => b.key === thisMonthKey) ?? null : null;
   // The monthly limit applies to month bars, and to a range inside one month.
   const oneMonth = ranged && filters.range.since!.slice(0, 7) === filters.range.until!.slice(0, 7);
-  const lead = current ?? (oneMonth ? { ...busiest, total } : busiest);
-  const showLimit = !!p.limit && (!ranged || oneMonth || span.unit === "month");
+  const lead = current ?? busiest;
+  const showLimit = !!p.limit && oneMonth;
   const yearOptions = Array.from(new Set([p.thisYear, p.thisYear - 1, p.thisYear - 2, p.thisYear - 3, ...p.creatives.map((c) => Number(c.created_at.slice(0, 4)))]))
     .filter((y) => y > 2000 && y <= p.thisYear)
     .sort((a, b) => b - a)
@@ -487,19 +487,31 @@ export function CreativesView(p: CreativesViewProps) {
           )}
         </div>
         <div className="grid grid-cols-2 gap-px bg-line lg:grid-cols-4">
-          <Stat
-            label={current ? t("cr.stat.month") : oneMonth ? t("cr.stat.period") : span.unit === "day" ? t("cr.stat.peakDay") : t("cr.stat.peak")}
-            value={lead.total}
-            suffix={showLimit && (current || oneMonth || span.unit === "month") ? `/ ${p.limit!.toLocaleString()}` : undefined}
-            bar={showLimit ? Math.min(1, lead.total / p.limit!) : undefined}
-            over={showLimit && lead.total > p.limit!}
-            note={current || oneMonth || !lead.total ? undefined : bucketLabel(lead.key)}
-          />
-          <Stat
-            label={ranged ? t("cr.stat.period") : t("cr.stat.year", { year })}
-            value={total}
-            note={active ? t(span.unit === "day" ? "cr.stat.avgDay" : "cr.stat.avg", { n: Math.round((total / active) * 10) / 10 }) : undefined}
-          />
+          {ranged ? (
+            <>
+              <Stat
+                label={t("cr.stat.period")}
+                value={total}
+                suffix={showLimit && oneMonth ? `/ ${p.limit!.toLocaleString()}` : undefined}
+                bar={showLimit && oneMonth ? Math.min(1, total / p.limit!) : undefined}
+                over={showLimit && oneMonth && total > p.limit!}
+                note={active ? t(span.unit === "day" ? "cr.stat.avgDay" : "cr.stat.avg", { n: Math.round((total / active) * 10) / 10 }) : undefined}
+              />
+              <Stat label={span.unit === "day" ? t("cr.stat.peakDay") : t("cr.stat.peak")} value={busiest?.total ?? 0} note={busiest?.total ? bucketLabel(busiest.key) : undefined} />
+            </>
+          ) : (
+            <>
+              <Stat
+                label={current ? t("cr.stat.month") : t("cr.stat.peak")}
+                value={lead.total}
+                suffix={p.limit ? `/ ${p.limit.toLocaleString()}` : undefined}
+                bar={p.limit ? Math.min(1, lead.total / p.limit) : undefined}
+                over={!!p.limit && lead.total > p.limit}
+                note={current || !lead.total ? undefined : bucketLabel(lead.key)}
+              />
+              <Stat label={t("cr.stat.year", { year })} value={total} note={active ? t("cr.stat.avg", { n: Math.round((total / active) * 10) / 10 }) : undefined} />
+            </>
+          )}
           <Stat label={t("cr.stat.images")} value={buckets.reduce((n, b) => n + b.images, 0)} icon={<ImageIcon className="h-3.5 w-3.5" />} />
           <Stat label={t("cr.stat.videos")} value={buckets.reduce((n, b) => n + b.videos, 0)} icon={<Video className="h-3.5 w-3.5" />} />
         </div>
