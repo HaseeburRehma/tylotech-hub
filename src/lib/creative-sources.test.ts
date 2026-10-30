@@ -1,3 +1,4 @@
+import { strToU8, zipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeDb } from "@/test-fake-db";
 import { creativeAuthUrl, driveFile, dropboxFile, oneDriveFile, parseFolderLink, syncCreativeSources } from "./creative-sources";
@@ -114,6 +115,51 @@ describe("syncCreativeSources (Google Drive)", () => {
     db.tables.creatives.find((c) => c.external_id === "b")!.campaign = "Herbst";
     await syncCreativeSources(db.client, { sourceId: "s1" });
     expect(db.tables.creatives.find((c) => c.external_id === "b")).toMatchObject({ platforms: ["instagram"], campaign: "Herbst" });
+  });
+
+  it("zips in the folder are unpacked once into stored creatives, and leave with the zip", async () => {
+    const zipBytes = zipSync({ "Instagram/Story.png": strToU8("png-1"), "Reel.mp4": strToU8("mp4"), "notes.txt": strToU8("x"), "__MACOSX/._Story.png": strToU8("j") });
+    drive.ROOT.push({ id: "z1", name: "October.zip", mimeType: "application/zip", md5Checksum: "v1", size: String(zipBytes.length), createdTime: "2026-10-05T10:00:00Z" });
+    let downloads = 0;
+    const base = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation(async (url: any, init?: any) => {
+      if (String(url).includes("/files/z1?alt=media")) return (downloads++, new Response(zipBytes as BodyInit));
+      return base(url, init);
+    });
+    await syncCreativeSources(db.client, {});
+    const unpacked = db.tables.creatives.filter((c) => String(c.external_id).startsWith("z1#"));
+    expect(unpacked.map((c) => `${c.external_id}:${c.kind}`).sort()).toEqual(["z1#Instagram/Story.png:image", "z1#Reel.mp4:video"]);
+    const story = unpacked.find((c) => c.external_id === "z1#Instagram/Story.png")!;
+    expect(story).toMatchObject({ source: "google_drive", source_id: "s1", folder_id: "f1", name: "Story.png", platforms: ["instagram"], created_at: "2026-10-05T10:00:00.000Z" });
+    expect(story.storage_path).toMatch(/^c1\/p1\/f1\/[0-9a-f-]{36}-Story\.png$/);
+    expect(db.objects.get(story.storage_path)).toEqual({ size: 5, mimetype: "image/png" });
+    expect(story.content_hash).toMatch(/^sha256:/);
+    expect(db.tables.creatives.some((c) => c.external_id === "z1")).toBe(false); // the zip itself isn't a creative
+    // Unchanged zip: not downloaded again, nothing removed.
+    await syncCreativeSources(db.client, { sourceId: "s1" });
+    expect(downloads).toBe(1);
+    expect(db.tables.creatives.filter((c) => String(c.external_id).startsWith("z1#"))).toHaveLength(2);
+    // Zip deleted from Drive: its files and their stored copies go.
+    drive.ROOT = drive.ROOT.filter((f) => f.id !== "z1");
+    await syncCreativeSources(db.client, { sourceId: "s1" });
+    expect(db.tables.creatives.filter((c) => String(c.external_id).startsWith("z1#"))).toHaveLength(0);
+    expect(db.removed).toContain(story.storage_path);
+  });
+
+  it("a damaged zip is noted on the folder and not retried; a huge one stays packed", async () => {
+    drive.ROOT.push({ id: "bad", name: "Broken.zip", mimeType: "application/zip", md5Checksum: "b1", size: "10" });
+    drive.ROOT.push({ id: "big", name: "Huge.zip", mimeType: "application/zip", md5Checksum: "h1", size: String(400 * 1024 * 1024) });
+    let downloads = 0;
+    const base = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation(async (url: any, init?: any) => {
+      if (String(url).includes("alt=media")) return (downloads++, new Response(new Uint8Array([80, 75, 3, 4, 255, 255, 255, 1, 2, 3])));
+      return base(url, init);
+    });
+    await syncCreativeSources(db.client, {});
+    expect(db.tables.creative_sources[0].status).toBe("active");
+    expect(db.tables.creative_sources[0].last_error).toMatch(/Huge\.zip/);
+    await syncCreativeSources(db.client, { sourceId: "s1" });
+    expect(downloads).toBeLessThanOrEqual(1); // never the huge one; the broken one once
   });
 
   it("recently read folders wait; a lost folder turns red with a clear message", async () => {

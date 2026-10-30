@@ -1,5 +1,7 @@
+import { createHash, randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { displayName, guessPlatforms, kindFromMime, type CreativeKind, type CreativeSourceProvider } from "@/lib/creatives";
+import { Unzip, UnzipInflate } from "fflate";
+import { displayName, fileType, guessPlatforms, isJunkEntry, kindFromMime, MAX_FILE_BYTES, safeFileName, storagePrefix, type CreativeKind, type CreativeSourceProvider } from "@/lib/creatives";
 
 /**
  * Cloud folders synced into a creatives category: Google Drive, Dropbox and
@@ -197,7 +199,13 @@ export interface CloudFile {
   durationSec: number | null;
   /** Folder path inside the connected folder plus the name ("Instagram/Story.png"), for guessing the platform. */
   path?: string;
+  /** A .zip: unpacked on the server, each image, video and PDF inside becomes a creative. */
+  zip?: boolean;
 }
+
+/** Zips bigger than this stay packed (and are named on the source); unpacking must fit one server run. */
+export const MAX_ZIP_BYTES = 300 * 1024 * 1024;
+const isZip = (mime: string | null | undefined, name: string) => /^application\/(x-)?zip(-compressed)?$/i.test(mime ?? "") || /\.zip$/i.test(name);
 
 async function call<T>(url: string, token: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(url, { ...init, headers: { Authorization: `Bearer ${token}`, ...(init.headers ?? {}) } });
@@ -343,7 +351,8 @@ export async function listFolderFiles(provider: CreativeSourceProvider, token: s
 const withPath = (f: CloudFile | null, dir: string) => (f ? { ...f, path: `${dir}${f.name}` } : null);
 
 export function driveFile(f: any): CloudFile | null {
-  const kind = kindFromMime(f.mimeType, f.name);
+  const zip = isZip(f.mimeType, f.name ?? "");
+  const kind = zip ? "document" : kindFromMime(f.mimeType, f.name);
   if (!kind || !f.id) return null;
   const v = f.videoMediaMetadata;
   const img = f.imageMediaMetadata;
@@ -359,12 +368,14 @@ export function driveFile(f: any): CloudFile | null {
     width: Number(v?.width ?? img?.width) || null,
     height: Number(v?.height ?? img?.height) || null,
     durationSec: v?.durationMillis ? Math.round(Number(v.durationMillis) / 10) / 100 : null,
+    ...(zip ? { zip } : {}),
   };
 }
 
 /** Dropbox file; `sharedPath` is its path inside a shared link (for downloads). */
 export function dropboxFile(e: any, sharedPath: string | null): CloudFile | null {
-  const kind = kindFromMime(null, e.name ?? "");
+  const zip = isZip(null, e.name ?? "");
+  const kind = zip ? "document" : kindFromMime(null, e.name ?? "");
   if (!kind || !e.id) return null;
   return {
     id: sharedPath ? `${e.id}|${sharedPath}` : String(e.id),
@@ -378,12 +389,14 @@ export function dropboxFile(e: any, sharedPath: string | null): CloudFile | null
     width: null,
     height: null,
     durationSec: null,
+    ...(zip ? { zip } : {}),
   };
 }
 
 export function oneDriveFile(it: any): CloudFile | null {
   if (!it.file) return null;
-  const kind = kindFromMime(it.file.mimeType, it.name ?? "");
+  const zip = isZip(it.file.mimeType, it.name ?? "");
+  const kind = zip ? "document" : kindFromMime(it.file.mimeType, it.name ?? "");
   if (!kind) return null;
   const h = it.file.hashes ?? {};
   return {
@@ -398,6 +411,7 @@ export function oneDriveFile(it: any): CloudFile | null {
     width: Number(it.image?.width ?? it.video?.width) || null,
     height: Number(it.image?.height ?? it.video?.height) || null,
     durationSec: it.video?.duration ? Math.round(Number(it.video.duration) / 10) / 100 : null,
+    ...(zip ? { zip } : {}),
   };
 }
 
@@ -441,7 +455,8 @@ export async function syncCreativeSources(
   for (const src of due) {
     if (opts.budgetMs && Date.now() - t0 > opts.budgetMs) break;
     try {
-      const r = await syncOne(admin, src);
+      // Zips are only started while the run has time left (the rest wait for the next sync).
+      const r = await syncOne(admin, src, t0 + (opts.budgetMs ?? 40_000));
       synced++;
       added += r.added;
       removed += r.removed;
@@ -462,12 +477,16 @@ export async function syncCreativeSources(
   return { synced, added, removed };
 }
 
-async function syncOne(admin: SupabaseClient, src: SourceRow) {
+async function syncOne(admin: SupabaseClient, src: SourceRow, deadline: number) {
   const token = await sourceAccessToken(admin, src);
-  const { files, complete } = await listFolderFiles(src.provider, token, src.external_id);
+  const listed = await listFolderFiles(src.provider, token, src.external_id);
+  const { complete } = listed;
+  const files = listed.files.filter((f) => !f.zip);
+  const zips = listed.files.filter((f) => f.zip);
 
-  const { data: existing } = await admin.from("creatives").select("id,external_id").eq("source_id", src.id).limit(MAX_FILES + 1000);
-  const known = new Map(((existing ?? []) as { id: string; external_id: string }[]).map((r) => [r.external_id, r.id]));
+  const { data: existing } = await admin.from("creatives").select("id,external_id,storage_path").eq("source_id", src.id).limit(MAX_FILES * 4);
+  const existingRowsAll = (existing ?? []) as { id: string; external_id: string; storage_path: string | null }[];
+  const known = new Map(existingRowsAll.map((r) => [r.external_id, r.id]));
 
   const rows = files.map((f) => ({
     client_id: src.client_id,
@@ -503,25 +522,198 @@ async function syncOne(admin: SupabaseClient, src: SourceRow) {
     if (error && /platforms/i.test(error.message)) ({ error } = await admin.from("creatives").upsert(batch, { onConflict: "source_id,external_id" }));
     if (error) throw new SourceError(error.message, 500);
   }
-  const added = files.filter((f) => !known.has(f.id)).length;
+  let added = files.filter((f) => !known.has(f.id)).length;
 
+  // Zips: unpacked once per version (the next sync skips an unchanged zip).
+  const cfg = { ...(src.config ?? {}) } as Record<string, any>;
+  delete cfg.retryAt;
+  const done: Record<string, string> = { ...(cfg.zips ?? {}) };
+  const tooBig: string[] = [];
+  const broken: string[] = [];
+  let waiting = 0;
+  for (const z of zips) {
+    const version = zipVersion(z);
+    if (done[z.id] === version) continue;
+    if (z.size != null && z.size > MAX_ZIP_BYTES) {
+      tooBig.push(z.name);
+      continue;
+    }
+    if (Date.now() > deadline) {
+      waiting++;
+      continue;
+    }
+    try {
+      const r = await extractZip(admin, src, z);
+      added += r.added;
+      done[z.id] = version;
+    } catch (e) {
+      // A damaged or oversized zip is noted and not tried again until it changes;
+      // a network hiccup is simply tried again on the next sync.
+      const st = e instanceof SourceError ? e.status : 0;
+      if (st === 413 || st === 422) {
+        done[z.id] = version;
+        (st === 413 ? tooBig : broken).push(z.name);
+      } else if (e instanceof SourceError && ["auth", "rate"].includes(e.code)) throw e;
+    }
+  }
+
+  // Mirror removals (only when the folder was read completely): files that left
+  // the folder, and the unpacked files of zips that left it.
   let removed = 0;
   if (complete) {
     const seen = new Set(files.map((f) => f.id));
-    const gone = Array.from(known.entries()).filter(([ext]) => !seen.has(ext)).map(([, id]) => id);
-    for (let i = 0; i < gone.length; i += 200) {
-      await admin.from("creatives").delete().in("id", gone.slice(i, i + 200));
-    }
+    const zipIds = new Set(zips.map((z) => z.id));
+    const gone = existingRowsAll.filter((r) => {
+      const zipId = r.external_id.includes("#") ? r.external_id.slice(0, r.external_id.indexOf("#")) : null;
+      return zipId ? !zipIds.has(zipId) : !seen.has(r.external_id);
+    });
+    await removeRows(admin, gone);
     removed = gone.length;
+    for (const id of Object.keys(done)) if (!zipIds.has(id)) delete done[id];
   }
+  cfg.zips = done;
 
-  const cfg = { ...(src.config ?? {}) };
-  delete cfg.retryAt;
+  const note = !complete
+    ? "Only the first 5,000 files are shown."
+    : tooBig.length
+      ? `Zip over 300 MB not unpacked: ${tooBig.slice(0, 3).join(", ")}. Upload it on the Creatives page instead.`
+      : broken.length
+        ? `Zip could not be read: ${broken.slice(0, 3).join(", ")}.`
+        : null;
   await admin
     .from("creative_sources")
-    .update({ status: "active", last_error: complete ? null : "Only the first 5,000 files are shown.", last_synced_at: new Date().toISOString(), config: cfg })
+    .update({ status: "active", last_error: note, last_synced_at: waiting ? src.last_synced_at : new Date().toISOString(), config: cfg })
     .eq("id", src.id);
   return { added, removed };
+}
+
+/** A zip's version: its content hash where the cloud has one, else size and date. */
+const zipVersion = (z: CloudFile) => z.hash ?? `${z.size ?? 0}:${z.createdAt ?? ""}`;
+
+/** Delete library rows and, for files we stored (unpacked zips), their stored copies. */
+export async function removeRows(admin: SupabaseClient, rows: { id: string; storage_path?: string | null }[]) {
+  for (let i = 0; i < rows.length; i += 200) {
+    const batch = rows.slice(i, i + 200);
+    await admin.from("creatives").delete().in("id", batch.map((r) => r.id));
+    // Their stored copies, and any thumbnail or preview made for them.
+    const paths = batch.flatMap((r) => {
+      const client = r.storage_path?.split("/")[0];
+      return r.storage_path && client ? [r.storage_path, `${client}/thumbs/${r.id}.jpg`, `${client}/previews/${r.id}.jpg`] : [];
+    });
+    if (paths.length) await admin.storage.from("creatives").remove(paths);
+  }
+}
+
+/**
+ * Download a zip from the cloud folder and unpack it into storage, one file at
+ * a time (never the whole zip in memory). Every image, video and PDF becomes a
+ * creative of the folder ("<zip id>#<path in zip>"); files no longer in a
+ * changed zip leave the library.
+ */
+export async function extractZip(admin: SupabaseClient, src: SourceRow, zip: CloudFile): Promise<{ added: number; entries: number }> {
+  const out = await cloudFileResponse(admin, src, zip.id, {});
+  const res = "redirect" in out ? await fetch(out.redirect) : out.response;
+  if (!res.ok || !res.body) throw new SourceError(`zip ${res.status}`, res.status === 404 ? 404 : 502, res.status === 404 ? "not_found" : "failed");
+
+  const ready: { path: string; data: Uint8Array }[] = [];
+  let failure: unknown = null;
+  const unzip = new Unzip((entry) => {
+    const path = entry.name;
+    if (path.endsWith("/") || isJunkEntry(path)) return;
+    const base = path.split("/").pop() ?? path;
+    if (!fileType(base)) return;
+    if (entry.originalSize != null && entry.originalSize > MAX_FILE_BYTES) return;
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    let dropped = false;
+    entry.ondata = (err, chunk, final) => {
+      if (err) return void (failure = err);
+      if (dropped) return;
+      size += chunk.length;
+      if (size > MAX_FILE_BYTES) {
+        dropped = true;
+        chunks.length = 0;
+        return;
+      }
+      chunks.push(chunk);
+      if (final && size > 0) ready.push({ path, data: Buffer.concat(chunks) });
+    };
+    entry.start();
+  });
+  unzip.register(UnzipInflate);
+
+  const { data: before } = await admin.from("creatives").select("id,external_id,storage_path").eq("source_id", src.id).like("external_id", `${zip.id}#%`);
+  const previous = new Map(((before ?? []) as { id: string; external_id: string; storage_path: string | null }[]).map((r) => [r.external_id, r]));
+  const kept = new Set<string>();
+  const prefix = storagePrefix(src.client_id, src.project_id, src.folder_id);
+  let added = 0;
+  let entries = 0;
+  let total = 0;
+
+  const store = async ({ path, data }: { path: string; data: Uint8Array }) => {
+    entries++;
+    const externalId = `${zip.id}#${path}`.slice(0, 2000);
+    kept.add(externalId);
+    const hash = `sha256:${createHash("sha256").update(data).digest("hex")}`;
+    const name = displayName(path);
+    const type = fileType(name)!;
+    const prev = previous.get(externalId);
+    // Same file as before at the same place: nothing to do.
+    if (prev?.storage_path) {
+      const { data: row } = await admin.from("creatives").select("content_hash").eq("id", prev.id).maybeSingle();
+      if (row?.content_hash === hash) return;
+    }
+    const storagePath = `${prefix}${randomUUID()}-${safeFileName(name)}`;
+    const up = await admin.storage.from("creatives").upload(storagePath, data, { contentType: type.mime, upsert: false });
+    if (up.error) return; // e.g. larger than the storage limit: skipped, the rest go on
+    const row = {
+      client_id: src.client_id,
+      project_id: src.project_id,
+      folder_id: src.folder_id,
+      source: src.provider,
+      source_id: src.id,
+      external_id: externalId,
+      name,
+      kind: type.kind,
+      mime: type.mime,
+      size_bytes: data.length,
+      storage_path: storagePath,
+      content_hash: hash,
+      external_url: zip.webUrl,
+      thumb_path: null,
+      ...(zip.createdAt ? { created_at: zip.createdAt } : {}),
+    };
+    const tagged = prev ? row : { ...row, platforms: guessPlatforms(`${zip.path ?? zip.name}/${path}`) };
+    let { error } = await admin.from("creatives").upsert(tagged, { onConflict: "source_id,external_id" });
+    if (error && /platforms|thumb_path/i.test(error.message)) {
+      const { thumb_path: _t, ...plain } = row;
+      ({ error } = await admin.from("creatives").upsert(plain, { onConflict: "source_id,external_id" }));
+    }
+    if (error) {
+      await admin.storage.from("creatives").remove([storagePath]);
+      return;
+    }
+    if (prev?.storage_path) await admin.storage.from("creatives").remove([prev.storage_path]);
+    else added++;
+  };
+
+  const reader = res.body.getReader();
+  for (;;) {
+    const { value, done } = await reader.read();
+    total += value?.length ?? 0;
+    if (total > MAX_ZIP_BYTES) {
+      await reader.cancel();
+      throw new SourceError("zip too large", 413);
+    }
+    unzip.push(value ?? new Uint8Array(0), done);
+    if (failure) throw new SourceError("zip unreadable", 422);
+    while (ready.length) await store(ready.shift()!);
+    if (done) break;
+  }
+
+  // Files that were in an earlier version of this zip and aren't any more.
+  await removeRows(admin, Array.from(previous.values()).filter((r) => !kept.has(r.external_id)));
+  return { added, entries };
 }
 
 // ---- Previews and downloads ---------------------------------------------------

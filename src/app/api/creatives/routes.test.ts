@@ -26,7 +26,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("@/lib/audit", () => ({ logAudit: vi.fn() }));
 vi.mock("@/lib/background", () => ({ inBackground: vi.fn() }));
-vi.mock("@/lib/rate-limit", () => ({ getRateLimiter: () => ({ limit: async () => ({ success: !limited }) }) }));
+vi.mock("@/lib/rate-limit", () => ({ getRateLimiter: () => ({ limit: async () => ({ success: !limited }) }), ipKey: () => "ip" }));
 const cloud = vi.fn();
 vi.mock("@/lib/creative-sources", async () => ({ ...(await vi.importActual<any>("@/lib/creative-sources")), cloudFileResponse: (...a: unknown[]) => cloud(...a) }));
 const nonce = { value: "n1" as string | undefined, set: vi.fn() };
@@ -40,6 +40,8 @@ import * as limit from "./limit/route";
 import * as sources from "./sources/route";
 import * as sourceOne from "./sources/[id]/route";
 import * as callback from "./sources/callback/route";
+import * as thumbRoute from "./[id]/thumb/route";
+import { signCreativeLink } from "@/lib/creative-links";
 
 const req = (url: string, method = "GET", body?: unknown, headers: Record<string, string> = {}) =>
   new Request(`https://www.tylohq.de${url}`, { method, headers: { "Content-Type": "application/json", ...headers }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -216,7 +218,7 @@ describe("move, rename, delete (team only)", () => {
   it("delete removes the upload and its stored file; synced files are left alone", async () => {
     db.objects.set(pathA, { size: 1, mimetype: "image/png" });
     expect((await json(await files.DELETE(req("/api/creatives", "DELETE", { ids: [UP, DRV, "not-a-uuid"] })))).body).toMatchObject({ deleted: 1, skipped: 1 });
-    expect(db.removed).toEqual([pathA]);
+    expect(db.removed).toEqual([pathA, `${A}/thumbs/${UP}.jpg`, `${A}/previews/${UP}.jpg`]);
     expect(db.tables.creatives.map((c) => c.id).sort()).toEqual([DRV, CB]);
     expect((await files.DELETE(req("/api/creatives", "DELETE", { ids: [DRV] }))).status).toBe(400);
   });
@@ -316,5 +318,75 @@ describe("connecting cloud folders (team only)", () => {
     expect((await sourceOne.DELETE(req("/api/creatives/sources/s1", "DELETE"), { params: { id: "s1" } })).status).toBe(403);
     user = STAFF_USER;
     expect((await sourceOne.POST(req("/api/creatives/sources/x", "POST", { action: "sync" }), { params: { id: "not-uuid" } })).status).toBe(404);
+  });
+});
+
+describe("thumbnails, previews and signed links", () => {
+  it("only the team stores thumbnails, always at the creative's own path", async () => {
+    user = clientA;
+    expect((await thumbRoute.POST(req(`/api/creatives/${UP}/thumb`, "POST", { what: "thumb" }), { params: { id: UP } })).status).toBe(403);
+    user = STAFF_USER;
+    expect((await thumbRoute.POST(req(`/api/creatives/${UP}/thumb`, "POST", { what: "../../x" }), { params: { id: UP } })).status).toBe(404);
+    const r = await json(await thumbRoute.POST(req(`/api/creatives/${UP}/thumb`, "POST", { what: "thumb" }), { params: { id: UP } }));
+    expect(r.body.path).toBe(`${A}/thumbs/${UP}.jpg`);
+    expect((await thumbRoute.PUT(req(`/api/creatives/${UP}/thumb`, "PUT", { what: "thumb" }), { params: { id: UP } })).status).toBe(400); // nothing stored yet
+    db.objects.set(`${A}/thumbs/${UP}.jpg`, { size: 20_000, mimetype: "image/jpeg" });
+    expect((await thumbRoute.PUT(req(`/api/creatives/${UP}/thumb`, "PUT", { what: "thumb" }), { params: { id: UP } })).status).toBe(200);
+    expect(db.tables.creatives.find((c) => c.id === UP)!.thumb_path).toBe(`${A}/thumbs/${UP}.jpg`);
+  });
+
+  it("a made thumbnail is served from storage; one pointing elsewhere is ignored", async () => {
+    user = clientA;
+    db.tables.creatives.find((c) => c.id === UP)!.thumb_path = `${A}/thumbs/${UP}.jpg`;
+    let r = await file.GET(req(`/api/creatives/${UP}/file?thumb=1`), { params: { id: UP } });
+    expect(r.headers.get("location")).toContain(`${A}/thumbs/${UP}.jpg`);
+    db.tables.creatives.find((c) => c.id === UP)!.thumb_path = `${B}/thumbs/${UP}.jpg`;
+    r = await file.GET(req(`/api/creatives/${UP}/file?thumb=1`), { params: { id: UP } });
+    expect(r.headers.get("location")).toContain(pathA);
+  });
+
+  it("the app gets links: storage links for stored files, our signed link for cloud files", async () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-secret";
+    user = clientA;
+    let r = await json(await file.GET(req(`/api/creatives/${UP}/file?json=1`), { params: { id: UP } }));
+    expect(r.body.url).toContain(`https://store.example/${pathA}`);
+    r = await json(await file.GET(req(`/api/creatives/${DRV}/file?json=1`), { params: { id: DRV } }));
+    expect(r.body.url).toMatch(new RegExp(`/api/creatives/${DRV}/file\\?exp=\\d+&sig=`));
+    // The signed link works without a session...
+    user = null;
+    cloud.mockResolvedValue({ response: new Response("bytes", { headers: { "content-type": "video/mp4" } }) });
+    const path = new URL(r.body.url).pathname + new URL(r.body.url).search;
+    expect((await file.GET(req(path), { params: { id: DRV } })).status).toBe(200);
+    // ...but not for another creative, another variant, or once tampered with or expired.
+    expect((await file.GET(req(path), { params: { id: UP } })).status).toBe(403);
+    expect((await file.GET(req(`${path}&thumb=1`), { params: { id: DRV } })).status).toBe(403);
+    expect((await file.GET(req(path.replace(/sig=./, "sig=X")), { params: { id: DRV } })).status).toBe(403);
+    const old = signCreativeLink("https://www.tylohq.de", DRV, "file", Date.now() - 3600_000);
+    expect((await file.GET(req(new URL(old).pathname + new URL(old).search), { params: { id: DRV } })).status).toBe(403);
+    expect((await file.GET(req(`/api/creatives/${DRV}/file`), { params: { id: DRV } })).status).toBe(401);
+  });
+});
+
+describe("list for the mobile app", () => {
+  it("partners get only their own library; the team picks any partner", async () => {
+    user = clientA;
+    let r = await json(await files.GET(req(`/api/creatives?clientId=${B}`)));
+    expect(r.status).toBe(200);
+    expect(r.body.clientId).toBe(A);
+    expect(r.body.clients).toBeUndefined();
+    expect(r.body.campaigns).toBeUndefined();
+    expect(r.body.creatives.map((c: any) => c.id).sort()).toEqual([UP, DRV].sort());
+    expect(r.body.creatives.every((c: any) => !("storage_path" in c))).toBe(true);
+    expect(r.body.creatives.find((c: any) => c.id === UP).stored).toBe(true);
+    expect(JSON.stringify(r.body)).not.toContain('"access_token"');
+    user = STAFF_USER;
+    r = await json(await files.GET(req(`/api/creatives?clientId=${B}`)));
+    expect(r.body.clientId).toBe(B);
+    expect(r.body.creatives.map((c: any) => c.id)).toEqual([CB]);
+    expect(r.body.clients.map((c: any) => c.id).sort()).toEqual([A, B].sort());
+    r = await json(await files.GET(req(`/api/creatives?clientId=not-a-partner`)));
+    expect([A, B]).toContain(r.body.clientId);
+    user = null;
+    expect((await files.GET(req("/api/creatives"))).status).toBe(401);
   });
 });

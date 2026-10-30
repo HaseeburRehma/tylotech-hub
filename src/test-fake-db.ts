@@ -27,6 +27,7 @@ export function fakeDb(seed: Record<string, Row[]> = {}, opts: { unique?: Record
     let payload: any;
     let upsertOpts: { onConflict?: string; ignoreDuplicates?: boolean } = {};
     let limitN: number | null = null;
+    let offset = 0;
     let order: [string, boolean] | null = null;
 
     async function exec(): Promise<{ data: any; error: any }> {
@@ -37,7 +38,7 @@ export function fakeDb(seed: Record<string, Row[]> = {}, opts: { unique?: Record
           const [k, asc] = order;
           out = [...out].sort((a, b) => (a[k] > b[k] ? 1 : a[k] < b[k] ? -1 : 0) * (asc ? 1 : -1));
         }
-        if (limitN != null) out = out.slice(0, limitN);
+        if (limitN != null || offset) out = out.slice(offset, limitN != null ? offset + limitN : undefined);
         return { data: out.map((r) => ({ ...r })), error: null };
       }
       if (op === "insert") {
@@ -83,8 +84,14 @@ export function fakeDb(seed: Record<string, Row[]> = {}, opts: { unique?: Record
       eq: (k: string, v: unknown) => (filters.push((r) => r[k] === v), b),
       neq: (k: string, v: unknown) => (filters.push((r) => r[k] !== v), b),
       in: (k: string, vs: unknown[]) => (filters.push((r) => vs.includes(r[k])), b),
+      like: (k: string, pattern: string) => {
+        const re = new RegExp(`^${pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*")}$`);
+        return filters.push((r) => re.test(String(r[k] ?? ""))), b;
+      },
+      not: (k: string, op: string, v: unknown) => (filters.push((r) => (op === "is" && v === null ? r[k] != null : r[k] !== v)), b),
       order: (k: string, o?: { ascending?: boolean }) => ((order = [k, o?.ascending !== false]), b),
       limit: (n: number) => ((limitN = n), b),
+      range: (from: number, to: number) => ((offset = from), (limitN = to - from + 1), b),
       insert: (p: any) => ((op = "insert"), (payload = p), b),
       upsert: (p: any, o: any = {}) => ((op = "upsert"), (payload = p), (upsertOpts = o), b),
       update: (p: any) => ((op = "update"), (payload = p), b),
@@ -106,6 +113,7 @@ export function fakeDb(seed: Record<string, Row[]> = {}, opts: { unique?: Record
           .map(([p, m]) => ({ name: p.slice(dir.length + 1), metadata: m })),
         error: null,
       }),
+      upload: async (path: string, data: Uint8Array, o: { contentType?: string } = {}) => (objects.set(path, { size: data.length, mimetype: o.contentType ?? "" }), { data: { path }, error: null }),
       remove: async (paths: string[]) => (removed.push(...paths), paths.forEach((p) => objects.delete(p)), { data: [], error: null }),
     }),
   };

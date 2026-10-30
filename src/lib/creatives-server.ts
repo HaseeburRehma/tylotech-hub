@@ -7,7 +7,7 @@ import {
   SourceError,
   syncCreativeSources,
 } from "@/lib/creative-sources";
-import type { CreativeFolder, CreativeSourceProvider, CreativeSourceView } from "@/lib/creatives";
+import { missingCreatives, type Creative, type CreativeFolder, type CreativeSourceProvider, type CreativeSourceView } from "@/lib/creatives";
 
 export const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
 
@@ -93,4 +93,78 @@ export async function completeCreativeConnect(
   if (error || !saved) return "failed";
   inBackground("creatives-first-sync", () => syncCreativeSources(admin, { sourceId: saved.id }));
   return "connected";
+}
+
+// ---- One partner's library (the web page and the mobile app read the same) ----
+
+const COLS = "id,client_id,project_id,folder_id,source,source_id,name,kind,mime,size_bytes,width,height,duration_sec,external_url,content_hash,created_at,added_at";
+const TAG_COLS = `${COLS},platforms,campaign`;
+const PREVIEW_COLS = `${TAG_COLS},storage_path,thumb_path,preview_path`;
+export const MAX_ROWS = 5000;
+
+/** Campaigns already on creatives first, then names from leads (ids and numbers left out). */
+export function campaignNames(creatives: Creative[], leads: { campaign: string }[]) {
+  const names = new Set<string>();
+  for (const c of creatives) if (c.campaign) names.add(c.campaign);
+  for (const l of leads) {
+    const n = l.campaign?.trim();
+    if (n && n.length <= 200 && !/^\d+$/.test(n) && !/^[0-9a-f-]{20,}$/i.test(n)) names.add(n);
+    if (names.size >= 200) break;
+  }
+  return Array.from(names);
+}
+
+export interface CreativesLibrary {
+  missing: boolean;
+  limit: number | null;
+  projects: { id: string; name: string; status: string }[];
+  folders: CreativeFolder[];
+  creatives: Creative[];
+  sources: CreativeSourceView[];
+  campaigns: string[];
+  tagsReady: boolean;
+  truncated: boolean;
+}
+
+/** Everything about one partner's creatives (newest 5,000). Works before migrations 0049/0050. */
+export async function loadCreativesLibrary(admin: SupabaseClient, clientId: string): Promise<CreativesLibrary> {
+  const loadCreatives = async (cols: string) => {
+    const out: Creative[] = [];
+    for (let from = 0; from < MAX_ROWS; from += 1000) {
+      const { data, error } = await admin.from("creatives").select(cols).eq("client_id", clientId).order("created_at", { ascending: false }).range(from, from + 999);
+      if (error) return { data: out, error };
+      // Callers only need to know a file is stored with us, not where.
+      out.push(...((data ?? []) as unknown as (Creative & { storage_path?: string | null })[]).map(({ storage_path, ...c }) => ({ ...c, stored: !!storage_path })));
+      if ((data ?? []).length < 1000) break;
+    }
+    return { data: out, error: null };
+  };
+  const [clientRes, projectsRes, foldersRes, full, sourcesRes, leadCampaigns] = await Promise.all([
+    admin.from("clients").select("creatives_monthly_limit").eq("id", clientId).maybeSingle(),
+    admin.from("projects").select("id,name,status,created_at").eq("client_id", clientId).order("created_at", { ascending: false }),
+    admin.from("creative_folders").select("id,client_id,project_id,name,position").eq("client_id", clientId).order("position"),
+    loadCreatives(PREVIEW_COLS),
+    admin.from("creative_sources").select("id,folder_id,project_id,provider,label,account,status,last_error,last_synced_at").eq("client_id", clientId).order("created_at"),
+    // Campaign names the partner's leads came from: suggestions when tagging.
+    admin.from("leads").select("campaign").eq("client_id", clientId).not("campaign", "is", null).order("created_at", { ascending: false }).limit(2000),
+  ]);
+  // Before 0050 (previews) or 0049 (tags) those columns don't exist: load without them.
+  const tagged = full.error ? await loadCreatives(`${TAG_COLS},storage_path`) : null;
+  const tagsReady = !full.error || !tagged?.error;
+  const res = !full.error ? full : !tagged?.error ? tagged! : await loadCreatives(`${COLS},storage_path`);
+  const err = foldersRes.error ?? res.error;
+  const creatives = res.data ?? [];
+  const perSource = new Map<string, number>();
+  for (const c of creatives) if (c.source_id) perSource.set(c.source_id, (perSource.get(c.source_id) ?? 0) + 1);
+  return {
+    missing: !!err && missingCreatives(err.message),
+    limit: (clientRes.data?.creatives_monthly_limit as number | null) ?? null,
+    projects: ((projectsRes.data ?? []) as { id: string; name: string; status: string }[]).map(({ id, name, status }) => ({ id, name, status })),
+    folders: (foldersRes.data ?? []) as CreativeFolder[],
+    creatives,
+    sources: ((sourcesRes.data ?? []) as any[]).map((s) => sourceView(s, perSource.get(s.id) ?? 0)),
+    campaigns: campaignNames(creatives, (leadCampaigns.data ?? []) as { campaign: string }[]),
+    tagsReady,
+    truncated: creatives.length >= MAX_ROWS,
+  };
 }

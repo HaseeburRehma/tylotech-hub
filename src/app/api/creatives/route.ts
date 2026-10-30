@@ -2,10 +2,49 @@ import { NextResponse } from "next/server";
 import { logAudit } from "@/lib/audit";
 import { getAuthUser, isStaff } from "@/lib/auth";
 import { cleanCampaign, cleanPlatforms, displayName, fileType, MAX_BATCH, parseStoragePath } from "@/lib/creatives";
-import { bad, getFolder, UUID_RE } from "@/lib/creatives-server";
+import { bad, getFolder, loadCreativesLibrary, UUID_RE } from "@/lib/creatives-server";
+import { getRateLimiter } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
+
+/**
+ * One partner's creatives for the mobile app: projects, categories, files
+ * (with tags and thumbnail state) and the monthly limit. Partners get their
+ * own; the team picks one with ?clientId= and also gets the partner list.
+ */
+export async function GET(req: Request) {
+  const user = await getAuthUser();
+  if (!user) return bad("Unauthorized.", 401);
+  const admin = createAdminClient();
+  if (!admin) return bad("Backend not configured.", 503);
+  const rl = await getRateLimiter().limit(`creatives-list:${user.id}`, { limit: 60, windowSec: 60 });
+  if (!rl.success) return bad("Too many requests.", 429);
+  const staff = isStaff(user);
+  let clients: { id: string; company: string; logo_url: string | null; primary_color: string | null }[] | undefined;
+  let clientId = staff ? null : user.client_id;
+  if (staff) {
+    const { data } = await admin.from("clients").select("id,company,logo_url,primary_color,archived_at").order("company");
+    clients = ((data ?? []) as { id: string; company: string; logo_url: string | null; primary_color: string | null; archived_at: string | null }[])
+      .filter((c) => !c.archived_at)
+      .map(({ archived_at: _a, ...c }) => c);
+    const asked = new URL(req.url).searchParams.get("clientId");
+    clientId = clients.find((c) => c.id === asked)?.id ?? clients[0]?.id ?? null;
+  }
+  if (!clientId) return NextResponse.json({ staff, clients: clients ?? [], clientId: null, projects: [], folders: [], creatives: [] });
+  const lib = await loadCreativesLibrary(admin, clientId);
+  if (lib.missing) return bad("Creatives are being set up.", 503);
+  const { campaigns, sources, ...rest } = lib;
+  return NextResponse.json({
+    staff,
+    clients,
+    clientId,
+    company: staff ? clients!.find((c) => c.id === clientId)?.company ?? "" : user.company ?? "",
+    ...rest,
+    sources: sources.map(({ id, folder_id, provider, label, status, last_synced_at, files }) => ({ id, folder_id, provider, label, status, last_synced_at, files })),
+    ...(staff ? { campaigns } : {}),
+  });
+}
 
 const HASH_RE = /^sha256:[0-9a-f]{64}$/;
 const missingTags = (msg = "") => /platforms|campaign/i.test(msg) && /column|schema cache|does not exist/i.test(msg);
@@ -168,7 +207,7 @@ export async function DELETE(req: Request) {
   if (!uploads.length) return bad(found.length ? "Synced files are removed in their cloud folder." : "Not found.", found.length ? 400 : 404);
   const { error } = await admin.from("creatives").delete().in("id", uploads.map((c) => c.id));
   if (error) return bad("Could not delete.");
-  const paths = uploads.map((c) => c.storage_path).filter((p): p is string => !!p && !!parseStoragePath(p));
+  const paths = uploads.flatMap((c) => (c.storage_path && parseStoragePath(c.storage_path) ? [c.storage_path, `${c.client_id}/thumbs/${c.id}.jpg`, `${c.client_id}/previews/${c.id}.jpg`] : []));
   if (paths.length) await admin.storage.from("creatives").remove(paths);
   await logAudit(user, { action: "creative.delete", clientId: uploads[0].client_id, targetType: "creative", summary: uploads.slice(0, 5).map((c) => c.name).join(", ") }, admin);
   return NextResponse.json({ ok: true, deleted: uploads.length, skipped: found.length - uploads.length });

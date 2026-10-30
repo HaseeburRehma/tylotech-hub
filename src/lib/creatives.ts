@@ -49,6 +49,10 @@ export interface Creative {
   content_hash?: string | null;
   platforms?: Platform[];
   campaign?: string | null;
+  /** Kept in our storage (uploads, files unpacked from cloud zips). */
+  stored?: boolean;
+  thumb_path?: string | null;
+  preview_path?: string | null;
   created_at: string;
   added_at: string;
 }

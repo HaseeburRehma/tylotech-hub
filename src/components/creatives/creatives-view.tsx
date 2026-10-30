@@ -54,6 +54,7 @@ import { duration, fileUrl, Lightbox } from "./lightbox";
 import { PlatformMark } from "./platform-mark";
 import { SourceLogo, SOURCE_NAME } from "./source-logo";
 import { TagModal } from "./tag-modal";
+import { isHeic, makeThumbs, missing } from "@/lib/creative-thumbs";
 import { UploadModal } from "./upload-modal";
 
 interface Project {
@@ -144,6 +145,9 @@ export function CreativesView(p: CreativesViewProps) {
     setUrlRead(true);
   }, []);
   const [tagFor, setTagFor] = useState<{ ids: string[]; platforms: Platform[]; campaign: string } | null>(null);
+  // Thumbnails can only be recorded once 0050_creative_previews.sql is in (rows then carry thumb_path).
+  const previewsReady = p.creatives.some((c) => "thumb_path" in c);
+  const made = useThumbnailMaker(p.creatives, p.staff && previewsReady);
   const setFilter = <K extends FilterKey>(k: K, v: Filters[K]) => setFilters((f) => ({ ...f, [k]: v }));
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [viewer, setViewer] = useState<number | null>(null);
@@ -708,7 +712,7 @@ export function CreativesView(p: CreativesViewProps) {
                         {covers.length ? (
                           covers.map((c, i) => (
                             <div key={c.id} className={cn("relative overflow-hidden bg-surface-2", covers.length === 1 && "col-span-2 row-span-2", covers.length === 2 && "row-span-2", covers.length === 3 && i === 0 && "row-span-2")}>
-                              <Thumb c={c} />
+                              <Thumb c={c} v={made[c.id]} />
                             </div>
                           ))
                         ) : (
@@ -808,7 +812,7 @@ export function CreativesView(p: CreativesViewProps) {
                             className={cn("block w-full overflow-hidden rounded-xl border text-left transition-all hover:shadow-card", sel ? "border-brand ring-2 ring-brand/40" : "border-line")}
                           >
                             <div className="relative aspect-square bg-surface-2">
-                              <Thumb c={c} />
+                              <Thumb c={c} v={made[c.id]} />
                               {c.kind === "video" && (
                                 <span className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded-md bg-black/65 px-1.5 py-0.5 text-[10px] font-medium text-white">
                                   <Play className="h-2.5 w-2.5 fill-current" />
@@ -860,7 +864,7 @@ export function CreativesView(p: CreativesViewProps) {
         </div>
       )}
 
-      {viewer !== null && files[viewer] && <Lightbox items={files} index={viewer} onIndex={setViewer} onClose={() => setViewer(null)} onDelete={p.staff ? (c) => askDeleteFiles([c.id]) : undefined} onTag={p.staff && p.tagsReady ? (c) => (setViewer(null), openTags([c.id])) : undefined} />}
+      {viewer !== null && files[viewer] && <Lightbox items={files} index={viewer} onIndex={setViewer} onClose={() => setViewer(null)} onDelete={p.staff ? (c) => askDeleteFiles([c.id]) : undefined} made={made} onTag={p.staff && p.tagsReady ? (c) => (setViewer(null), openTags([c.id])) : undefined} />}
 
       {p.staff && (
         <>
@@ -1014,30 +1018,96 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   );
 }
 
-/** Grid preview: images and cloud files by thumbnail, uploaded videos by their first frame once on screen. */
-function Thumb({ c }: { c: Creative }) {
+/**
+ * Grid preview: the made thumbnail where there is one; photos and cloud files
+ * by their own thumbnail; stored videos by their first frame once on screen,
+ * until the thumbnail exists; PDFs and HEIC photos by an icon until then.
+ */
+function Thumb({ c, v }: { c: Creative; v?: number }) {
   const [broken, setBroken] = useState(false);
   const ref = useRef<HTMLVideoElement>(null);
   const [visible, setVisible] = useState(false);
+  const stored = c.stored ?? c.source === "upload";
+  const liveVideo = c.kind === "video" && stored && !c.thumb_path && !v;
 
+  useEffect(() => setBroken(false), [v, c.thumb_path]);
   useEffect(() => {
-    if (c.kind !== "video" || c.source !== "upload" || !ref.current) return;
+    if (!liveVideo || !ref.current) return;
     const io = new IntersectionObserver(([e]) => e.isIntersecting && (setVisible(true), io.disconnect()), { rootMargin: "200px" });
     io.observe(ref.current);
     return () => io.disconnect();
-  }, [c.kind, c.source]);
+  }, [liveVideo]);
 
-  if (broken || (c.kind === "document" && c.source === "upload")) {
+  const hasThumb = !!c.thumb_path || !!v || !stored || (c.kind === "image" && !isHeic(c));
+  if (broken || !hasThumb) {
+    if (liveVideo && !broken) {
+      return <video ref={ref} src={visible ? `${fileUrl(c.id)}#t=0.5` : undefined} muted playsInline preload="metadata" onError={() => setBroken(true)} className="h-full w-full object-cover" />;
+    }
     const Icon = c.kind === "video" ? Video : c.kind === "document" ? FileText : ImageIcon;
     return (
-      <div className="flex h-full w-full items-center justify-center">
+      <div className="flex h-full w-full flex-col items-center justify-center gap-1.5">
         <Icon className="h-8 w-8 text-muted/60" />
+        {c.kind === "document" && <span className="font-mono text-[10px] font-medium uppercase text-muted">PDF</span>}
       </div>
     );
   }
-  if (c.kind === "video" && c.source === "upload") {
-    return <video ref={ref} src={visible ? `${fileUrl(c.id)}#t=0.5` : undefined} muted playsInline preload="metadata" onError={() => setBroken(true)} className="h-full w-full object-cover" />;
-  }
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={fileUrl(c.id, "thumb=1")} alt="" loading="lazy" decoding="async" onError={() => setBroken(true)} className="h-full w-full object-cover" />;
+  return <img src={fileUrl(c.id, `thumb=1${v ? `&v=${v}` : ""}`)} alt="" loading="lazy" decoding="async" onError={() => setBroken(true)} className="h-full w-full object-cover" />;
+}
+
+/**
+ * For the team: make the thumbnails and previews that stored files still miss,
+ * two at a time, newest first, at most 60 per visit. A file that fails is not
+ * tried again in this browser session.
+ */
+function useThumbnailMaker(creatives: Creative[], on: boolean) {
+  const [made, setMade] = useState<Record<string, number>>({});
+  const busy = useRef(new Set<string>());
+  useEffect(() => {
+    if (!on) return;
+    let cancelled = false;
+    const failedKey = "creatives.thumbFailed";
+    const failed = new Set<string>((() => {
+      try {
+        return JSON.parse(sessionStorage.getItem(failedKey) ?? "[]");
+      } catch {
+        return [];
+      }
+    })());
+    const todo = creatives
+      .filter((c) => !made[c.id] && !busy.current.has(c.id) && !failed.has(c.id))
+      .filter((c) => {
+        const m = missing({ ...c, stored: c.stored ?? c.source === "upload" });
+        return m.thumb || m.preview;
+      })
+      .slice(0, 60);
+    if (!todo.length) return;
+    let next = 0;
+    const worker = async () => {
+      while (!cancelled && next < todo.length) {
+        const c = todo[next++];
+        busy.current.add(c.id);
+        try {
+          await makeThumbs({ ...c, stored: c.stored ?? c.source === "upload" });
+          if (!cancelled) setMade((m) => ({ ...m, [c.id]: Date.now() }));
+        } catch {
+          failed.add(c.id);
+          try {
+            sessionStorage.setItem(failedKey, JSON.stringify(Array.from(failed)));
+          } catch {
+            /* private mode */
+          }
+        } finally {
+          busy.current.delete(c.id);
+        }
+      }
+    };
+    void Promise.all([worker(), worker()]);
+    return () => {
+      cancelled = true;
+    };
+    // Re-run when the list changes (uploads, refresh); `made` is read, not watched.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [creatives, on]);
+  return made;
 }

@@ -25,6 +25,7 @@ export function Lightbox({
   onClose,
   onDelete,
   onTag,
+  made = {},
 }: {
   items: Creative[];
   index: number;
@@ -32,10 +33,13 @@ export function Lightbox({
   onClose: () => void;
   onDelete?: (c: Creative) => void;
   onTag?: (c: Creative) => void;
+  /** Thumbnails/previews made in this visit (id → time), so new ones show at once. */
+  made?: Record<string, number>;
 }) {
   const t = useT();
   const dl = useIntlLocale();
   const c = items[index];
+  const heic = !!c && /\.(heic|heif)$/i.test(c.name);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => setFailed(false), [c?.id]);
@@ -103,16 +107,39 @@ export function Lightbox({
 
       <div className="relative flex min-h-0 flex-1 items-center justify-center px-2 pb-4 sm:px-16" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
         {failed ? (
-          <p className="text-sm text-white/70">{t("cr.previewFailed")}</p>
-        ) : c.kind === "image" ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img key={c.id} src={fileUrl(c.id)} alt={c.name} onError={() => setFailed(true)} className="max-h-full max-w-full rounded-lg object-contain" />
-        ) : c.kind === "video" ? (
-          <video key={c.id} src={fileUrl(c.id)} controls autoPlay playsInline onError={() => setFailed(true)} className="max-h-full max-w-full rounded-lg bg-black" />
-        ) : (
           <div className="flex flex-col items-center gap-3 text-center">
-            <FileText className="h-14 w-14 text-white/70" />
-            <a href={fileUrl(c.id)} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/20">
+            <p className="max-w-xs text-sm text-white/70">{t("cr.previewFailed")}</p>
+            <a href={fileUrl(c.id, "download=1")} className="rounded-xl bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/20">
+              {t("cr.download")}
+            </a>
+          </div>
+        ) : c.kind === "image" ? (
+          heic && !c.preview_path && !made[c.id] ? (
+            <div className="flex flex-col items-center gap-3 text-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={fileUrl(c.id, "thumb=1")} alt="" className="max-h-[50vh] rounded-lg opacity-90" onError={(e) => (e.currentTarget.style.display = "none")} />
+              <p className="max-w-xs text-sm text-white/70">{t("cr.heicPreparing")}</p>
+            </div>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={c.id} src={fileUrl(c.id, heic ? `preview=1&v=${made[c.id] ?? 0}` : "")} alt={c.name} onError={() => setFailed(true)} className="max-h-full max-w-full rounded-lg object-contain" />
+          )
+        ) : c.kind === "video" ? (
+          <video
+            key={c.id}
+            src={fileUrl(c.id)}
+            poster={c.thumb_path || made[c.id] || c.source !== "upload" ? fileUrl(c.id, "thumb=1") : undefined}
+            controls
+            autoPlay
+            playsInline
+            onError={() => setFailed(true)}
+            className="max-h-full max-w-full rounded-lg bg-black"
+          />
+        ) : (
+          <div className="flex h-full w-full max-w-4xl flex-col items-stretch gap-2">
+            <iframe key={c.id} src={`${fileUrl(c.id)}#view=FitH`} title={c.name} className="min-h-0 w-full flex-1 rounded-lg bg-white" />
+            <a href={fileUrl(c.id)} target="_blank" rel="noopener noreferrer" className="self-center rounded-xl bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/20">
+              <FileText className="mr-1.5 inline h-4 w-4" />
               {t("cr.openPdf")}
             </a>
           </div>
