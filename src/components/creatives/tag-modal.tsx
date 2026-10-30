@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, type Dispatch, type SetStateAction } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModalShell } from "@/components/ui/modal";
@@ -11,7 +11,8 @@ import { cn } from "@/lib/utils";
 import { PlatformMark } from "./platform-mark";
 
 /** Platform toggles: where a creative runs. */
-export function PlatformPicker({ value, onChange, disabled }: { value: Platform[]; onChange: (v: Platform[]) => void; disabled?: boolean }) {
+/** `onChange` takes an updater, so quick clicks in a row never undo each other. */
+export function PlatformPicker({ value, onChange, disabled }: { value: Platform[]; onChange: Dispatch<SetStateAction<Platform[]>>; disabled?: boolean }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {PLATFORMS.map((p) => {
@@ -22,7 +23,7 @@ export function PlatformPicker({ value, onChange, disabled }: { value: Platform[
             type="button"
             disabled={disabled}
             aria-pressed={on}
-            onClick={() => onChange(on ? value.filter((x) => x !== p) : [...value, p])}
+            onClick={() => onChange((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]))}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-caption transition-colors disabled:opacity-50",
               on ? "border-brand bg-brand/[0.1] font-medium text-foreground" : "border-line text-muted hover:text-foreground",
