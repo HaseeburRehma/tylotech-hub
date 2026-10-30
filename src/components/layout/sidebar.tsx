@@ -99,7 +99,7 @@ function WaitingClock({ since }: { since: string | null }) {
   return (
     <span title={label} aria-label={label} className="flex items-center gap-0.5 text-eyebrow font-semibold text-danger">
       <Clock className="h-3 w-3" />
-      {waitedFor(since, locale)}
+      {waitedFor(since, locale, Date.now(), 1)}
     </span>
   );
 }

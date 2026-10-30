@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { formatDuration } from "@/lib/speed-to-lead";
 import { createClient } from "@/lib/supabase/client";
 
 /** A partner counts as "waiting" once their oldest unanswered message is this old. */
@@ -100,10 +101,7 @@ export function InboxProvider({ enabled, userId, children }: { enabled: boolean;
   return <InboxContext.Provider value={enabled ? value : EMPTY}>{children}</InboxContext.Provider>;
 }
 
-/** "3 Std." / "2 T." since a timestamp, for waiting badges. */
-export function waitedFor(since: string, locale: "de" | "en", now = Date.now()) {
-  const h = Math.max(0, (now - new Date(since).getTime()) / 3_600_000);
-  if (h < 1) return locale === "de" ? `${Math.max(1, Math.round(h * 60))} Min.` : `${Math.max(1, Math.round(h * 60))} min`;
-  if (h < 48) return locale === "de" ? `${Math.floor(h)} Std.` : `${Math.floor(h)} h`;
-  return locale === "de" ? `${Math.floor(h / 24)} T.` : `${Math.floor(h / 24)} d`;
+/** How long since a timestamp, for waiting badges: "45 Sek.", "2 Std. 15 Min.", "3 Tg. 4 Std." (one unit with parts = 1). */
+export function waitedFor(since: string, locale: "de" | "en", now = Date.now(), parts: 1 | 2 = 2) {
+  return formatDuration(Math.max(1, (now - new Date(since).getTime()) / 1000), locale, parts);
 }

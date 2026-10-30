@@ -3,7 +3,7 @@
 import { Phone, PhoneCall, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useT } from "@/lib/i18n/provider";
+import { useI18n } from "@/lib/i18n/provider";
 import type { Lead } from "@/lib/leads-shared";
 import { playLeadSound } from "@/lib/lead-sound";
 import { OUTCOMES, countdownState, formatCountdown, remainingSeconds } from "@/lib/speed-to-lead";
@@ -48,7 +48,7 @@ export function LeadAlertCard({
   serverOffsetMs: number;
   onClose: () => void;
 }) {
-  const t = useT();
+  const { t, locale } = useI18n();
   const createdMs = new Date(lead.created_at).getTime();
   const [remaining, setRemaining] = useState(() => remainingSeconds(createdMs, Date.now() + serverOffsetMs));
   const [claimed, setClaimed] = useState<boolean>(!!lead.claimed_at);
@@ -147,7 +147,7 @@ export function LeadAlertCard({
 
         {/* Countdown */}
         <div className="px-6 py-4 text-center">
-          <div className={cn("font-mono text-6xl font-semibold tabular-nums", STATE_TEXT[state])}>{formatCountdown(remaining)}</div>
+          <div className={cn("font-mono font-semibold tabular-nums", remaining < 0 ? "text-3xl sm:text-4xl" : "text-6xl", STATE_TEXT[state])}>{formatCountdown(remaining, locale)}</div>
           <p className={cn("mt-1 text-xs font-medium uppercase tracking-wider", STATE_TEXT[state])}>
             {state === "overdue" ? t("s2l.overdue") : t("s2l.toCall")}
           </p>

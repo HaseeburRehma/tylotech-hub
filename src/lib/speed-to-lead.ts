@@ -26,14 +26,35 @@ export function countdownState(remaining: number): CountdownState {
   return "green";
 }
 
-/** "0:47" counting down, or "+0:14 overdue" counting up once past zero. */
-export function formatCountdown(remaining: number): string {
-  const over = remaining < 0;
-  const total = Math.abs(remaining);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  const body = `${m}:${String(s).padStart(2, "0")}`;
-  return over ? `+${body}` : body;
+/** Unit ladder for elapsed times, largest first (a month is 30 days, a year 365). */
+const UNITS: Record<"de" | "en", [string, number][]> = {
+  en: [["y", 31_536_000], ["mo", 2_592_000], ["wk", 604_800], ["d", 86_400], ["h", 3_600], ["min", 60], ["s", 1]],
+  de: [["J.", 31_536_000], ["Mon.", 2_592_000], ["Wo.", 604_800], ["Tg.", 86_400], ["Std.", 3_600], ["Min.", 60], ["Sek.", 1]],
+};
+
+/**
+ * A length of time in the largest fitting units: "45 s", "5 min 3 s",
+ * "2 h 15 min", "3 d 4 h", "2 wk 1 d", "4 mo 12 d", "1 y 3 mo". At most
+ * `parts` neighbouring units, rounded down; a zero second unit is left out.
+ */
+export function formatDuration(seconds: number, locale: "de" | "en" = "en", parts: 1 | 2 = 2): string {
+  const units = UNITS[locale] ?? UNITS.en;
+  let left = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
+  const found = units.findIndex(([, size]) => left >= size);
+  const i = found < 0 ? units.length - 1 : found; // under a second: "0 s"
+  const out: string[] = [];
+  for (const [label, size] of units.slice(i, i + parts)) {
+    const n = Math.floor(left / size);
+    left -= n * size;
+    if (n > 0 || out.length === 0) out.push(`${n} ${label}`);
+  }
+  return out.join(" ");
+}
+
+/** "0:47" counting down, then how long it is overdue: "+14 s", "+5 min 3 s", "+2 h 15 min", "+3 d 4 h". */
+export function formatCountdown(remaining: number, locale: "de" | "en" = "en"): string {
+  if (remaining >= 0) return `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
+  return `+${formatDuration(-remaining, locale)}`;
 }
 
 /**
