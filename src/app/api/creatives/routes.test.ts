@@ -330,6 +330,10 @@ describe("thumbnails, previews and signed links", () => {
     const r = await json(await thumbRoute.POST(req(`/api/creatives/${UP}/thumb`, "POST", { what: "thumb" }), { params: { id: UP } }));
     expect(r.body.path).toBe(`${A}/thumbs/${UP}.jpg`);
     expect((await thumbRoute.PUT(req(`/api/creatives/${UP}/thumb`, "PUT", { what: "thumb" }), { params: { id: UP } })).status).toBe(400); // nothing stored yet
+    // Something other than a JPEG at the thumbnail path is refused and removed.
+    db.objects.set(`${A}/thumbs/${UP}.jpg`, { size: 20_000, mimetype: "video/mp4" });
+    expect((await thumbRoute.PUT(req(`/api/creatives/${UP}/thumb`, "PUT", { what: "thumb" }), { params: { id: UP } })).status).toBe(415);
+    expect(db.removed).toContain(`${A}/thumbs/${UP}.jpg`);
     db.objects.set(`${A}/thumbs/${UP}.jpg`, { size: 20_000, mimetype: "image/jpeg" });
     expect((await thumbRoute.PUT(req(`/api/creatives/${UP}/thumb`, "PUT", { what: "thumb" }), { params: { id: UP } })).status).toBe(200);
     expect(db.tables.creatives.find((c) => c.id === UP)!.thumb_path).toBe(`${A}/thumbs/${UP}.jpg`);
@@ -378,6 +382,10 @@ describe("list for the mobile app", () => {
     expect(r.body.creatives.map((c: any) => c.id).sort()).toEqual([UP, DRV].sort());
     expect(r.body.creatives.every((c: any) => !("storage_path" in c))).toBe(true);
     expect(r.body.creatives.find((c: any) => c.id === UP).stored).toBe(true);
+    // Grid images come pre-signed (straight from storage), only for the partner's own stored files.
+    expect(r.body.creatives.find((c: any) => c.id === UP).thumb_url).toBe(`https://store.example/${pathA}?ttl=7200`);
+    expect(r.body.creatives.find((c: any) => c.id === DRV).thumb_url).toBeNull();
+    expect(JSON.stringify(r.body)).not.toContain(`${B}/`);
     expect(JSON.stringify(r.body)).not.toContain('"access_token"');
     user = STAFF_USER;
     r = await json(await files.GET(req(`/api/creatives?clientId=${B}`)));

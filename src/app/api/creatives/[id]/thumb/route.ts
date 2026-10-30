@@ -45,9 +45,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const { data: listed } = await ctx.admin.storage.from("creatives").list(dir, { search: base, limit: 5 });
   const obj = (listed ?? []).find((o) => o.name === base);
   if (!obj) return bad("The image didn't arrive.", 400);
-  if (Number((obj.metadata as { size?: number } | null)?.size) > 8 * 1024 * 1024) {
+  const meta = (obj.metadata ?? {}) as { size?: number; mimetype?: string };
+  // Only a JPEG of sensible size may stand in for a creative (not a video or anything else).
+  if (meta.mimetype !== "image/jpeg" || Number(meta.size) > 8 * 1024 * 1024) {
     await ctx.admin.storage.from("creatives").remove([ctx.path]);
-    return bad("Too large for a preview.", 413);
+    return bad(meta.mimetype !== "image/jpeg" ? "Previews must be JPEG images." : "Too large for a preview.", meta.mimetype !== "image/jpeg" ? 415 : 413);
   }
   const { error } = await ctx.admin.from("creatives").update({ [COLUMN[ctx.what]]: ctx.path }).eq("id", ctx.c.id);
   if (error) return bad(/thumb_path|preview_path/.test(error.message) ? "Previews need the database update 0050_creative_previews.sql." : "Could not save.", 400);

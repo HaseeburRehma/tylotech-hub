@@ -126,15 +126,43 @@ export interface CreativesLibrary {
   truncated: boolean;
 }
 
+/** How long pre-signed thumbnail links stay valid (pages and the app fall back to the file route after). */
+export const THUMB_LINK_SEC = 2 * 3600;
+const SMALL_IMAGE = 400 * 1024;
+
+/**
+ * Signed links for every stored thumbnail in one batch per 1,000 files, so
+ * grids load images straight from storage instead of one server request per
+ * tile. Photos without a made thumbnail use the original while it is small;
+ * HEIC, videos and PDFs without one get none (the page shows an icon or makes it).
+ */
+async function signThumbs(admin: SupabaseClient, rows: (Creative & { storage_path?: string | null })[]) {
+  const want = new Map<string, string>(); // creative id → storage path
+  for (const c of rows) {
+    if (c.thumb_path) want.set(c.id, c.thumb_path);
+    else if (c.storage_path && c.kind === "image" && !/\.(heic|heif)$/i.test(c.name) && (c.size_bytes ?? 0) <= SMALL_IMAGE) want.set(c.id, c.storage_path);
+  }
+  const entries = Array.from(want.entries());
+  const urls = new Map<string, string>();
+  await Promise.all(
+    Array.from({ length: Math.ceil(entries.length / 1000) }, async (_, i) => {
+      const chunk = entries.slice(i * 1000, i * 1000 + 1000);
+      const { data } = await admin.storage.from("creatives").createSignedUrls(chunk.map(([, p]) => p), THUMB_LINK_SEC);
+      (data ?? []).forEach((d, j) => d.signedUrl && !d.error && urls.set(chunk[j][0], d.signedUrl));
+    }),
+  );
+  return urls;
+}
+
 /** Everything about one partner's creatives (newest 5,000). Works before migrations 0049/0050. */
-export async function loadCreativesLibrary(admin: SupabaseClient, clientId: string): Promise<CreativesLibrary> {
+export async function loadCreativesLibrary(admin: SupabaseClient, clientId: string, opts: { campaigns?: boolean } = {}): Promise<CreativesLibrary> {
   const loadCreatives = async (cols: string) => {
     const out: Creative[] = [];
     for (let from = 0; from < MAX_ROWS; from += 1000) {
       const { data, error } = await admin.from("creatives").select(cols).eq("client_id", clientId).order("created_at", { ascending: false }).range(from, from + 999);
       if (error) return { data: out, error };
       // Callers only need to know a file is stored with us, not where.
-      out.push(...((data ?? []) as unknown as (Creative & { storage_path?: string | null })[]).map(({ storage_path, ...c }) => ({ ...c, stored: !!storage_path })));
+      out.push(...((data ?? []) as unknown as (Creative & { storage_path?: string | null })[]));
       if ((data ?? []).length < 1000) break;
     }
     return { data: out, error: null };
@@ -146,14 +174,20 @@ export async function loadCreativesLibrary(admin: SupabaseClient, clientId: stri
     loadCreatives(PREVIEW_COLS),
     admin.from("creative_sources").select("id,folder_id,project_id,provider,label,account,status,last_error,last_synced_at").eq("client_id", clientId).order("created_at"),
     // Campaign names the partner's leads came from: suggestions when tagging.
-    admin.from("leads").select("campaign").eq("client_id", clientId).not("campaign", "is", null).order("created_at", { ascending: false }).limit(2000),
+    // Only the team tags creatives, so only the team needs them.
+    opts.campaigns
+      ? admin.from("leads").select("campaign").eq("client_id", clientId).not("campaign", "is", null).order("created_at", { ascending: false }).limit(2000)
+      : Promise.resolve({ data: [] as { campaign: string }[] }),
   ]);
   // Before 0050 (previews) or 0049 (tags) those columns don't exist: load without them.
   const tagged = full.error ? await loadCreatives(`${TAG_COLS},storage_path`) : null;
   const tagsReady = !full.error || !tagged?.error;
   const res = !full.error ? full : !tagged?.error ? tagged! : await loadCreatives(`${COLS},storage_path`);
   const err = foldersRes.error ?? res.error;
-  const creatives = res.data ?? [];
+  const raw = (res.data ?? []) as (Creative & { storage_path?: string | null })[];
+  const thumbs = await signThumbs(admin, raw);
+  // Callers only need to know a file is stored with us, not where.
+  const creatives: Creative[] = raw.map(({ storage_path, ...c }) => ({ ...c, stored: !!storage_path, thumb_url: thumbs.get(c.id) ?? null }));
   const perSource = new Map<string, number>();
   for (const c of creatives) if (c.source_id) perSource.set(c.source_id, (perSource.get(c.source_id) ?? 0) + 1);
   return {

@@ -44,12 +44,15 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   if (q.has("sig") && !signed) return bad("This link has expired.", 403);
   const user = signed ? null : await getAuthUser();
   if (!signed && !user) return bad("Unauthorized.", 401);
-  const rl = await getRateLimiter().limit(`creative-file:${user?.id ?? ipKey(req)}`, { limit: 600, windowSec: 60 });
-  if (!rl.success) return bad("Too many requests.", 429);
-
   const reader = signed ? admin : createClient();
   if (!reader) return bad("Backend not configured.", 503);
-  let res = await reader.from("creatives").select(`${COLS},thumb_path,preview_path`).eq("id", params.id).maybeSingle();
+  // The limit check and the read are independent: run them together.
+  const [rl, first] = await Promise.all([
+    getRateLimiter().limit(`creative-file:${user?.id ?? ipKey(req)}`, { limit: 600, windowSec: 60 }),
+    reader.from("creatives").select(`${COLS},thumb_path,preview_path`).eq("id", params.id).maybeSingle(),
+  ]);
+  if (!rl.success) return bad("Too many requests.", 429);
+  let res = first;
   // Before 0050_creative_previews.sql there are no thumbnail columns.
   if (res.error) res = (await reader.from("creatives").select(COLS).eq("id", params.id).maybeSingle()) as typeof res;
   const c = res.data as

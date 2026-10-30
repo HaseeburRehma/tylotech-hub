@@ -107,6 +107,7 @@ export function fakeDb(seed: Record<string, Row[]> = {}, opts: { unique?: Record
     from: () => ({
       createSignedUploadUrl: async (path: string) => (signedUploads.push(path), { data: { token: `tok-${signedUploads.length}`, path }, error: null }),
       createSignedUrl: async (path: string, ttl: number, o?: { download?: string }) => ({ data: { signedUrl: `https://store.example/${path}?ttl=${ttl}${o?.download ? "&download=1" : ""}` }, error: null }),
+      createSignedUrls: async (paths: string[], ttl: number) => ({ data: paths.map((path) => ({ path, signedUrl: `https://store.example/${path}?ttl=${ttl}`, error: null })), error: null }),
       list: async (dir: string, o: { search?: string } = {}) => ({
         data: Array.from(objects.entries())
           .filter(([p]) => p.startsWith(dir + "/") && !p.slice(dir.length + 1).includes("/") && (!o.search || p.includes(o.search)))

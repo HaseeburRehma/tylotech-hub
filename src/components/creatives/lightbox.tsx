@@ -41,8 +41,9 @@ export function Lightbox({
   const c = items[index];
   const heic = !!c && /\.(heic|heif)$/i.test(c.name);
   const [failed, setFailed] = useState(false);
+  const [ready, setReady] = useState(false);
 
-  useEffect(() => setFailed(false), [c?.id]);
+  useEffect(() => (setFailed(false), setReady(false)), [c?.id]);
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -122,7 +123,7 @@ export function Lightbox({
             </div>
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={c.id} src={fileUrl(c.id, heic ? `preview=1&v=${made[c.id] ?? 0}` : "")} alt={c.name} onError={() => setFailed(true)} className="max-h-full max-w-full rounded-lg object-contain" />
+            <img key={c.id} src={fileUrl(c.id, heic ? `preview=1&v=${made[c.id] ?? 0}` : "")} alt={c.name} onLoad={() => setReady(true)} onError={() => setFailed(true)} className="max-h-full max-w-full rounded-lg object-contain" />
           )
         ) : c.kind === "video" ? (
           <video
@@ -132,17 +133,23 @@ export function Lightbox({
             controls
             autoPlay
             playsInline
+            onCanPlay={() => setReady(true)}
             onError={() => setFailed(true)}
             className="max-h-full max-w-full rounded-lg bg-black"
           />
         ) : (
           <div className="flex h-full w-full max-w-4xl flex-col items-stretch gap-2">
-            <iframe key={c.id} src={`${fileUrl(c.id)}#view=FitH`} title={c.name} className="min-h-0 w-full flex-1 rounded-lg bg-white" />
+            <iframe key={c.id} src={`${fileUrl(c.id)}#view=FitH`} title={c.name} onLoad={() => setReady(true)} className="min-h-0 w-full flex-1 rounded-lg bg-white" />
             <a href={fileUrl(c.id)} target="_blank" rel="noopener noreferrer" className="self-center rounded-xl bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/20">
               <FileText className="mr-1.5 inline h-4 w-4" />
               {t("cr.openPdf")}
             </a>
           </div>
+        )}
+        {!ready && !failed && !(c.kind === "image" && heic && !c.preview_path && !made[c.id]) && (
+          <span role="status" aria-label={t("cr.loading")} className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <span className="h-9 w-9 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+          </span>
         )}
         {index > 0 && (
           <button type="button" onClick={() => onIndex(index - 1)} aria-label={t("cr.prev")} className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-2.5 hover:bg-white/20 sm:left-4">

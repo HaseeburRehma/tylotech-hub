@@ -53,6 +53,8 @@ export interface Creative {
   stored?: boolean;
   thumb_path?: string | null;
   preview_path?: string | null;
+  /** Pre-signed link to the grid image (valid ~2 h); the file route is the fallback. */
+  thumb_url?: string | null;
   created_at: string;
   added_at: string;
 }

@@ -47,7 +47,7 @@ export default async function CreativesPage({ searchParams }: { searchParams: { 
   const admin = createAdminClient();
   if (!admin || !clientId || !user) return <CreativesView unavailable={false} {...base} {...empty} />;
 
-  const lib = await loadCreativesLibrary(admin, clientId);
+  const lib = await loadCreativesLibrary(admin, clientId, { campaigns: staff });
   if (lib.missing) return <CreativesView unavailable {...base} {...empty} />;
   // Open where the link points, else the project with the most recent creative.
   const folder = lib.folders.find((f) => f.id === searchParams.folder) ?? null;

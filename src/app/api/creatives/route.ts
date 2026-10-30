@@ -32,7 +32,7 @@ export async function GET(req: Request) {
     clientId = clients.find((c) => c.id === asked)?.id ?? clients[0]?.id ?? null;
   }
   if (!clientId) return NextResponse.json({ staff, clients: clients ?? [], clientId: null, projects: [], folders: [], creatives: [] });
-  const lib = await loadCreativesLibrary(admin, clientId);
+  const lib = await loadCreativesLibrary(admin, clientId, { campaigns: staff });
   if (lib.missing) return bad("Creatives are being set up.", 503);
   const { campaigns, sources, ...rest } = lib;
   return NextResponse.json({

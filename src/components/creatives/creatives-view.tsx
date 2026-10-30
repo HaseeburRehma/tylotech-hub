@@ -22,7 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { CreativeBars } from "@/components/charts/lazy";
 import { Button } from "@/components/ui/button";
 import { Card, Panel } from "@/components/ui/card";
@@ -89,6 +89,7 @@ export interface CreativesViewProps {
 }
 
 const NONE = "__none";
+const GRID_PAGE = 60;
 type SourceFilter = "all" | "upload" | CreativeSourceProvider;
 interface Filters {
   range: DateRange;
@@ -201,7 +202,19 @@ export function CreativesView(p: CreativesViewProps) {
     for (const c of filtered) out[c.folder_id] = (out[c.folder_id] ?? 0) + 1;
     return out;
   }, [filtered]);
-  const facet = (key: FilterKey, test: (c: Creative) => boolean) => p.creatives.reduce((n, c) => (passes(c, filters, key) && test(c) ? n + 1 : n), 0);
+  // Counts for every filter menu in one pass: each menu counts within the other active filters.
+  const facets = useMemo(() => {
+    const m = { platform: new Map<string, number>(), campaign: new Map<string, number>(), kind: new Map<string, number>(), source: new Map<string, number>() };
+    const add = (map: Map<string, number>, k: string) => map.set(k, (map.get(k) ?? 0) + 1);
+    for (const c of p.creatives) {
+      if (passes(c, filters, "platform")) (c.platforms?.length ? c.platforms.forEach((pl) => add(m.platform, pl)) : add(m.platform, NONE));
+      if (passes(c, filters, "campaign")) add(m.campaign, c.campaign || NONE);
+      if (passes(c, filters, "kind")) add(m.kind, c.kind);
+      if (passes(c, filters, "source")) add(m.source, c.source);
+    }
+    return m;
+  }, [p.creatives, filters]);
+  const facet = (key: Exclude<FilterKey, "range">, value: string) => facets[key].get(value) ?? 0;
 
   const files = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -238,7 +251,20 @@ export function CreativesView(p: CreativesViewProps) {
 
   const ok = (text: string) => setToast({ text, tone: "ok" });
   const fail = (e: unknown) => setToast({ text: (e as Error).message, tone: "error" });
-  const refresh = () => router.refresh();
+  // Refreshes run as a transition: the page stays usable and shows "Updating…" meanwhile.
+  const [updating, startUpdate] = useTransition();
+  const refresh = () => startUpdate(() => router.refresh());
+  // The grid renders 60 tiles at a time and adds more as you scroll.
+  const [shown, setShown] = useState(GRID_PAGE);
+  const more = useRef<HTMLDivElement>(null);
+  useEffect(() => setShown(GRID_PAGE), [projectId, folderId, filters, query]);
+  useEffect(() => {
+    const el = more.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => e.isIntersecting && setShown((n) => n + GRID_PAGE), { rootMargin: "600px" });
+    io.observe(el);
+    return () => io.disconnect();
+  });
 
   // ---- Team actions ----------------------------------------------------------
 
@@ -419,10 +445,10 @@ export function CreativesView(p: CreativesViewProps) {
               onChange={(v) => setFilter("platform", v)}
               options={[
                 { value: "all", label: t("cr.filter.allPlatforms") },
-                ...PLATFORMS.map((pl) => ({ value: pl, label: PLATFORM_LABEL[pl], icon: <PlatformMark platform={pl} size={16} />, count: facet("platform", (c) => !!c.platforms?.includes(pl)) })).filter(
+                ...PLATFORMS.map((pl) => ({ value: pl, label: PLATFORM_LABEL[pl], icon: <PlatformMark platform={pl} size={16} />, count: facet("platform", pl) })).filter(
                   (o) => o.count > 0 || o.value === filters.platform,
                 ),
-                { value: NONE, label: t("cr.filter.noPlatform"), count: facet("platform", (c) => !c.platforms?.length) },
+                { value: NONE, label: t("cr.filter.noPlatform"), count: facet("platform", NONE) },
               ]}
             />
             <FilterMenu
@@ -434,9 +460,9 @@ export function CreativesView(p: CreativesViewProps) {
               options={[
                 { value: "all", label: t("cr.filter.allCampaigns") },
                 ...Array.from(new Set(p.creatives.map((c) => c.campaign).filter((x): x is string => !!x).concat(filters.campaign !== "all" && filters.campaign !== NONE ? [filters.campaign] : [])))
-                  .map((name) => ({ value: name, label: name, count: facet("campaign", (c) => c.campaign === name) }))
+                  .map((name) => ({ value: name, label: name, count: facet("campaign", name) }))
                   .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
-                { value: NONE, label: t("cr.filter.noCampaign"), count: facet("campaign", (c) => !c.campaign) },
+                { value: NONE, label: t("cr.filter.noCampaign"), count: facet("campaign", NONE) },
               ]}
             />
           </>
@@ -448,9 +474,9 @@ export function CreativesView(p: CreativesViewProps) {
           onChange={(v) => setFilter("kind", v)}
           options={[
             { value: "all", label: t("cr.kind.all") },
-            { value: "image", label: t("cr.kind.image"), icon: <ImageIcon className="h-3.5 w-3.5 text-muted" />, count: facet("kind", (c) => c.kind === "image") },
-            { value: "video", label: t("cr.kind.video"), icon: <Video className="h-3.5 w-3.5 text-muted" />, count: facet("kind", (c) => c.kind === "video") },
-            { value: "document", label: t("cr.kind.document"), icon: <FileText className="h-3.5 w-3.5 text-muted" />, count: facet("kind", (c) => c.kind === "document") },
+            { value: "image", label: t("cr.kind.image"), icon: <ImageIcon className="h-3.5 w-3.5 text-muted" />, count: facet("kind", "image") },
+            { value: "video", label: t("cr.kind.video"), icon: <Video className="h-3.5 w-3.5 text-muted" />, count: facet("kind", "video") },
+            { value: "document", label: t("cr.kind.document"), icon: <FileText className="h-3.5 w-3.5 text-muted" />, count: facet("kind", "document") },
           ]}
         />
         <FilterMenu
@@ -460,9 +486,9 @@ export function CreativesView(p: CreativesViewProps) {
           onChange={(v) => setFilter("source", v)}
           options={[
             { value: "all", label: t("cr.filter.allSources") },
-            { value: "upload", label: t("cr.filter.uploaded"), icon: <UploadCloud className="h-3.5 w-3.5 text-muted" />, count: facet("source", (c) => c.source === "upload") },
+            { value: "upload", label: t("cr.filter.uploaded"), icon: <UploadCloud className="h-3.5 w-3.5 text-muted" />, count: facet("source", "upload") },
             ...(["google_drive", "dropbox", "onedrive"] as const)
-              .map((pv) => ({ value: pv, label: SOURCE_NAME[pv], icon: <SourceLogo provider={pv} size={16} />, count: facet("source", (c) => c.source === pv) }))
+              .map((pv) => ({ value: pv, label: SOURCE_NAME[pv], icon: <SourceLogo provider={pv} size={16} />, count: facet("source", pv) }))
               .filter((o) => o.count > 0 || o.value === filters.source),
           ]}
         />
@@ -472,7 +498,15 @@ export function CreativesView(p: CreativesViewProps) {
           </button>
         )}
         <span className="ml-auto px-1 text-caption text-muted tabular-nums">
-          {filtering ? t("cr.filter.showing", { n: filtered.length, total: p.creatives.length }) : t("cr.files.count", { n: p.creatives.length })}
+          {updating ? (
+            <span className="inline-flex items-center gap-1.5">
+              <RefreshCw className="h-3 w-3 animate-spin" /> {t("cr.updating")}
+            </span>
+          ) : filtering ? (
+            t("cr.filter.showing", { n: filtered.length, total: p.creatives.length })
+          ) : (
+            t("cr.files.count", { n: p.creatives.length })
+          )}
         </span>
       </Card>
       {p.truncated && <p className="-mt-3 px-1 text-caption text-muted">{t("cr.truncated")}</p>}
@@ -802,7 +836,7 @@ export function CreativesView(p: CreativesViewProps) {
                   </div>
                 ) : (
                   <ul className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 sm:p-5 xl:grid-cols-4 2xl:grid-cols-5">
-                    {files.map((c, i) => {
+                    {files.slice(0, shown).map((c, i) => {
                       const sel = selected.has(c.id);
                       return (
                         <li key={c.id} className="group relative">
@@ -851,6 +885,13 @@ export function CreativesView(p: CreativesViewProps) {
                       );
                     })}
                   </ul>
+                )}
+                {files.length > shown && (
+                  <div ref={more} className="flex justify-center pb-5">
+                    <Button variant="ghost" size="sm" onClick={() => setShown((n) => n + GRID_PAGE)}>
+                      {t("cr.showMore", { n: files.length - shown })}
+                    </Button>
+                  </div>
                 )}
               </>
             )}
@@ -1025,12 +1066,15 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
  */
 function Thumb({ c, v }: { c: Creative; v?: number }) {
   const [broken, setBroken] = useState(false);
+  // Pre-signed link first (straight from storage); the file route if it expired or is missing.
+  const [viaRoute, setViaRoute] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const ref = useRef<HTMLVideoElement>(null);
   const [visible, setVisible] = useState(false);
   const stored = c.stored ?? c.source === "upload";
   const liveVideo = c.kind === "video" && stored && !c.thumb_path && !v;
 
-  useEffect(() => setBroken(false), [v, c.thumb_path]);
+  useEffect(() => (setBroken(false), setViaRoute(false)), [v, c.thumb_path, c.thumb_url]);
   useEffect(() => {
     if (!liveVideo || !ref.current) return;
     const io = new IntersectionObserver(([e]) => e.isIntersecting && (setVisible(true), io.disconnect()), { rootMargin: "200px" });
@@ -1051,8 +1095,22 @@ function Thumb({ c, v }: { c: Creative; v?: number }) {
       </div>
     );
   }
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={fileUrl(c.id, `thumb=1${v ? `&v=${v}` : ""}`)} alt="" loading="lazy" decoding="async" onError={() => setBroken(true)} className="h-full w-full object-cover" />;
+  const src = c.thumb_url && !viaRoute && !v ? c.thumb_url : fileUrl(c.id, `thumb=1${v ? `&v=${v}` : ""}`);
+  return (
+    <>
+      {!loaded && <span aria-hidden className="absolute inset-0 animate-pulse bg-surface-2" />}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        onLoad={() => setLoaded(true)}
+        onError={() => (c.thumb_url && !viaRoute ? setViaRoute(true) : setBroken(true))}
+        className={cn("h-full w-full object-cover transition-opacity duration-200", loaded ? "opacity-100" : "opacity-0")}
+      />
+    </>
+  );
 }
 
 /**
