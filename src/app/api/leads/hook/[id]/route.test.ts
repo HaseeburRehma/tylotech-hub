@@ -58,3 +58,49 @@ describe("/api/leads/hook/:id", () => {
     expect(ingest).not.toHaveBeenCalled();
   });
 });
+
+describe("tylotech.de website forms", () => {
+  it("a contact form submission arrives with its answers, form, campaign and platform", async () => {
+    source = { ...source, label: "Website / API", config: { provider: "website" } };
+    const body = {
+      form_name: "Kontaktformular",
+      submission_id: "6b0f8f0e-1c1e-4f6e-9a55-0f2a1d6c9a11",
+      submitted_at: "2026-10-30T12:00:00.000Z",
+      utm_campaign: "Brand DE",
+      utm_source: "google",
+      fields: [
+        { label: "Name", value: "Erika Muster" },
+        { label: "E-Mail", value: "erika@example.de" },
+        { label: "Telefon", value: "+49 170 1" },
+        { label: "Nachricht", value: "Wir brauchen eine neue Website." },
+        { label: "Seite", value: "/kontakt" },
+        { label: "Google Klick-ID", value: "Cj0KCQ" },
+      ],
+    };
+    const r = await post(JSON.stringify(body));
+    expect(r.status).toBe(200);
+    expect(ingest.mock.calls[0][1]).toMatchObject({
+      clientId: "c1",
+      source: "webhook",
+      externalId: "6b0f8f0e-1c1e-4f6e-9a55-0f2a1d6c9a11",
+      form: "Kontaktformular",
+      campaign: "Brand DE",
+      platform: "google",
+      fields: body.fields,
+    });
+  });
+
+  it("without UTM tags the lead's platform is the website; a retry keeps the same id", async () => {
+    source = { ...source, config: { provider: "website" } };
+    const body = { form_name: "App-Bauplan Bewerbung", submission_id: "same-id", fields: [{ label: "E-Mail", value: "a@b.de" }] };
+    await post(JSON.stringify(body));
+    await post(JSON.stringify(body));
+    expect(ingest.mock.calls.map((c) => c[1].externalId)).toEqual(["same-id", "same-id"]); // stored once (unique per source + id)
+    expect(ingest.mock.calls[0][1].platform).toBe("website");
+  });
+
+  it("someone posting to the URL without its key stores nothing", async () => {
+    expect((await post(JSON.stringify({ form_name: "x", fields: [{ label: "E-Mail", value: "a@b.de" }] }), { key: "guess" })).status).toBe(401);
+    expect(ingest).not.toHaveBeenCalled();
+  });
+});
