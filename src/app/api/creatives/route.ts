@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { logAudit } from "@/lib/audit";
-import { getAuthUser, isStaff } from "@/lib/auth";
+import { authTimings, getAuthUser, isStaff } from "@/lib/auth";
 import { cleanCampaign, cleanPlatforms, displayName, fileType, MAX_BATCH, parseStoragePath } from "@/lib/creatives";
 import { bad, getFolder, loadCreativesLibrary, UUID_RE } from "@/lib/creatives-server";
 import { getRateLimiter } from "@/lib/rate-limit";
@@ -40,7 +40,7 @@ export async function GET(req: Request) {
   const lib = early && (!staff || clientId === asked) ? early : await loadCreativesLibrary(admin, clientId, { campaigns: staff });
   if (lib.missing) return bad("Creatives are being set up.", 503);
   const { campaigns, sources, timing, ...rest } = lib;
-  const serverTiming = `auth;dur=${tAuth - t0}, data;dur=${timing.data}, sign;dur=${timing.sign}, total;dur=${Date.now() - t0}`;
+  const serverTiming = `auth;dur=${tAuth - t0}, ${authTimings.get(user) ?? ""}, data;dur=${timing.data}, sign;dur=${timing.sign}, total;dur=${Date.now() - t0}`;
   return NextResponse.json({
     staff,
     clients,
