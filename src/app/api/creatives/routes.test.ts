@@ -292,8 +292,10 @@ describe("connecting cloud folders (team only)", () => {
 
   it("refuses partners, bad links and services that aren't set up", async () => {
     const go = async (q: string) => new URL((await sources.GET(req(`/api/creatives/sources?${q}`))).headers.get("location")!).searchParams.get("source");
-    user = clientA;
-    expect(await go(`folderId=${FA}&provider=google_drive&link=1AbCdEfGhIjKlMnOpQrStUv`)).toBe("forbidden");
+    user = clientB;
+    const r = await sources.GET(req(`/api/creatives/sources?folderId=${FA}&provider=google_drive&link=1AbCdEfGhIjKlMnOpQrStUv`));
+    // A partner learns nothing about the folder it named (no other partner's page or ids).
+    expect(r.headers.get("location")).toBe("https://www.tylohq.de/creatives?source=forbidden");
     user = STAFF_USER;
     expect(await go(`folderId=${FA}&provider=dropbox&link=${encodeURIComponent("https://dropbox.com.evil.io/x")}`)).toBe("bad_link");
     delete process.env.DROPBOX_APP_KEY;

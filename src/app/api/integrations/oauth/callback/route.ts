@@ -77,9 +77,9 @@ export async function GET(req: Request) {
     } catch {
       /* checked below */
     }
+    if (!isStaff(user)) return NextResponse.redirect(`${origin}/creatives?source=forbidden`);
     const folder = admin ? await getFolder(admin, st.folderId) : null;
     const back = async (q: string) => NextResponse.redirect(await creativesBackUrl(admin, origin, folder, q));
-    if (!isStaff(user)) return back("source=forbidden");
     if (!admin || !folder || folder.client_id !== clientId || st.p !== "google_drive" || typeof st.link !== "string") return back("source=failed");
     const result = await completeCreativeConnect(admin, { provider: "google_drive", folder, link: st.link, code, origin, userId: user.id });
     if (result === "connected") await logAudit(user, { action: "creative_source.create", clientId, targetType: "creative_folder", targetId: folder.id, summary: "google_drive" }, admin);

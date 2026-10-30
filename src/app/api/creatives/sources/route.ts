@@ -18,10 +18,11 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const user = await getAuthUser();
   if (!user) return NextResponse.redirect(`${url.origin}/login`);
+  // Partners never get here from the page; don't tell them anything about the folder they named.
+  if (!isStaff(user)) return NextResponse.redirect(`${url.origin}/creatives?source=forbidden`);
   const admin = createAdminClient();
   const folder = admin ? await getFolder(admin, url.searchParams.get("folderId")) : null;
   const back = async (q: string) => NextResponse.redirect(await creativesBackUrl(admin, url.origin, folder, q));
-  if (!isStaff(user)) return back("source=forbidden");
   if (!folder) return back("source=failed");
   const provider = url.searchParams.get("provider");
   if (!isCreativeProvider(provider)) return back("source=failed");

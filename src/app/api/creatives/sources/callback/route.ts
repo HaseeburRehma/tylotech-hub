@@ -20,7 +20,7 @@ export async function GET(req: Request) {
   } catch {
     /* checked below */
   }
-  const folder = admin ? await getFolder(admin, st.folderId) : null;
+  const folder = admin && isStaff(user) ? await getFolder(admin, st.folderId) : null;
   const back = async (q: string) => NextResponse.redirect(await creativesBackUrl(admin, url.origin, folder, q));
 
   const jar = cookies();
