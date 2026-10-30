@@ -45,14 +45,8 @@ export const DEMO_USER: AuthUser = {
  * Resolves the current user + tenant + brand. Memoized per request via React cache
  * so layout + page can both call it without a second round-trip.
  */
-/** TEMP (perf measurement): per-step auth timings for the Server-Timing header. */
-export const authTimings = new WeakMap<AuthUser, string>();
-
 export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
   if (!isSupabaseConfigured) return DEMO_USER;
-  const t0 = Date.now();
-  let tUser = 0;
-  let tProfile = 0;
 
   const supabase = createClient();
   if (!supabase) return null;
@@ -68,7 +62,6 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
     token = data.session?.access_token ?? null;
   }
   if (!token) return null;
-  const tSession = Date.now() - t0;
   const claimedId = jwtClaim(token, "sub");
   if (typeof claimedId !== "string" || !claimedId) return null;
 
@@ -82,14 +75,13 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
     },
     { data: profile, error: profileError },
   ] = await Promise.all([
-    supabase.auth.getUser(token).finally(() => (tUser = Date.now() - t0)),
+    supabase.auth.getUser(token),
     supabase
       .from("users")
       // `*` keeps this tolerant of columns added by later migrations (title, avatar_url, deactivated_at…).
       .select("*, clients(*)")
       .eq("id", claimedId)
-      .single()
-      .then((r) => ((tProfile = Date.now() - t0), r)),
+      .single(),
   ]);
   // Supabase unreachable (network, timeout, 5xx) is not "signed out": fail this
   // request (error page with retry) instead of sending the user to the login.
@@ -117,7 +109,7 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
   if (profile.deactivated_at) return null;
   if (profile.role === "client" && client?.archived_at) return null;
 
-  const result: AuthUser = {
+  return {
     id: profile.id,
     email: profile.email,
     name: profile.name,
@@ -132,8 +124,6 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
     notifyEmail: user.user_metadata?.notify_email !== false,
     leadEmail: wantsLeadEmail(profile.role, user.user_metadata),
   };
-  authTimings.set(result, `a_session;dur=${tSession}, a_user;dur=${tUser}, a_profile;dur=${tProfile}`);
-  return result;
 });
 
 /** Read one claim from a JWT; trusted only once getUser above has verified that token. */
