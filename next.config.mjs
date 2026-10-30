@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // pdfjs-dist (PDF thumbnails, browser only) optionally requires the native
+  // "canvas" package for Node; it is never used here and isn't installed on Vercel.
+  webpack: (config) => {
+    config.resolve.alias = { ...(config.resolve.alias ?? {}), canvas: false };
+    return config;
+  },
   reactStrictMode: true,
   // Only our own Supabase storage may be optimised through /_next/image —
   // a "**" wildcard would turn the image endpoint into an open proxy.
