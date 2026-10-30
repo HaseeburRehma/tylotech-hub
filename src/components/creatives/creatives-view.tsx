@@ -134,8 +134,15 @@ export function CreativesView(p: CreativesViewProps) {
   const [folderId, setFolderId] = useState<string | null>(p.folderId);
   const sp = useSearchParams();
   const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState<Filters>(() => filtersFromUrl(new URLSearchParams(sp?.toString() ?? "")));
+  const [filters, setFilters] = useState<Filters>(() => filtersFromUrl(new URLSearchParams(typeof window !== "undefined" ? window.location.search : sp?.toString() ?? "")));
   const [year, setYear] = useState(p.year);
+  // Filters come from the address bar (shared links, reloads). Read them once
+  // on mount before the address bar is ever rewritten from state.
+  const [urlRead, setUrlRead] = useState(false);
+  useEffect(() => {
+    setFilters(filtersFromUrl(new URLSearchParams(window.location.search)));
+    setUrlRead(true);
+  }, []);
   const [tagFor, setTagFor] = useState<{ ids: string[]; platforms: Platform[]; campaign: string } | null>(null);
   const setFilter = <K extends FilterKey>(k: K, v: Filters[K]) => setFilters((f) => ({ ...f, [k]: v }));
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -152,6 +159,7 @@ export function CreativesView(p: CreativesViewProps) {
 
   // Keep the place in the URL (shareable, survives refresh) without a server round trip.
   useEffect(() => {
+    if (!urlRead) return;
     const u = new URL(window.location.href);
     projectId ? u.searchParams.set("project", projectId) : u.searchParams.delete("project");
     folderId ? u.searchParams.set("folder", folderId) : u.searchParams.delete("folder");
@@ -166,7 +174,7 @@ export function CreativesView(p: CreativesViewProps) {
     if (f.source !== "all") u.searchParams.set("src", f.source);
     if (year !== p.thisYear) u.searchParams.set("year", String(year));
     window.history.replaceState(null, "", u.toString());
-  }, [projectId, folderId, filters, year, p.thisYear]);
+  }, [urlRead, projectId, folderId, filters, year, p.thisYear]);
 
   useEffect(() => setSelected(new Set()), [projectId, folderId, filters]);
 
