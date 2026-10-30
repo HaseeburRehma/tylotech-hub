@@ -64,8 +64,13 @@ export function UploadModal({
 
   const projectFolders = folders.filter((f) => f.project_id === projectId).sort((a, b) => a.position - b.position);
 
+  // Reset only when the dialog opens; the page refreshing behind it after an
+  // upload must not bring the uploaded files back into the list.
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (!open) return;
+    const opening = open && !wasOpen.current;
+    wasOpen.current = open;
+    if (!opening) return;
     setProjectId(initialProject ?? projects[0]?.id ?? "");
     setFolderId(initialFolder ?? "");
     setFiles(initialFiles ?? []);
@@ -116,7 +121,9 @@ export function UploadModal({
               continue;
             }
             const meta = await fileMeta(it.blob, it.name);
-            const { error: upErr } = await supabase.storage.from("creatives").uploadToSignedUrl(slot.path, slot.token, it.blob, { contentType: slot.contentType });
+            // Send it with the type we decided on: browsers report "" or a guess for many files.
+            const body = new Blob([it.blob], { type: slot.contentType });
+            const { error: upErr } = await supabase.storage.from("creatives").uploadToSignedUrl(slot.path, slot.token, body, { contentType: slot.contentType });
             if (upErr) {
               skip(it.name, /size|large|413/i.test(upErr.message) ? "size" : "upload");
               continue;

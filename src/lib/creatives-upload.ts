@@ -78,7 +78,8 @@ export async function* zipEntries(
         return;
       }
       chunks.push(chunk);
-      if (final && size > 0) ready.push({ path, blob: new Blob(chunks as BlobPart[]) });
+      // Typed, or storage takes it for an unknown binary and refuses it.
+      if (final && size > 0) ready.push({ path, blob: new Blob(chunks as BlobPart[], { type: fileType(base)!.mime }) });
     };
     entry.start();
   });

@@ -16,8 +16,9 @@ describe("zip uploads", () => {
       "evil.svg": strToU8("<svg onload=alert(1)>"),
       "empty/": new Uint8Array(0),
     });
-    for await (const e of zipEntries(z, (n, why) => skips.push(`${n}:${why}`))) out.push(`${e.path}:${await e.blob.text()}`);
-    expect(out.sort()).toEqual(["Ad Creatives/Banner.png:png-bytes", "Ad Creatives/sub/Reel.mp4:mp4-bytes"]);
+    for await (const e of zipEntries(z, (n, why) => skips.push(`${n}:${why}`))) out.push(`${e.path}:${await e.blob.text()}:${e.blob.type}`);
+    // Typed: storage refuses untyped files (found live: zip images were rejected).
+    expect(out.sort()).toEqual(["Ad Creatives/Banner.png:png-bytes:image/png", "Ad Creatives/sub/Reel.mp4:mp4-bytes:video/mp4"]);
     expect(skips.sort()).toEqual(["evil.svg:type", "notes.txt:type"]);
   });
 
