@@ -104,6 +104,18 @@ describe("syncCreativeSources (Google Drive)", () => {
     expect(db.tables.creatives.map((c) => c.external_id)).toEqual(["b"]);
   });
 
+  it("new files get platforms from their folders; the team's tags on known files are kept", async () => {
+    drive.sub = [{ id: "b", name: "B.mp4", mimeType: "video/mp4" }];
+    drive.ROOT[1] = { id: "sub", name: "TikTok", mimeType: "application/vnd.google-apps.folder" };
+    await syncCreativeSources(db.client, {});
+    expect(db.tables.creatives.find((c) => c.external_id === "b")!.platforms).toEqual(["tiktok"]);
+    expect(db.tables.creatives.find((c) => c.external_id === "a")!.platforms).toEqual([]);
+    db.tables.creatives.find((c) => c.external_id === "b")!.platforms = ["instagram"];
+    db.tables.creatives.find((c) => c.external_id === "b")!.campaign = "Herbst";
+    await syncCreativeSources(db.client, { sourceId: "s1" });
+    expect(db.tables.creatives.find((c) => c.external_id === "b")).toMatchObject({ platforms: ["instagram"], campaign: "Herbst" });
+  });
+
   it("recently read folders wait; a lost folder turns red with a clear message", async () => {
     db.tables.creative_sources[0].last_synced_at = new Date().toISOString();
     expect((await syncCreativeSources(db.client, { minIntervalMs: 600_000 })).synced).toBe(0);

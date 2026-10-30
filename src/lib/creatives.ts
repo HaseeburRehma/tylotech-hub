@@ -7,6 +7,22 @@
 export type CreativeKind = "image" | "video" | "document";
 export type CreativeSourceProvider = "google_drive" | "dropbox" | "onedrive";
 
+/** Where a creative runs (the Platform filter). Must match 0049_creative_tags.sql. */
+export const PLATFORMS = ["instagram", "facebook", "tiktok", "linkedin", "youtube", "google", "pinterest", "snapchat", "x", "website"] as const;
+export type Platform = (typeof PLATFORMS)[number];
+export const PLATFORM_LABEL: Record<Platform, string> = {
+  instagram: "Instagram",
+  facebook: "Facebook",
+  tiktok: "TikTok",
+  linkedin: "LinkedIn",
+  youtube: "YouTube",
+  google: "Google Ads",
+  pinterest: "Pinterest",
+  snapchat: "Snapchat",
+  x: "X",
+  website: "Website",
+};
+
 export interface CreativeFolder {
   id: string;
   client_id: string;
@@ -30,6 +46,9 @@ export interface Creative {
   height: number | null;
   duration_sec: number | null;
   external_url: string | null;
+  content_hash?: string | null;
+  platforms?: Platform[];
+  campaign?: string | null;
   created_at: string;
   added_at: string;
 }
@@ -157,3 +176,92 @@ export function humanBytes(n: number | null | undefined): string {
 
 /** Postgres/PostgREST says the creatives tables are not there yet (migration 0048 not run). */
 export const missingCreatives = (msg = "") => /creative|42P01|PGRST20[25]|does not exist|schema cache/i.test(msg);
+
+// ---- Tags ---------------------------------------------------------------------
+
+const PLATFORM_WORDS: [Platform, RegExp][] = [
+  ["instagram", /\b(instagram|insta|ig)\b/],
+  ["facebook", /\b(facebook|fb)\b/],
+  ["tiktok", /\b(tiktok|tik tok|tt)\b/],
+  ["linkedin", /\b(linkedin|li)\b/],
+  ["youtube", /\b(youtube|yt|shorts)\b/],
+  ["google", /\b(google|gads|google ads|display|pmax|adwords)\b/],
+  ["pinterest", /\b(pinterest|pin)\b/],
+  ["snapchat", /\b(snapchat|snap)\b/],
+  ["x", /\b(twitter)\b/],
+  ["website", /\b(website|webseite|landingpage|landing page|lp)\b/],
+];
+
+/** Platforms named in a path or file name ("Instagram/Story_1.png", "TikTok_Reel.mp4"). */
+export function guessPlatforms(path: string): Platform[] {
+  const words = path.toLowerCase().replace(/\.[a-z0-9]{1,5}$/, "").replace(/[_\-./\\]+/g, " ");
+  return PLATFORM_WORDS.filter(([, re]) => re.test(words)).map(([p]) => p);
+}
+
+export function cleanPlatforms(v: unknown): Platform[] | null {
+  if (!Array.isArray(v) || v.length > 10 || v.some((x) => !(PLATFORMS as readonly string[]).includes(x as string))) return null;
+  return Array.from(new Set(v as Platform[]));
+}
+
+/** A campaign name as stored: trimmed, single spaces, no control characters, at most 200 chars; "" clears it. */
+export function cleanCampaign(v: unknown): string | null | undefined {
+  if (v === null) return null;
+  if (typeof v !== "string") return undefined;
+  const s = v.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 200);
+  return s || null;
+}
+
+// ---- Counting ---------------------------------------------------------------
+
+export interface Bucket {
+  key: string; // "2026-10" or "2026-10-30"
+  total: number;
+  images: number;
+  videos: number;
+  documents: number;
+}
+
+const BERLIN = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit" });
+export const berlinDay = (iso: string) => BERLIN.format(new Date(iso));
+
+/**
+ * Creatives per month or per day. A creative counts once, in the bucket where
+ * it first appeared: the same file again (same content hash) is not new.
+ */
+export function countCreatives(rows: Pick<Creative, "id" | "kind" | "created_at" | "content_hash">[], keys: string[], unit: "month" | "day"): Bucket[] {
+  const first = new Map<string, { kind: CreativeKind; at: string }>();
+  for (const r of rows) {
+    const k = r.content_hash || r.id;
+    const prev = first.get(k);
+    if (!prev || r.created_at < prev.at) first.set(k, { kind: r.kind, at: r.created_at });
+  }
+  const buckets = new Map(keys.map((key) => [key, { key, total: 0, images: 0, videos: 0, documents: 0 }]));
+  for (const { kind, at } of Array.from(first.values())) {
+    const day = berlinDay(at);
+    const b = buckets.get(unit === "month" ? day.slice(0, 7) : day);
+    if (!b) continue;
+    b.total++;
+    if (kind === "image") b.images++;
+    else if (kind === "video") b.videos++;
+    else b.documents++;
+  }
+  return keys.map((k) => buckets.get(k)!);
+}
+
+/** Bucket keys for a year, or for a date range (days up to 62 days, months beyond). */
+export function bucketKeys(span: { year: number } | { since: string; until: string }): { unit: "month" | "day"; keys: string[] } {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  if ("year" in span) return { unit: "month", keys: Array.from({ length: 12 }, (_, i) => `${span.year}-${pad(i + 1)}`) };
+  const from = Date.parse(`${span.since}T00:00:00Z`);
+  const to = Date.parse(`${span.until}T00:00:00Z`);
+  const days = Math.round((to - from) / 86_400_000) + 1;
+  if (days <= 62) return { unit: "day", keys: Array.from({ length: Math.max(1, days) }, (_, i) => new Date(from + i * 86_400_000).toISOString().slice(0, 10)) };
+  const keys: string[] = [];
+  let [y, m] = span.since.split("-").map(Number);
+  const [ey, em] = span.until.split("-").map(Number);
+  while ((y < ey || (y === ey && m <= em)) && keys.length < 240) {
+    keys.push(`${y}-${pad(m)}`);
+    m === 12 ? ((m = 1), y++) : m++;
+  }
+  return { unit: "month", keys };
+}

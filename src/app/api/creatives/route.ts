@@ -1,20 +1,21 @@
 import { NextResponse } from "next/server";
 import { logAudit } from "@/lib/audit";
 import { getAuthUser, isStaff } from "@/lib/auth";
-import { displayName, fileType, MAX_BATCH, parseStoragePath } from "@/lib/creatives";
+import { cleanCampaign, cleanPlatforms, displayName, fileType, MAX_BATCH, parseStoragePath } from "@/lib/creatives";
 import { bad, getFolder, UUID_RE } from "@/lib/creatives-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
 const HASH_RE = /^sha256:[0-9a-f]{64}$/;
+const missingTags = (msg = "") => /platforms|campaign/i.test(msg) && /column|schema cache|does not exist/i.test(msg);
 const int = (v: unknown, max: number) => (Number.isInteger(v) && (v as number) > 0 && (v as number) <= max ? (v as number) : null);
 
 /**
  * Step 2 of an upload (team only): register files that reached storage.
  * Each path must be one we issued for that category and the object must exist;
  * size and type are read from storage, not from the request.
- * Body: { items: [{ path, name, hash?, width?, height?, durationSec?, createdAt? }] }.
+ * Body: { items: [{ path, name, hash?, width?, height?, durationSec?, createdAt?, platforms?, campaign? }] }.
  */
 export async function POST(req: Request) {
   const user = await getAuthUser();
@@ -72,10 +73,17 @@ export async function POST(req: Request) {
       // The month it counts in: when the file was made, never in the future.
       ...(Number.isFinite(created) && created > Date.UTC(2000, 0, 1) ? { created_at: new Date(Math.min(created, Date.now())).toISOString() } : {}),
       uploaded_by: user.id,
+      platforms: cleanPlatforms(it.platforms) ?? [],
+      campaign: cleanCampaign(it.campaign) ?? null,
     });
   }
   if (!rows.length) return bad("The upload could not be saved. Try again.", 400);
-  const { data, error } = await admin.from("creatives").upsert(rows, { onConflict: "storage_path", ignoreDuplicates: true }).select("*");
+  let { data, error } = await admin.from("creatives").upsert(rows, { onConflict: "storage_path", ignoreDuplicates: true }).select("*");
+  // Before migration 0049 there are no tag columns: save the files without tags.
+  if (error && missingTags(error.message)) {
+    const plain = rows.map(({ platforms: _p, campaign: _c, ...r }) => r);
+    ({ data, error } = await admin.from("creatives").upsert(plain, { onConflict: "storage_path", ignoreDuplicates: true }).select("*"));
+  }
   if (error) {
     console.error("creatives insert failed:", error.message);
     return bad("The upload could not be saved. Try again.", 500);
@@ -97,9 +105,31 @@ export async function PATCH(req: Request) {
   const user = await getAuthUser();
   if (!user) return bad("Unauthorized.", 401);
   if (!isStaff(user)) return bad("Forbidden.", 403);
-  const b = (await req.json().catch(() => null)) as { ids?: unknown; folderId?: unknown; id?: unknown; name?: unknown } | null;
+  const b = (await req.json().catch(() => null)) as { ids?: unknown; folderId?: unknown; id?: unknown; name?: unknown; platforms?: unknown; campaign?: unknown } | null;
   const admin = createAdminClient();
   if (!admin) return bad("Backend not configured.", 503);
+
+  // Tag files (uploads and synced ones): { ids, platforms?, campaign? }.
+  if (b && b.folderId === undefined && (b.platforms !== undefined || b.campaign !== undefined)) {
+    const patch: Record<string, unknown> = {};
+    if (b.platforms !== undefined) {
+      const platforms = cleanPlatforms(b.platforms);
+      if (!platforms) return bad("Unknown platform.");
+      patch.platforms = platforms;
+    }
+    if (b.campaign !== undefined) {
+      const campaign = cleanCampaign(b.campaign);
+      if (campaign === undefined) return bad("Invalid campaign.");
+      patch.campaign = campaign;
+    }
+    const found = await pick(admin, b.ids);
+    if (!found.length) return bad("Not found.", 404);
+    if (new Set(found.map((c) => c.client_id)).size > 1) return bad("Tag one partner's files at a time.");
+    const { error } = await admin.from("creatives").update(patch).in("id", found.map((c) => c.id));
+    if (error) return bad(missingTags(error.message) ? "Tags need the database update 0049_creative_tags.sql." : "Could not save.", missingTags(error.message) ? 503 : 400);
+    await logAudit(user, { action: "creative.tag", clientId: found[0].client_id, targetType: "creative", summary: `${found.length} file(s)` }, admin);
+    return NextResponse.json({ ok: true, tagged: found.length });
+  }
 
   if (typeof b?.name === "string") {
     const [c] = await pick(admin, [b.id]);

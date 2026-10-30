@@ -10,6 +10,8 @@ import { fileType, folderForEntry, isJunkEntry, MAX_FILE_BYTES, type CreativeFol
 
 export interface UploadItem {
   name: string;
+  /** Path inside a zip ("Instagram/Story.png"), else the name. */
+  path: string;
   blob: Blob;
   folderId: string;
   lastModified?: number;
@@ -31,7 +33,7 @@ export async function* expandFiles(
       const stats = { entries: 0 };
       try {
         for await (const e of zipEntries(file, onSkip, stats)) {
-          yield { name: e.path.split("/").pop() ?? e.path, blob: e.blob, folderId: folderForEntry(e.path, folders, fallbackId) };
+          yield { name: e.path.split("/").pop() ?? e.path, path: e.path, blob: e.blob, folderId: folderForEntry(e.path, folders, fallbackId) };
         }
         if (!stats.entries) onSkip(file.name, "zip");
       } catch {
@@ -41,7 +43,7 @@ export async function* expandFiles(
     }
     if (!fileType(file.name)) onSkip(file.name, "type");
     else if (file.size > MAX_FILE_BYTES || file.size === 0) onSkip(file.name, "size");
-    else yield { name: file.name, blob: file, folderId: fallbackId, lastModified: file.lastModified };
+    else yield { name: file.name, path: file.webkitRelativePath || file.name, blob: file, folderId: fallbackId, lastModified: file.lastModified };
   }
 }
 

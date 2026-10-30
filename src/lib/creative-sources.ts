@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { displayName, kindFromMime, type CreativeKind, type CreativeSourceProvider } from "@/lib/creatives";
+import { displayName, guessPlatforms, kindFromMime, type CreativeKind, type CreativeSourceProvider } from "@/lib/creatives";
 
 /**
  * Cloud folders synced into a creatives category: Google Drive, Dropbox and
@@ -195,6 +195,8 @@ export interface CloudFile {
   width: number | null;
   height: number | null;
   durationSec: number | null;
+  /** Folder path inside the connected folder plus the name ("Instagram/Story.png"), for guessing the platform. */
+  path?: string;
 }
 
 async function call<T>(url: string, token: string, init: RequestInit = {}): Promise<T> {
@@ -263,10 +265,10 @@ export async function listFolderFiles(provider: CreativeSourceProvider, token: s
   };
 
   if (provider === "google_drive") {
-    const queue: { id: string; depth: number }[] = [{ id: externalId, depth: 0 }];
+    const queue: { id: string; depth: number; path: string }[] = [{ id: externalId, depth: 0, path: "" }];
     const fields = "nextPageToken,files(id,name,mimeType,size,md5Checksum,createdTime,webViewLink,imageMediaMetadata(width,height),videoMediaMetadata(width,height,durationMillis))";
     while (queue.length && complete) {
-      const { id, depth } = queue.shift()!;
+      const { id, depth, path } = queue.shift()!;
       let page: string | undefined;
       do {
         const q = encodeURIComponent(`'${id.replace(/'/g, "")}' in parents and trashed = false`);
@@ -274,11 +276,11 @@ export async function listFolderFiles(provider: CreativeSourceProvider, token: s
         const res = await call<{ nextPageToken?: string; files: any[] }>(url, token);
         for (const f of res.files ?? []) {
           if (f.mimeType === "application/vnd.google-apps.folder") {
-            if (depth < MAX_DEPTH) queue.push({ id: f.id, depth: depth + 1 });
+            if (depth < MAX_DEPTH) queue.push({ id: f.id, depth: depth + 1, path: `${path}${f.name}/` });
             else complete = false;
             continue;
           }
-          push(driveFile(f));
+          push(withPath(driveFile(f), path));
         }
         page = res.nextPageToken;
       } while (page && complete);
@@ -303,7 +305,10 @@ export async function listFolderFiles(provider: CreativeSourceProvider, token: s
             if (shared && depth < MAX_DEPTH) queue.push({ path: `${path}/${e.name}`, depth: depth + 1 });
             continue;
           }
-          if (e[".tag"] === "file") push(dropboxFile(e, shared ? `${path}/${e.name}` : null));
+          if (e[".tag"] === "file") {
+            const rel = shared ? `${path}/${e.name}` : String(e.path_display ?? e.name).slice(externalId.length);
+            push(withPath(dropboxFile(e, shared ? `${path}/${e.name}` : null), rel.replace(/^\/+/, "").replace(/[^/]*$/, "")));
+          }
         }
         if (!res.has_more || !complete) break;
         res = await dbxPost("/files/list_folder/continue", token, { cursor: res.cursor });
@@ -313,20 +318,20 @@ export async function listFolderFiles(provider: CreativeSourceProvider, token: s
   }
 
   const [driveId, rootId] = externalId.split("!");
-  const queue: { id: string; depth: number }[] = [{ id: rootId, depth: 0 }];
+  const queue: { id: string; depth: number; path: string }[] = [{ id: rootId, depth: 0, path: "" }];
   const select = "id,name,file,folder,size,createdDateTime,webUrl,image,video,photo";
   while (queue.length && complete) {
-    const { id, depth } = queue.shift()!;
+    const { id, depth, path } = queue.shift()!;
     let url: string | undefined = `${GRAPH}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(id)}/children?$select=${select}&$top=999`;
     while (url && complete) {
       const res: { value: any[]; "@odata.nextLink"?: string } = await call(url, token);
       for (const it of res.value ?? []) {
         if (it.folder) {
-          if (depth < MAX_DEPTH) queue.push({ id: it.id, depth: depth + 1 });
+          if (depth < MAX_DEPTH) queue.push({ id: it.id, depth: depth + 1, path: `${path}${it.name}/` });
           else complete = false;
           continue;
         }
-        push(oneDriveFile(it));
+        push(withPath(oneDriveFile(it), path));
       }
       const next = res["@odata.nextLink"];
       url = next && next.startsWith(`${GRAPH}/`) ? next : undefined;
@@ -334,6 +339,8 @@ export async function listFolderFiles(provider: CreativeSourceProvider, token: s
   }
   return { files, complete };
 }
+
+const withPath = (f: CloudFile | null, dir: string) => (f ? { ...f, path: `${dir}${f.name}` } : null);
 
 export function driveFile(f: any): CloudFile | null {
   const kind = kindFromMime(f.mimeType, f.name);
@@ -480,8 +487,20 @@ async function syncOne(admin: SupabaseClient, src: SourceRow) {
     external_url: f.webUrl,
     ...(f.createdAt ? { created_at: f.createdAt } : {}),
   }));
-  for (let i = 0; i < rows.length; i += 500) {
-    const { error } = await admin.from("creatives").upsert(rows.slice(i, i + 500), { onConflict: "source_id,external_id" });
+  // Existing files: refresh what the cloud knows, never the team's tags.
+  // New files: platforms guessed from their folders and name ("Instagram/Story.png").
+  const existingRows = rows.filter((r) => known.has(r.external_id));
+  const newRows = rows.filter((r) => !known.has(r.external_id));
+  for (let i = 0; i < existingRows.length; i += 500) {
+    const { error } = await admin.from("creatives").upsert(existingRows.slice(i, i + 500), { onConflict: "source_id,external_id" });
+    if (error) throw new SourceError(error.message, 500);
+  }
+  const pathOf = new Map(files.map((f) => [f.id, f.path ?? f.name]));
+  for (let i = 0; i < newRows.length; i += 500) {
+    const batch = newRows.slice(i, i + 500);
+    const tagged = batch.map((r) => ({ ...r, platforms: guessPlatforms(pathOf.get(r.external_id) ?? r.name) }));
+    let { error } = await admin.from("creatives").upsert(tagged, { onConflict: "source_id,external_id" });
+    if (error && /platforms/i.test(error.message)) ({ error } = await admin.from("creatives").upsert(batch, { onConflict: "source_id,external_id" }));
     if (error) throw new SourceError(error.message, 500);
   }
   const added = files.filter((f) => !known.has(f.id)).length;

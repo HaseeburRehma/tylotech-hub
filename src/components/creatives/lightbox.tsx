@@ -1,11 +1,12 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Tag, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { humanBytes, type Creative } from "@/lib/creatives";
 import { useIntlLocale, useT } from "@/lib/i18n/provider";
 import { APP_TZ } from "@/lib/utils";
+import { PlatformMark } from "./platform-mark";
 import { SourceLogo } from "./source-logo";
 
 export const fileUrl = (id: string, q = "") => `/api/creatives/${id}/file${q ? `?${q}` : ""}`;
@@ -23,12 +24,14 @@ export function Lightbox({
   onIndex,
   onClose,
   onDelete,
+  onTag,
 }: {
   items: Creative[];
   index: number;
   onIndex: (i: number) => void;
   onClose: () => void;
   onDelete?: (c: Creative) => void;
+  onTag?: (c: Creative) => void;
 }) {
   const t = useT();
   const dl = useIntlLocale();
@@ -65,7 +68,12 @@ export function Lightbox({
         {c.source !== "upload" && <SourceLogo provider={c.source} size={22} />}
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{c.name}</p>
-          <p className="truncate text-caption text-white/60">{meta.join(" · ")}</p>
+          <p className="flex min-w-0 items-center gap-1.5 truncate text-caption text-white/60">
+            {(c.platforms ?? []).map((pl) => (
+              <PlatformMark key={pl} platform={pl} size={14} />
+            ))}
+            <span className="truncate">{[c.campaign ?? "", ...meta].filter(Boolean).join(" · ")}</span>
+          </p>
         </div>
         <span className="hidden font-mono text-caption text-white/50 sm:inline">
           {index + 1} / {items.length}
@@ -78,6 +86,11 @@ export function Lightbox({
         <a href={fileUrl(c.id, "download=1")} className="rounded-lg p-2 text-white/80 hover:bg-white/10 hover:text-white" title={t("cr.download")} aria-label={t("cr.download")}>
           <Download className="h-4 w-4" />
         </a>
+        {onTag && (
+          <button type="button" onClick={() => onTag(c)} className="rounded-lg p-2 text-white/80 hover:bg-white/10 hover:text-white" title={t("cr.tag.button")} aria-label={t("cr.tag.button")}>
+            <Tag className="h-4 w-4" />
+          </button>
+        )}
         {onDelete && c.source === "upload" && (
           <button type="button" onClick={() => onDelete(c)} className="rounded-lg p-2 text-white/80 hover:bg-white/10 hover:text-red-300" title={t("common.delete")} aria-label={t("common.delete")}>
             <Trash2 className="h-4 w-4" />

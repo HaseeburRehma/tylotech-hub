@@ -5,11 +5,12 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ModalShell } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
-import { ACCEPT, humanBytes, type CreativeFolder } from "@/lib/creatives";
+import { ACCEPT, guessPlatforms, humanBytes, type CreativeFolder, type Platform } from "@/lib/creatives";
 import { expandFiles, fileMeta, type SkipReason, type UploadItem } from "@/lib/creatives-upload";
 import { useT } from "@/lib/i18n/provider";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { CampaignInput, PlatformPicker } from "./tag-modal";
 
 const BATCH = 6;
 const PARALLEL = 3;
@@ -35,6 +36,8 @@ export function UploadModal({
   projectId: initialProject,
   folderId: initialFolder,
   initialFiles,
+  campaigns = [],
+  tagsReady = false,
   onDone,
 }: {
   open: boolean;
@@ -45,12 +48,18 @@ export function UploadModal({
   folderId: string | null;
   /** Files dropped on the page before the dialog opened. */
   initialFiles?: File[];
+  /** Known campaign names (suggestions). */
+  campaigns?: string[];
+  /** Platform and campaign columns exist (migration 0049). */
+  tagsReady?: boolean;
   onDone: (uploaded: number) => void;
 }) {
   const t = useT();
   const [projectId, setProjectId] = useState(initialProject ?? projects[0]?.id ?? "");
   const [folderId, setFolderId] = useState(initialFolder ?? "");
   const [files, setFiles] = useState<File[]>([]);
+  const [platforms, setPlatforms] = useState<Platform[]>([]);
+  const [campaign, setCampaign] = useState("");
   const [drag, setDrag] = useState(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(0);
@@ -74,6 +83,8 @@ export function UploadModal({
     setProjectId(initialProject ?? projects[0]?.id ?? "");
     setFolderId(initialFolder ?? "");
     setFiles(initialFiles ?? []);
+    setPlatforms([]);
+    setCampaign("");
     setDone(0);
     setFound(0);
     setSkipped([]);
@@ -128,7 +139,9 @@ export function UploadModal({
               skip(it.name, /size|large|413/i.test(upErr.message) ? "size" : "upload");
               continue;
             }
-            confirm.push({ path: slot.path, name: it.name, ...meta, ...(it.lastModified ? { createdAt: new Date(it.lastModified).toISOString() } : {}) });
+            // Platforms chosen here, else guessed from the zip folders and file name.
+            const tags = tagsReady ? { platforms: platforms.length ? platforms : guessPlatforms(it.path), campaign: campaign.trim() || null } : {};
+            confirm.push({ path: slot.path, name: it.name, ...meta, ...tags, ...(it.lastModified ? { createdAt: new Date(it.lastModified).toISOString() } : {}) });
           }
         };
         await Promise.all(Array.from({ length: Math.min(PARALLEL, group.length) }, worker));
@@ -194,6 +207,22 @@ export function UploadModal({
             <Select value={folderId} onChange={setFolderId} disabled={busy || !projectFolders.length} options={projectFolders.map((f) => ({ value: f.id, label: f.name }))} />
           </div>
         </div>
+
+        {tagsReady && (
+          <div className="space-y-3 rounded-2xl border border-line p-3.5">
+            <div>
+              <p className="mb-2 text-caption font-medium text-muted">{t("cr.tag.platforms")}</p>
+              <PlatformPicker value={platforms} onChange={setPlatforms} disabled={busy} />
+              <p className="mt-1.5 text-caption text-muted">{t("cr.upload.platformHint")}</p>
+            </div>
+            <div>
+              <label htmlFor="cr-up-campaign" className="mb-1.5 block text-caption font-medium text-muted">
+                {t("cr.tag.campaign")}
+              </label>
+              <CampaignInput id="cr-up-campaign" value={campaign} onChange={setCampaign} campaigns={campaigns} disabled={busy} />
+            </div>
+          </div>
+        )}
 
         <div
           onDragOver={(e) => {

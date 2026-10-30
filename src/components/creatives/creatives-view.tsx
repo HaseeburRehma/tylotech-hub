@@ -15,28 +15,45 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Tag,
   Trash2,
   UploadCloud,
   Video,
   X,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CreativeBars } from "@/components/charts/lazy";
 import { Button } from "@/components/ui/button";
 import { Card, Panel } from "@/components/ui/card";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { FilterMenu } from "@/components/ui/filter-menu";
 import { Input } from "@/components/ui/input";
 import { Menu, MenuItem, MenuSeparator } from "@/components/ui/menu";
 import { ModalShell } from "@/components/ui/modal";
 import { PageHeader } from "@/components/ui/page-header";
-import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
-import { humanBytes, type Creative, type CreativeFolder, type CreativeKind, type CreativeSourceProvider, type CreativeSourceView, type MonthCount } from "@/lib/creatives";
+import {
+  bucketKeys,
+  countCreatives,
+  humanBytes,
+  PLATFORM_LABEL,
+  PLATFORMS,
+  type Creative,
+  type CreativeFolder,
+  type CreativeKind,
+  type CreativeSourceProvider,
+  type CreativeSourceView,
+  type Platform,
+} from "@/lib/creatives";
+import { inRange, presetRange, rangeFromParams, type DateRange } from "@/lib/date-range";
 import { useIntlLocale, useT } from "@/lib/i18n/provider";
 import { APP_TZ, cn } from "@/lib/utils";
 import { ConnectModal } from "./connect-modal";
 import { duration, fileUrl, Lightbox } from "./lightbox";
+import { PlatformMark } from "./platform-mark";
 import { SourceLogo, SOURCE_NAME } from "./source-logo";
+import { TagModal } from "./tag-modal";
 import { UploadModal } from "./upload-modal";
 
 interface Project {
@@ -54,19 +71,53 @@ export interface CreativesViewProps {
   year: number;
   thisYear: number;
   thisMonth: number;
-  months: MonthCount[];
   projects: Project[];
   folders: CreativeFolder[];
-  counts: Record<string, number>;
   creatives: Creative[];
   sources: CreativeSourceView[];
   ready: Record<CreativeSourceProvider, boolean>;
   projectId: string | null;
   folderId: string | null;
   flash: string | null;
+  /** Campaign names for tagging (from creatives and the partner's leads). */
+  campaigns: string[];
+  /** Platform and campaign columns exist (migration 0049). */
+  tagsReady: boolean;
+  /** Only the newest 5,000 creatives are loaded. */
+  truncated: boolean;
 }
 
-type KindFilter = "all" | CreativeKind;
+const NONE = "__none";
+type SourceFilter = "all" | "upload" | CreativeSourceProvider;
+interface Filters {
+  range: DateRange;
+  platform: "all" | typeof NONE | Platform;
+  campaign: string; // "all", NONE or a campaign name
+  kind: "all" | CreativeKind;
+  source: SourceFilter;
+}
+type FilterKey = keyof Filters;
+
+function filtersFromUrl(sp: URLSearchParams): Filters {
+  const pick = <T extends string>(v: string | null, allowed: readonly T[], fallback: T) => ((allowed as readonly string[]).includes(v ?? "") ? (v as T) : fallback);
+  return {
+    range: rangeFromParams(sp, "maximum"),
+    platform: pick(sp.get("platform"), [...PLATFORMS, NONE] as const, "all" as const) as Filters["platform"],
+    campaign: sp.get("campaign")?.slice(0, 200) || "all",
+    kind: pick(sp.get("type"), ["image", "video", "document"] as const, "all" as const) as Filters["kind"],
+    source: pick(sp.get("src"), ["upload", "google_drive", "dropbox", "onedrive"] as const, "all" as const) as SourceFilter,
+  };
+}
+
+/** Whether a creative passes the filters, leaving out `skip` (for the counts in each filter's menu). */
+function passes(c: Creative, f: Filters, skip?: FilterKey | "date") {
+  if (skip !== "range" && skip !== "date" && f.range.preset !== "maximum" && !inRange(c.created_at, f.range)) return false;
+  if (skip !== "platform" && f.platform !== "all" && (f.platform === NONE ? !!c.platforms?.length : !c.platforms?.includes(f.platform))) return false;
+  if (skip !== "campaign" && f.campaign !== "all" && (f.campaign === NONE ? !!c.campaign : c.campaign !== f.campaign)) return false;
+  if (skip !== "kind" && f.kind !== "all" && c.kind !== f.kind) return false;
+  if (skip !== "source" && f.source !== "all" && c.source !== f.source) return false;
+  return true;
+}
 
 async function call(url: string, method: string, body?: unknown) {
   const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -81,8 +132,12 @@ export function CreativesView(p: CreativesViewProps) {
   const router = useRouter();
   const [projectId, setProjectId] = useState<string | null>(p.projectId ?? p.projects[0]?.id ?? null);
   const [folderId, setFolderId] = useState<string | null>(p.folderId);
+  const sp = useSearchParams();
   const [query, setQuery] = useState("");
-  const [kind, setKind] = useState<KindFilter>("all");
+  const [filters, setFilters] = useState<Filters>(() => filtersFromUrl(new URLSearchParams(sp?.toString() ?? "")));
+  const [year, setYear] = useState(p.year);
+  const [tagFor, setTagFor] = useState<{ ids: string[]; platforms: Platform[]; campaign: string } | null>(null);
+  const setFilter = <K extends FilterKey>(k: K, v: Filters[K]) => setFilters((f) => ({ ...f, [k]: v }));
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [viewer, setViewer] = useState<number | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -101,9 +156,19 @@ export function CreativesView(p: CreativesViewProps) {
     projectId ? u.searchParams.set("project", projectId) : u.searchParams.delete("project");
     folderId ? u.searchParams.set("folder", folderId) : u.searchParams.delete("folder");
     u.searchParams.delete("source");
+    for (const k of ["range", "from", "to", "platform", "campaign", "type", "src", "year"]) u.searchParams.delete(k);
+    const f = filters;
+    if (f.range.preset === "custom" && f.range.since && f.range.until) (u.searchParams.set("from", f.range.since), u.searchParams.set("to", f.range.until));
+    else if (f.range.preset !== "maximum") u.searchParams.set("range", f.range.preset);
+    if (f.platform !== "all") u.searchParams.set("platform", f.platform);
+    if (f.campaign !== "all") u.searchParams.set("campaign", f.campaign);
+    if (f.kind !== "all") u.searchParams.set("type", f.kind);
+    if (f.source !== "all") u.searchParams.set("src", f.source);
+    if (year !== p.thisYear) u.searchParams.set("year", String(year));
     window.history.replaceState(null, "", u.toString());
-    setSelected(new Set());
-  }, [projectId, folderId]);
+  }, [projectId, folderId, filters, year, p.thisYear]);
+
+  useEffect(() => setSelected(new Set()), [projectId, folderId, filters]);
 
   useEffect(() => {
     if (!toast) return;
@@ -116,22 +181,48 @@ export function CreativesView(p: CreativesViewProps) {
   const folder = projectFolders.find((f) => f.id === folderId) ?? null;
   const folderSources = p.sources.filter((s) => s.folder_id === folderId);
 
+  // Filters apply to everything below: the chart, the figures, the folder counts and the files.
+  const filtered = useMemo(() => p.creatives.filter((c) => passes(c, filters)), [p.creatives, filters]);
+  const filtering = filters.range.preset !== "maximum" || filters.platform !== "all" || filters.campaign !== "all" || filters.kind !== "all" || filters.source !== "all";
+  const counts = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const c of filtered) out[c.folder_id] = (out[c.folder_id] ?? 0) + 1;
+    return out;
+  }, [filtered]);
+  const facet = (key: FilterKey, test: (c: Creative) => boolean) => p.creatives.reduce((n, c) => (passes(c, filters, key) && test(c) ? n + 1 : n), 0);
+
   const files = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return p.creatives
+    return filtered
       .filter((c) => (folder ? c.folder_id === folder.id : c.project_id === projectId))
-      .filter((c) => kind === "all" || c.kind === kind)
-      .filter((c) => !q || c.name.toLowerCase().includes(q))
+      .filter((c) => !q || c.name.toLowerCase().includes(q) || (c.campaign ?? "").toLowerCase().includes(q))
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
-  }, [p.creatives, folder, projectId, kind, query]);
+  }, [filtered, folder, projectId, query]);
 
-  const monthLabel = (m: number) => new Date(Date.UTC(2026, m - 1, 15)).toLocaleDateString(dl, { month: "short", timeZone: "UTC" });
-  const chart = p.months.map((m) => ({ ...m, label: monthLabel(m.month) }));
-  const yearTotal = p.months.reduce((n, m) => n + m.total, 0);
-  const current = p.year === p.thisYear ? p.months[p.thisMonth - 1] : null;
-  const busiest = p.months.reduce((a, b) => (b.total > a.total ? b : a), p.months[0]);
-  const activeMonths = p.months.filter((m) => m.total > 0).length;
-  const yearOptions = Array.from({ length: 4 }, (_, i) => String(p.thisYear - i));
+  // Chart: a year by month, or the chosen range by day (up to 62 days) or month.
+  // A creative counts once, where it first appeared (the date filter only picks the bars).
+  const ranged = filters.range.preset !== "maximum" && !!filters.range.since && !!filters.range.until;
+  const span = ranged ? bucketKeys({ since: filters.range.since!, until: filters.range.until! }) : bucketKeys({ year });
+  const buckets = useMemo(() => countCreatives(p.creatives.filter((c) => passes(c, filters, "date")), span.keys, span.unit), [p.creatives, filters, span.keys, span.unit]);
+  const multiYear = span.unit === "month" && span.keys[0]?.slice(0, 4) !== span.keys[span.keys.length - 1]?.slice(0, 4);
+  const bucketLabel = (key: string) =>
+    span.unit === "day"
+      ? new Date(`${key}T12:00:00Z`).toLocaleDateString(dl, { day: "numeric", month: "short", timeZone: "UTC" })
+      : new Date(`${key}-15T12:00:00Z`).toLocaleDateString(dl, { month: "short", ...(multiYear ? { year: "2-digit" } : {}), timeZone: "UTC" });
+  const chart = buckets.map((b) => ({ ...b, month: 0, label: bucketLabel(b.key) }));
+  const total = buckets.reduce((n, b) => n + b.total, 0);
+  const busiest = buckets.reduce((a, b) => (b.total > a.total ? b : a), buckets[0]);
+  const active = buckets.filter((b) => b.total > 0).length;
+  const thisMonthKey = `${p.thisYear}-${String(p.thisMonth).padStart(2, "0")}`;
+  const current = !ranged && year === p.thisYear ? buckets.find((b) => b.key === thisMonthKey) ?? null : null;
+  // The monthly limit applies to month bars, and to a range inside one month.
+  const oneMonth = ranged && filters.range.since!.slice(0, 7) === filters.range.until!.slice(0, 7);
+  const lead = current ?? (oneMonth ? { ...busiest, total } : busiest);
+  const showLimit = !!p.limit && (!ranged || oneMonth || span.unit === "month");
+  const yearOptions = Array.from(new Set([p.thisYear, p.thisYear - 1, p.thisYear - 2, p.thisYear - 3, ...p.creatives.map((c) => Number(c.created_at.slice(0, 4)))]))
+    .filter((y) => y > 2000 && y <= p.thisYear)
+    .sort((a, b) => b - a)
+    .map(String);
 
   const ok = (text: string) => setToast({ text, tone: "ok" });
   const fail = (e: unknown) => setToast({ text: (e as Error).message, tone: "error" });
@@ -194,6 +285,22 @@ export function CreativesView(p: CreativesViewProps) {
         refresh();
       },
     });
+  }
+
+  function openTags(ids: string[]) {
+    const picked = p.creatives.filter((c) => ids.includes(c.id));
+    // One file: start from its tags. Several: start from what they all share.
+    const shared = picked.reduce<Platform[] | null>((acc, c) => (acc === null ? [...(c.platforms ?? [])] : acc.filter((x) => c.platforms?.includes(x))), null) ?? [];
+    const camps = new Set(picked.map((c) => c.campaign ?? ""));
+    setTagFor({ ids, platforms: shared, campaign: camps.size === 1 ? Array.from(camps)[0] : "" });
+  }
+
+  async function saveTags(v: { platforms: Platform[]; campaign: string }) {
+    if (!tagFor) return;
+    await call("/api/creatives", "PATCH", { ids: tagFor.ids, platforms: v.platforms, campaign: v.campaign.trim() || null });
+    setSelected(new Set());
+    ok(t("cr.tag.saved", { n: tagFor.ids.length }));
+    refresh();
   }
 
   async function moveFiles(ids: string[], to: string) {
@@ -288,6 +395,76 @@ export function CreativesView(p: CreativesViewProps) {
         </div>
       )}
 
+      {/* Filters, like Leads: they apply to the chart, the figures and the files */}
+      <Card className="flex flex-wrap items-center gap-2 p-3">
+        <DateRangePicker value={filters.range} onChange={(r) => setFilter("range", r)} />
+        {p.tagsReady && (
+          <>
+            <FilterMenu
+              label={t("cr.filter.platform")}
+              value={filters.platform}
+              defaultValue="all"
+              onChange={(v) => setFilter("platform", v)}
+              options={[
+                { value: "all", label: t("cr.filter.allPlatforms") },
+                ...PLATFORMS.map((pl) => ({ value: pl, label: PLATFORM_LABEL[pl], icon: <PlatformMark platform={pl} size={16} />, count: facet("platform", (c) => !!c.platforms?.includes(pl)) })).filter(
+                  (o) => o.count > 0 || o.value === filters.platform,
+                ),
+                { value: NONE, label: t("cr.filter.noPlatform"), count: facet("platform", (c) => !c.platforms?.length) },
+              ]}
+            />
+            <FilterMenu
+              label={t("cr.filter.campaign")}
+              value={filters.campaign}
+              defaultValue="all"
+              width={300}
+              onChange={(v) => setFilter("campaign", v)}
+              options={[
+                { value: "all", label: t("cr.filter.allCampaigns") },
+                ...Array.from(new Set(p.creatives.map((c) => c.campaign).filter((x): x is string => !!x).concat(filters.campaign !== "all" && filters.campaign !== NONE ? [filters.campaign] : [])))
+                  .map((name) => ({ value: name, label: name, count: facet("campaign", (c) => c.campaign === name) }))
+                  .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
+                { value: NONE, label: t("cr.filter.noCampaign"), count: facet("campaign", (c) => !c.campaign) },
+              ]}
+            />
+          </>
+        )}
+        <FilterMenu
+          label={t("cr.filter.type")}
+          value={filters.kind}
+          defaultValue="all"
+          onChange={(v) => setFilter("kind", v)}
+          options={[
+            { value: "all", label: t("cr.kind.all") },
+            { value: "image", label: t("cr.kind.image"), icon: <ImageIcon className="h-3.5 w-3.5 text-muted" />, count: facet("kind", (c) => c.kind === "image") },
+            { value: "video", label: t("cr.kind.video"), icon: <Video className="h-3.5 w-3.5 text-muted" />, count: facet("kind", (c) => c.kind === "video") },
+            { value: "document", label: t("cr.kind.document"), icon: <FileText className="h-3.5 w-3.5 text-muted" />, count: facet("kind", (c) => c.kind === "document") },
+          ]}
+        />
+        <FilterMenu
+          label={t("cr.filter.source")}
+          value={filters.source}
+          defaultValue="all"
+          onChange={(v) => setFilter("source", v)}
+          options={[
+            { value: "all", label: t("cr.filter.allSources") },
+            { value: "upload", label: t("cr.filter.uploaded"), icon: <UploadCloud className="h-3.5 w-3.5 text-muted" />, count: facet("source", (c) => c.source === "upload") },
+            ...(["google_drive", "dropbox", "onedrive"] as const)
+              .map((pv) => ({ value: pv, label: SOURCE_NAME[pv], icon: <SourceLogo provider={pv} size={16} />, count: facet("source", (c) => c.source === pv) }))
+              .filter((o) => o.count > 0 || o.value === filters.source),
+          ]}
+        />
+        {filtering && (
+          <button type="button" onClick={() => setFilters({ range: presetRange("maximum"), platform: "all", campaign: "all", kind: "all", source: "all" })} className="inline-flex h-10 items-center gap-1.5 rounded-xl px-2.5 text-sm text-muted hover:text-foreground">
+            <X className="h-3.5 w-3.5" /> {t("cr.filter.clear")}
+          </button>
+        )}
+        <span className="ml-auto px-1 text-caption text-muted tabular-nums">
+          {filtering ? t("cr.filter.showing", { n: filtered.length, total: p.creatives.length }) : t("cr.files.count", { n: p.creatives.length })}
+        </span>
+      </Card>
+      {p.truncated && <p className="-mt-3 px-1 text-caption text-muted">{t("cr.truncated")}</p>}
+
       {/* Creatives over time */}
       <Panel>
         <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
@@ -295,25 +472,31 @@ export function CreativesView(p: CreativesViewProps) {
             <h2 className="font-display text-base font-semibold">{t("cr.chart.title")}</h2>
             <p className="mt-1 max-w-2xl text-caption leading-relaxed text-muted">{t("cr.chart.desc")}</p>
           </div>
-          <div className="w-28 shrink-0">
-            <Select value={String(p.year)} onChange={(y) => router.push(`?${new URLSearchParams({ ...(projectId ? { project: projectId } : {}), ...(folderId ? { folder: folderId } : {}), year: y })}`)} options={yearOptions.map((y) => ({ value: y, label: y }))} />
-          </div>
+          {!ranged && (
+            <div className="w-28 shrink-0">
+              <Select value={String(year)} onChange={(y) => setYear(Number(y))} options={yearOptions.map((y) => ({ value: y, label: y }))} />
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-px bg-line lg:grid-cols-4">
           <Stat
-            label={current ? t("cr.stat.month") : t("cr.stat.peak")}
-            value={(current ?? busiest).total}
-            suffix={p.limit ? `/ ${p.limit.toLocaleString()}` : undefined}
-            bar={p.limit ? Math.min(1, (current ?? busiest).total / p.limit) : undefined}
-            over={!!p.limit && (current ?? busiest).total > p.limit}
-            note={current ? undefined : monthLabel(busiest.month)}
+            label={current ? t("cr.stat.month") : oneMonth ? t("cr.stat.period") : span.unit === "day" ? t("cr.stat.peakDay") : t("cr.stat.peak")}
+            value={lead.total}
+            suffix={showLimit && (current || oneMonth || span.unit === "month") ? `/ ${p.limit!.toLocaleString()}` : undefined}
+            bar={showLimit ? Math.min(1, lead.total / p.limit!) : undefined}
+            over={showLimit && lead.total > p.limit!}
+            note={current || oneMonth || !lead.total ? undefined : bucketLabel(lead.key)}
           />
-          <Stat label={t("cr.stat.year", { year: p.year })} value={yearTotal} note={activeMonths ? t("cr.stat.avg", { n: Math.round(yearTotal / activeMonths) }) : undefined} />
-          <Stat label={t("cr.stat.images")} value={p.months.reduce((n, m) => n + m.images, 0)} icon={<ImageIcon className="h-3.5 w-3.5" />} />
-          <Stat label={t("cr.stat.videos")} value={p.months.reduce((n, m) => n + m.videos, 0)} icon={<Video className="h-3.5 w-3.5" />} />
+          <Stat
+            label={ranged ? t("cr.stat.period") : t("cr.stat.year", { year })}
+            value={total}
+            note={active ? t(span.unit === "day" ? "cr.stat.avgDay" : "cr.stat.avg", { n: Math.round((total / active) * 10) / 10 }) : undefined}
+          />
+          <Stat label={t("cr.stat.images")} value={buckets.reduce((n, b) => n + b.images, 0)} icon={<ImageIcon className="h-3.5 w-3.5" />} />
+          <Stat label={t("cr.stat.videos")} value={buckets.reduce((n, b) => n + b.videos, 0)} icon={<Video className="h-3.5 w-3.5" />} />
         </div>
         <div className="px-3 pb-3 pt-4 sm:px-5">
-          <CreativeBars data={chart} limit={p.limit} labels={{ creatives: t("cr.chart.creatives"), images: t("cr.chart.images"), videos: t("cr.chart.videos"), documents: t("cr.chart.pdfs"), limit: t("cr.chart.limit") }} />
+          <CreativeBars data={chart} limit={span.unit === "month" ? p.limit : null} labels={{ creatives: t("cr.chart.creatives"), images: t("cr.chart.images"), videos: t("cr.chart.videos"), documents: t("cr.chart.pdfs"), limit: t("cr.chart.limit") }} />
           <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 px-1 text-caption text-muted">
             <span className="inline-flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-sm bg-brand" /> {t("cr.chart.creatives")}
@@ -339,7 +522,7 @@ export function CreativesView(p: CreativesViewProps) {
             <nav aria-label={t("cr.tree")} className="max-h-[70vh] overflow-y-auto p-2">
               {p.projects.map((pr) => {
                 const open = pr.id === projectId;
-                const n = p.folders.filter((f) => f.project_id === pr.id).reduce((s, f) => s + (p.counts[f.id] ?? 0), 0);
+                const n = p.folders.filter((f) => f.project_id === pr.id).reduce((s, f) => s + (counts[f.id] ?? 0), 0);
                 return (
                   <div key={pr.id} className="mb-0.5">
                     <button
@@ -369,7 +552,7 @@ export function CreativesView(p: CreativesViewProps) {
                             {f.id === folderId ? <FolderOpen className="h-3.5 w-3.5 shrink-0 text-brand-ink" /> : <Folder className="h-3.5 w-3.5 shrink-0 text-muted" />}
                             <span className="min-w-0 flex-1 truncate">{f.name}</span>
                             {p.sources.some((s) => s.folder_id === f.id) && <Cloud className="h-3 w-3 shrink-0 text-muted" />}
-                            <span className="font-mono text-eyebrow text-muted">{p.counts[f.id] ?? 0}</span>
+                            <span className="font-mono text-eyebrow text-muted">{counts[f.id] ?? 0}</span>
                           </button>
                         ))}
                         {p.staff && (
@@ -417,7 +600,7 @@ export function CreativesView(p: CreativesViewProps) {
                 </Chip>
                 {projectFolders.map((f) => (
                   <Chip key={f.id} active={f.id === folderId} onClick={() => setFolderId(f.id)}>
-                    {f.name} <span className="ml-1 font-mono text-eyebrow opacity-70">{p.counts[f.id] ?? 0}</span>
+                    {f.name} <span className="ml-1 font-mono text-eyebrow opacity-70">{counts[f.id] ?? 0}</span>
                   </Chip>
                 ))}
               </div>
@@ -517,7 +700,7 @@ export function CreativesView(p: CreativesViewProps) {
                       <div className="flex items-center gap-2 px-3.5 py-3">
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-medium group-hover:text-foreground">{f.name}</span>
-                          <span className="block text-caption text-muted">{t("cr.files.count", { n: p.counts[f.id] ?? 0 })}</span>
+                          <span className="block text-caption text-muted">{t("cr.files.count", { n: counts[f.id] ?? 0 })}</span>
                         </span>
                         {Array.from(new Set(p.sources.filter((s) => s.folder_id === f.id).map((s) => s.provider))).map((pv) => (
                           <SourceLogo key={pv} provider={pv} size={20} />
@@ -539,21 +722,25 @@ export function CreativesView(p: CreativesViewProps) {
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                     <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("cr.search")} className="h-9 pl-9" aria-label={t("cr.search")} />
                   </div>
-                  <Segmented<KindFilter>
-                    value={kind}
-                    onChange={setKind}
-                    options={[
-                      { key: "all", label: t("cr.kind.all") },
-                      { key: "image", label: t("cr.kind.image") },
-                      { key: "video", label: t("cr.kind.video") },
-                      { key: "document", label: t("cr.kind.document") },
-                    ]}
-                  />
+                  {p.staff && files.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelected(selected.size === files.length ? new Set() : new Set(files.map((c) => c.id)))}
+                      className="text-caption font-medium text-muted hover:text-foreground sm:ml-auto"
+                    >
+                      {selected.size === files.length ? t("cr.clearSelection") : t("cr.selectAll", { n: files.length })}
+                    </button>
+                  )}
                 </div>
 
                 {p.staff && selected.size > 0 && (
                   <div className="mx-4 mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-surface-2 px-3 py-2 text-sm sm:mx-5">
                     <span className="font-medium">{t("cr.selected", { n: selected.size })}</span>
+                    {p.tagsReady && (
+                      <Button variant="secondary" size="sm" onClick={() => openTags(Array.from(selected))}>
+                        <Tag className="h-3.5 w-3.5" /> {t("cr.tag.button")}
+                      </Button>
+                    )}
                     <div className="w-48">
                       <Select
                         value=""
@@ -577,8 +764,8 @@ export function CreativesView(p: CreativesViewProps) {
                 {files.length === 0 ? (
                   <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
                     <Images className="h-10 w-10 text-muted/50" />
-                    <p className="max-w-sm text-sm text-muted">{query || kind !== "all" ? t("cr.empty.filtered") : p.staff ? t("cr.empty.staff") : t("cr.empty.client")}</p>
-                    {p.staff && !query && kind === "all" && (
+                    <p className="max-w-sm text-sm text-muted">{query || filtering ? t("cr.empty.filtered") : p.staff ? t("cr.empty.staff") : t("cr.empty.client")}</p>
+                    {p.staff && !query && !filtering && (
                       <div className="flex flex-wrap justify-center gap-2">
                         <Button size="sm" onClick={() => setUploadOpen(true)}>
                           <UploadCloud className="h-4 w-4" /> {t("cr.upload.button")}
@@ -597,7 +784,7 @@ export function CreativesView(p: CreativesViewProps) {
                         <li key={c.id} className="group relative">
                           <button
                             type="button"
-                            onClick={() => (selected.size ? (c.source === "upload" ? toggle(c.id) : null) : setViewer(i))}
+                            onClick={() => (selected.size ? toggle(c.id) : setViewer(i))}
                             className={cn("block w-full overflow-hidden rounded-xl border text-left transition-all hover:shadow-card", sel ? "border-brand ring-2 ring-brand/40" : "border-line")}
                           >
                             <div className="relative aspect-square bg-surface-2">
@@ -614,12 +801,24 @@ export function CreativesView(p: CreativesViewProps) {
                               <p className="truncate text-caption font-medium text-foreground" title={c.name}>
                                 {c.name}
                               </p>
-                              <p className="truncate text-[11px] text-muted">
+                              {(c.platforms?.length || c.campaign) && (
+                                <p className="mt-1 flex min-w-0 items-center gap-1">
+                                  {(c.platforms ?? []).slice(0, 4).map((pl) => (
+                                    <PlatformMark key={pl} platform={pl} size={14} />
+                                  ))}
+                                  {c.campaign && (
+                                    <span className="min-w-0 truncate rounded bg-surface-2 px-1.5 py-px text-[10px] font-medium text-soft" title={c.campaign}>
+                                      {c.campaign}
+                                    </span>
+                                  )}
+                                </p>
+                              )}
+                              <p className="mt-0.5 truncate text-[11px] text-muted">
                                 {[new Date(c.created_at).toLocaleDateString(dl, { timeZone: APP_TZ, day: "numeric", month: "short" }), c.width && c.height ? `${c.width}×${c.height}` : "", humanBytes(c.size_bytes)].filter(Boolean).join(" · ")}
                               </p>
                             </div>
                           </button>
-                          {p.staff && c.source === "upload" && (
+                          {p.staff && (
                             <label className={cn("absolute left-1.5 top-1.5 flex h-6 w-6 cursor-pointer items-center justify-center rounded-md bg-white/90 shadow ring-1 ring-black/10 transition-opacity", sel || selected.size ? "opacity-100" : "opacity-0 focus-within:opacity-100 group-hover:opacity-100")}>
                               <input type="checkbox" checked={sel} onChange={() => toggle(c.id)} className="h-3.5 w-3.5 accent-[rgb(var(--brand))]" aria-label={t("cr.select", { name: c.name })} />
                             </label>
@@ -641,7 +840,7 @@ export function CreativesView(p: CreativesViewProps) {
         </div>
       )}
 
-      {viewer !== null && files[viewer] && <Lightbox items={files} index={viewer} onIndex={setViewer} onClose={() => setViewer(null)} onDelete={p.staff ? (c) => askDeleteFiles([c.id]) : undefined} />}
+      {viewer !== null && files[viewer] && <Lightbox items={files} index={viewer} onIndex={setViewer} onClose={() => setViewer(null)} onDelete={p.staff ? (c) => askDeleteFiles([c.id]) : undefined} onTag={p.staff && p.tagsReady ? (c) => (setViewer(null), openTags([c.id])) : undefined} />}
 
       {p.staff && (
         <>
@@ -653,10 +852,20 @@ export function CreativesView(p: CreativesViewProps) {
             projectId={projectId}
             folderId={folderId}
             initialFiles={dropped}
+            campaigns={p.campaigns}
+            tagsReady={p.tagsReady}
             onDone={(n) => {
               ok(t("cr.upload.toast", { n }));
               refresh();
             }}
+          />
+          <TagModal
+            open={!!tagFor}
+            onClose={() => setTagFor(null)}
+            count={tagFor?.ids.length ?? 0}
+            initial={{ platforms: tagFor?.platforms ?? [], campaign: tagFor?.campaign ?? "" }}
+            campaigns={p.campaigns}
+            onSave={saveTags}
           />
           <ConnectModal open={connectOpen} onClose={() => setConnectOpen(false)} folderId={folder?.id ?? null} categoryLabel={folder ? `${project?.name ?? ""} / ${folder.name}` : ""} ready={p.ready} />
         </>

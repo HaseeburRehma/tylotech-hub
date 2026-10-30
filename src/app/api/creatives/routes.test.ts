@@ -222,6 +222,38 @@ describe("move, rename, delete (team only)", () => {
   });
 });
 
+describe("platform and campaign tags (team only)", () => {
+  it("partners can't tag; unknown platforms and other partners' files are refused", async () => {
+    user = clientA;
+    expect((await files.PATCH(req("/api/creatives", "PATCH", { ids: [UP], platforms: ["instagram"] }))).status).toBe(403);
+    user = STAFF_USER;
+    expect((await files.PATCH(req("/api/creatives", "PATCH", { ids: [UP], platforms: ["instagram", "<script>"] }))).status).toBe(400);
+    expect((await files.PATCH(req("/api/creatives", "PATCH", { ids: [UP], campaign: 5 }))).status).toBe(400);
+    expect((await files.PATCH(req("/api/creatives", "PATCH", { ids: [UP, CB], campaign: "Mix" }))).status).toBe(400);
+    expect(db.tables.creatives.find((c) => c.id === CB)!.campaign).toBeUndefined();
+  });
+
+  it("tags uploads and synced files alike; empty campaign clears it", async () => {
+    const r = await json(await files.PATCH(req("/api/creatives", "PATCH", { ids: [UP, DRV], platforms: ["instagram", "facebook"], campaign: "  Herbst\n2026 " })));
+    expect(r.body).toMatchObject({ ok: true, tagged: 2 });
+    for (const id of [UP, DRV]) expect(db.tables.creatives.find((c) => c.id === id)).toMatchObject({ platforms: ["instagram", "facebook"], campaign: "Herbst 2026" });
+    await files.PATCH(req("/api/creatives", "PATCH", { ids: [UP], campaign: "" }));
+    expect(db.tables.creatives.find((c) => c.id === UP)!.campaign).toBeNull();
+    expect(db.tables.creatives.find((c) => c.id === UP)!.platforms).toEqual(["instagram", "facebook"]);
+  });
+
+  it("uploads carry their tags; bad tags are dropped, not stored", async () => {
+    const path = `${A}/${PA}/${FA}/${U}-Story.png`;
+    db.objects.set(path, { size: 10, mimetype: "image/png" });
+    await files.POST(req("/api/creatives", "POST", { items: [{ path, name: "Story.png", platforms: ["tiktok"], campaign: "Reels" }] }));
+    expect(db.tables.creatives.find((c) => c.storage_path === path)).toMatchObject({ platforms: ["tiktok"], campaign: "Reels" });
+    const path2 = `${A}/${PA}/${FA}/${U}-Story2.png`;
+    db.objects.set(path2, { size: 10, mimetype: "image/png" });
+    await files.POST(req("/api/creatives", "POST", { items: [{ path: path2, name: "Story2.png", platforms: ["evil"], campaign: { $ne: 1 } }] }));
+    expect(db.tables.creatives.find((c) => c.storage_path === path2)).toMatchObject({ platforms: [], campaign: null });
+  });
+});
+
 describe("categories and monthly limit (team only)", () => {
   it("add, rename, refuse duplicates, remove only when empty", async () => {
     user = clientA;
