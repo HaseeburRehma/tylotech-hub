@@ -91,7 +91,9 @@ async function pdfThumb(blob: Blob): Promise<Blob> {
     const canvas = document.createElement("canvas");
     canvas.width = Math.ceil(viewport.width);
     canvas.height = Math.ceil(viewport.height);
-    await page.render({ canvasContext: canvas.getContext("2d")!, viewport }).promise;
+    // "print" draws in one go; the default waits for animation frames, which
+    // browsers pause in background tabs (the thumbnail would never finish).
+    await page.render({ canvasContext: canvas.getContext("2d")!, viewport, intent: "print" }).promise;
     return toJpeg(canvas, canvas.width, canvas.height, THUMB_PX);
   } finally {
     await doc.destroy();
