@@ -14,7 +14,6 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +31,7 @@ import { cn } from "@/lib/utils";
 import type { Project, ProjectStatus } from "@/types";
 import type { TeamMember } from "@/lib/data";
 import { APP_TZ } from "@/lib/utils";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 type StatusFilter = "all" | ProjectStatus;
 type SortKey = "due_asc" | "due_desc" | "name" | "progress";
@@ -65,7 +65,7 @@ export function ProjectsManager({
 }) {
   const t = useT();
   const dl = useIntlLocale();
-  const router = useRouter();
+  const refresh = useRefresh();
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [assignee, setAssignee] = useState<string>("all");
   const [sort, setSort] = useState<SortKey>("due_asc");
@@ -133,7 +133,7 @@ export function ProjectsManager({
       setActionError(data?.error ?? t("proj.actionError"));
     }
     setBusy(null);
-    router.refresh();
+    refresh();
   }
 
   const patch = (id: string, body: Record<string, unknown>) => send(id, { method: "PATCH", body: JSON.stringify({ id, ...body }) });

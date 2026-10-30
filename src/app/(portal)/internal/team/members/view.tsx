@@ -1,7 +1,6 @@
 "use client";
 
 import { Mail, Plus, UserPlus } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +10,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { APP_TZ } from "@/lib/utils";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 export interface StaffRow {
   id: string;
@@ -26,7 +26,7 @@ export interface StaffRow {
 export function MembersView({ members, currentUserId, isAdmin }: { members: StaffRow[]; currentUserId: string; isAdmin: boolean }) {
   const t = useT();
   const dl = useIntlLocale();
-  const router = useRouter();
+  const refresh = useRefresh();
   const [busy, setBusy] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
@@ -58,7 +58,7 @@ export function MembersView({ members, currentUserId, isAdmin }: { members: Staf
     const d = res ? await res.json().catch(() => ({})) : {};
     setBusy(null);
     setNotice(res?.ok ? { ok: true, text: t("members.saved") } : { ok: false, text: d.error ?? t("ait.actionFailed") });
-    if (res?.ok) router.refresh();
+    if (res?.ok) refresh();
   }
 
   async function invite(e: React.FormEvent) {
@@ -77,7 +77,7 @@ export function MembersView({ members, currentUserId, isAdmin }: { members: Staf
       setNotice({ ok: true, text: r.emailed ? t("members.invited", { email: r.email }) : t("members.invitedNoEmail", { email: r.email }) });
       setInviteEmail("");
       setInviteName("");
-      router.refresh();
+      refresh();
     } else {
       setNotice({ ok: false, text: r?.status === "exists" ? t("ob.inviteExists", { emails: r.email }) : d.error ?? r?.error ?? t("ait.actionFailed") });
     }

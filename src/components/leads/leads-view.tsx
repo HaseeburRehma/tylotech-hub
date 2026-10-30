@@ -23,6 +23,7 @@ import { ContactButtons, OwnerMenu, StatusMenu } from "./lead-row-controls";
 import { LeadDrawer } from "./lead-drawer";
 import { AddLeadModal, InviteSalesModal, MetaPagesModal, SheetTabsModal } from "./lead-modals";
 import { SourcesModal } from "./lead-sources-modal";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 type OwnerFilter = "all" | "me" | "none" | string;
 type SortKey = "no" | "name" | "source" | "status" | "owner" | "received";
@@ -78,6 +79,7 @@ export function LeadsView({
   const dl = useIntlLocale();
   const user = useUser();
   const router = useRouter();
+  const refresh = useRefresh();
   const [leads, setLeads] = useState<Lead[]>(initial);
   // The page's clock: "5 min ago", today and this month all read it. Starts at
   // the server's render time, then follows the device every 30 s.
@@ -723,7 +725,7 @@ export function LeadsView({
           onClose={() => setModal(null)}
           onCreated={(id) => {
             setModal(null);
-            router.refresh();
+            refresh();
             setOpenId(id);
           }}
         />
@@ -737,7 +739,7 @@ export function LeadsView({
           metaReady={metaReady}
           webhook={webhook}
           onClose={() => setModal(null)}
-          onChanged={() => router.refresh()}
+          onChanged={() => refresh()}
           onPickTabs={(id) => {
             setSheetSource(id);
             setModal("sheetTabs");
@@ -751,7 +753,7 @@ export function LeadsView({
           onDone={(r) => {
             setModal(null);
             setNotice(`${t("leads.sheet.imported", { added: r.added, updated: r.updated })}${r.pending ? ` ${t("leads.sheet.more")}` : ""}`);
-            router.refresh();
+            refresh();
           }}
         />
       )}
@@ -765,7 +767,7 @@ export function LeadsView({
           onDone={(n) => {
             setModal(null);
             setNotice(t("leads.meta.connected", { n: String(n) }));
-            router.refresh();
+            refresh();
           }}
         />
       )}

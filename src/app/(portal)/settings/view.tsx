@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { currentLoginPath } from "@/lib/login-brand";
 import { leadSoundEnabled, playLeadSound, setLeadSoundEnabled } from "@/lib/lead-sound";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 const TABS = ["profile", "security", "notifications", "appearance"] as const;
 type Tab = (typeof TABS)[number];
@@ -46,6 +47,7 @@ export function SettingsView({
   staff: boolean;
 }) {
   const router = useRouter();
+  const refresh = useRefresh();
   const t = useT();
   const { locale, setLocale } = useI18n();
   const params = useSearchParams();
@@ -97,7 +99,7 @@ export function SettingsView({
       return;
     }
     setSaveMsg({ ok: true, text: t("settings.saved") });
-    router.refresh();
+    refresh();
   }
 
   async function uploadAvatar(file: File) {
@@ -110,7 +112,7 @@ export function SettingsView({
     setAvatarBusy(false);
     if (!res?.ok) return setAvatarError(d.error ?? t("settings.saveFailed"));
     setAvatar(d.url);
-    router.refresh();
+    refresh();
   }
 
   async function removeAvatar() {
@@ -120,7 +122,7 @@ export function SettingsView({
     setAvatarBusy(false);
     if (!res?.ok) return setAvatarError(t("settings.saveFailed"));
     setAvatar(null);
-    router.refresh();
+    refresh();
   }
 
   async function changePassword(e: React.FormEvent) {

@@ -217,3 +217,133 @@ export function ChartsPageSkeleton({ label }: { label: string }) {
     </Shell>
   );
 }
+
+/** Dashboards: KPI cards, the main chart and two side-by-side lists. */
+export function DashboardSkeleton({ label }: { label: string }) {
+  return (
+    <Shell label={label}>
+      <HeaderSkeleton />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="card p-5">
+            <Bar className="mb-3 h-3 w-24" />
+            <Bar className="h-8 w-20 rounded-lg" />
+            <Bar className="mt-2 h-3 w-16" />
+          </div>
+        ))}
+      </div>
+      <div className="card p-6">
+        <Bar className="mb-4 h-4 w-32" />
+        <div className="h-56 w-full rounded-xl bg-surface-2/70" />
+      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {[3, 4].map((rows) => (
+          <div key={rows} className="card overflow-hidden">
+            <div className="border-b border-line p-4">
+              <Bar className="h-4 w-40" />
+            </div>
+            <RowsSkeleton rows={rows} />
+          </div>
+        ))}
+      </div>
+    </Shell>
+  );
+}
+
+/** Kanban-style boards (internal hub pipeline, processes): stat tiles, then columns of cards. */
+export function BoardSkeleton({ label, stats = 0, columns = 4 }: { label: string; stats?: number; columns?: number }) {
+  return (
+    <Shell label={label}>
+      <HeaderSkeleton />
+      {stats > 0 && <StatTilesSkeleton n={stats} />}
+      <div className="flex gap-2">
+        {[0, 1, 2].map((i) => (
+          <Bar key={i} className="h-9 w-24 rounded-xl" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: columns }, (_, c) => (
+          <div key={c} className={cn("card space-y-3 p-3", c >= 2 && "hidden xl:block")}>
+            <div className="flex items-center justify-between px-1">
+              <Bar className="h-4 w-24" />
+              <Bar className="h-5 w-8 rounded-full" />
+            </div>
+            {Array.from({ length: 3 - (c % 2) }, (_, i) => (
+              <div key={i} className="space-y-2 rounded-xl border border-line p-3">
+                <Bar className="h-4 w-3/4" />
+                <div className="flex items-center gap-2">
+                  <Bar className="h-5 w-5 rounded-full" />
+                  <Bar className="h-3 w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </Shell>
+  );
+}
+
+/** One record (a partner, a process run): avatar header, tabs, then content cards. */
+export function DetailSkeleton({ label, tabs = 5 }: { label: string; tabs?: number }) {
+  return (
+    <Shell label={label}>
+      <Bar className="h-4 w-28" />
+      <div className="flex items-center gap-4">
+        <Bar className="h-14 w-14 rounded-2xl" />
+        <div className="flex-1 space-y-2">
+          <Bar className="h-7 w-56 rounded-lg" />
+          <Bar className="h-4 w-40" />
+        </div>
+        <div className="hidden h-10 w-32 rounded-xl bg-brand/20 sm:block" />
+      </div>
+      {tabs > 0 && (
+        <div className="flex gap-2 overflow-hidden border-b border-line pb-3">
+          {Array.from({ length: tabs }, (_, i) => (
+            <Bar key={i} className="h-8 w-24 shrink-0 rounded-lg" />
+          ))}
+        </div>
+      )}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="card overflow-hidden">
+          <div className="border-b border-line p-4">
+            <Bar className="h-4 w-40" />
+          </div>
+          <RowsSkeleton rows={5} />
+        </div>
+        <div className="card space-y-4 p-5">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="space-y-2">
+              <Bar className="h-3 w-20" />
+              <Bar className="h-4 w-40" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </Shell>
+  );
+}
+
+/** AI tool: the input form beside the output panel. */
+export function ComposerSkeleton({ label }: { label: string }) {
+  return (
+    <Shell label={label}>
+      <HeaderSkeleton actions={1} />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)]">
+        <div className="card space-y-4 p-5">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="space-y-2">
+              <Bar className="h-3 w-28" />
+              <Bar className={cn("w-full rounded-xl", i === 0 ? "h-24" : "h-10")} />
+            </div>
+          ))}
+          <div className="h-11 w-full rounded-xl bg-brand/20" />
+        </div>
+        <div className="card min-h-[320px] space-y-3 p-5">
+          <Bar className="h-4 w-32" />
+          <div className="h-full min-h-[240px] w-full rounded-xl bg-surface-2/70" />
+        </div>
+      </div>
+    </Shell>
+  );
+}

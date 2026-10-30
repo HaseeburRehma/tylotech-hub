@@ -2,11 +2,11 @@
 
 import { ModalShell } from "@/components/ui/modal";
 import { Building2, Check, X } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 const COLOR_SWATCHES = [
   "#3B5BDB",
@@ -27,7 +27,7 @@ export function NewClientModal({
   onClose: () => void;
 }) {
   const t = useT();
-  const router = useRouter();
+  const refresh = useRefresh();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,7 +85,7 @@ export function NewClientModal({
     setEmail("");
     setSince("");
     onClose();
-    router.refresh();
+    refresh();
   }
 
   return (

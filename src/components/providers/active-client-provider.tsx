@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { writeActiveClientCookie } from "@/lib/active-client";
 import type { SidebarClient } from "@/components/layout/app-shell";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 // Pages whose server component reads ?client= — switching re-navigates them.
 const URL_SCOPED_PATHS = ["/performance", "/integrations"];
@@ -35,6 +36,7 @@ export function ActiveClientProvider({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const refresh = useRefresh();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const urlRef = searchParams.get("client");
@@ -62,10 +64,10 @@ export function ActiveClientProvider({
         qs.set("client", refOf(client));
         router.push(`${pathname}?${qs}`);
       } else {
-        router.refresh();
+        refresh();
       }
     },
-    [pathname, router, searchParams],
+    [pathname, refresh, router, searchParams],
   );
 
   const value = useMemo<ActiveClientValue>(

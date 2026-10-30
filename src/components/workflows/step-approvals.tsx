@@ -1,7 +1,6 @@
 "use client";
 
 import { BadgeCheck, CircleDashed, MessageSquareWarning, Send, ShieldCheck, Undo2, X } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,7 @@ import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import type { Approval, ApprovalStatus, RunStep, StaffOption } from "@/lib/workflows-shared";
 import { AttachmentIcon } from "./step-attachments";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 const stamp = (iso: string) =>
   new Date(iso).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" });
@@ -32,7 +32,7 @@ export function ApprovalBadge({ status, className }: { status: ApprovalStatus; c
  */
 export function StepApprovals({ step, staff, partner }: { step: RunStep; staff: StaffOption[]; partner: string }) {
   const t = useT();
-  const router = useRouter();
+  const refresh = useRefresh();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +45,7 @@ export function StepApprovals({ step, staff, partner }: { step: RunStep; staff: 
     const res = await fetch(`/api/approvals/${a.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ decision: "cancel" }) }).catch(() => null);
     setBusy(null);
     if (!res?.ok) return setError(((await res?.json().catch(() => ({}))) as { error?: string })?.error ?? t("ait.actionFailed"));
-    router.refresh();
+    refresh();
   }
 
   return (
@@ -83,7 +83,7 @@ export function StepApprovals({ step, staff, partner }: { step: RunStep; staff: 
           ))}
         </ul>
       )}
-      {open && <RequestApprovalModal step={step} partner={partner} onClose={() => setOpen(false)} onDone={() => router.refresh()} />}
+      {open && <RequestApprovalModal step={step} partner={partner} onClose={() => setOpen(false)} onDone={() => refresh()} />}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { ActiveClientProvider } from "@/components/providers/active-client-provider";
 import { MotionProvider } from "@/components/providers/motion-provider";
+import { RefreshProvider } from "@/components/providers/refresh-provider";
 import { SpeedToLeadProvider } from "@/components/leads/speed-to-lead-provider";
 import { activeClientRef } from "@/lib/active-client-server";
 
@@ -17,28 +18,24 @@ export default async function PortalLayout({ children }: { children: React.React
 
   // Staff get the client roster in the sidebar (to jump into each client's
   // workspace/chat). The list is confidential, so clients never receive it.
+  // Lightweight counts for sidebar badges (staff only, best-effort), read
+  // together with the roster.
   let clients: SidebarClient[] = [];
-  if (isStaff(user)) {
-    const admin = createAdminClient();
-    if (admin) {
-      // Tolerate the pre-0021 window where `slug` doesn't exist yet.
-      const res = await admin.from("clients").select("*").order("company");
-      clients = (res.data ?? []).filter((c: any) => !c.archived_at).map((c: any) => ({ id: c.id, slug: c.slug ?? null, name: c.company ?? "Client", logoUrl: c.logo_url, color: c.primary_color ?? null }));
-    }
-  }
-
-  // Lightweight counts for sidebar badges (staff only, best-effort)
   let navBadges: Record<string, number> = {};
   if (isStaff(user)) {
+    const admin = createAdminClient();
     const sb = createClient();
+    const [roster, projects, processes] = await Promise.all([
+      // Tolerate the pre-0021 window where `slug` doesn't exist yet.
+      admin ? admin.from("clients").select("*").order("company") : null,
+      sb ? sb.from("projects").select("*", { count: "exact", head: true }).neq("status", "done") : null,
+      sb ? sb.from("workflow_runs").select("*", { count: "exact", head: true }).eq("status", "active") : null,
+    ]);
+    clients = (roster?.data ?? []).filter((c: any) => !c.archived_at).map((c: any) => ({ id: c.id, slug: c.slug ?? null, name: c.company ?? "Client", logoUrl: c.logo_url, color: c.primary_color ?? null }));
     if (sb) {
-      const [{ count: projCount }, { count: procCount }] = await Promise.all([
-        sb.from("projects").select("*", { count: "exact", head: true }).neq("status", "done"),
-        sb.from("workflow_runs").select("*", { count: "exact", head: true }).eq("status", "active"),
-      ]);
       navBadges = {
-        "/internal/projects": projCount ?? 0,
-        "/internal/processes": procCount ?? 0,
+        "/internal/projects": projects?.count ?? 0,
+        "/internal/processes": processes?.count ?? 0,
       };
     }
   }
@@ -48,19 +45,21 @@ export default async function PortalLayout({ children }: { children: React.React
 
   return (
     <UserProvider user={user}>
-      <ActiveClientProvider clients={clients} initialActiveId={initialActiveId}>
-        <MotionProvider>
-          <AppShell user={user} canSeeInternal={isStaff(user)} clients={clients} navBadges={navBadges}>
-            {children}
-          </AppShell>
-        </MotionProvider>
-        <SpeedToLeadProvider
-          userId={user.id}
-          role={user.role}
-          clientId={user.client_id}
-          tenantNames={isStaff(user) ? Object.fromEntries(clients.map((c) => [c.id, c.name])) : undefined}
-        />
-      </ActiveClientProvider>
+      <RefreshProvider>
+        <ActiveClientProvider clients={clients} initialActiveId={initialActiveId}>
+          <MotionProvider>
+            <AppShell user={user} canSeeInternal={isStaff(user)} clients={clients} navBadges={navBadges}>
+              {children}
+            </AppShell>
+          </MotionProvider>
+          <SpeedToLeadProvider
+            userId={user.id}
+            role={user.role}
+            clientId={user.client_id}
+            tenantNames={isStaff(user) ? Object.fromEntries(clients.map((c) => [c.id, c.name])) : undefined}
+          />
+        </ActiveClientProvider>
+      </RefreshProvider>
     </UserProvider>
   );
 }

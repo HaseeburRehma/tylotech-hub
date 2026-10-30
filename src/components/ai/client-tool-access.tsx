@@ -1,17 +1,17 @@
 "use client";
 
 import { Bot } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AI_TOOLS } from "@/lib/ai-tools";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 /** Staff switch individual AI tools on/off for one client (client_tools). */
 export function ClientToolAccess({ clientId, locked }: { clientId: string; locked: string[] }) {
   const t = useT();
-  const router = useRouter();
+  const refresh = useRefresh();
   const [off, setOff] = useState(() => new Set(locked));
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState(false);
@@ -33,7 +33,7 @@ export function ClientToolAccess({ clientId, locked }: { clientId: string; locke
       else next.add(slug);
       return next;
     });
-    router.refresh();
+    refresh();
   }
 
   return (

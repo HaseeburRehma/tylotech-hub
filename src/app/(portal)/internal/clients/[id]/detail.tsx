@@ -39,6 +39,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import type { ChatPeer, Client, DocItem, Kpi, Message, Project, Role, Update } from "@/types";
 import type { TeamMember } from "@/lib/data";
 import { APP_TZ } from "@/lib/utils";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 const TABS = [
   { key: "overview", labelKey: "cd.tab.overview" },
@@ -137,11 +138,12 @@ export function ClientDetail({
     setArchiving(false);
     if (res?.ok) {
       if (archive) router.push("/internal/clients");
-      else router.refresh();
+      else refresh();
     }
   }
   const [chatWith, setChatWith] = useState<string | null>(null);
   const router = useRouter();
+  const refresh = useRefresh();
   const { setThemeOverride } = useTheme();
   const isChat = tab === "chat";
 

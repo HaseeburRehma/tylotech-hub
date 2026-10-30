@@ -1,7 +1,6 @@
 "use client";
 
 import { Pencil, Plus, Trash2, X } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +11,7 @@ import { UPDATE_META } from "@/lib/status";
 import { formatRelativeTime } from "@/lib/utils";
 import { Update, UpdateType } from "@/types";
 import { useT } from "@/lib/i18n/provider";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 const TYPES: UpdateType[] = ["milestone", "report", "campaign", "note", "alert"];
 
@@ -24,7 +24,7 @@ export function UpdatesManager({
   clientId: string;
   canPost: boolean;
 }) {
-  const router = useRouter();
+  const refresh = useRefresh();
   const t = useT();
   const [open, setOpen] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -69,7 +69,7 @@ export function UpdatesManager({
     setForm({ title: "", description: "", type: "note" });
     setEditingId(null);
     setOpen(false);
-    router.refresh();
+    refresh();
   }
 
   async function remove(id: string) {
@@ -80,7 +80,7 @@ export function UpdatesManager({
     setConfirmId(null);
     const res = await fetch(`/api/updates?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null);
     if (!res?.ok) setError(t("upd.deleteFailed"));
-    router.refresh();
+    refresh();
   }
 
   return (

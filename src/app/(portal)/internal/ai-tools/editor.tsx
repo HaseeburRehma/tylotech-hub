@@ -1,7 +1,6 @@
 "use client";
 
 import { Check, Clock, Megaphone, Mail, PenLine, Search, Users, Globe } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +12,7 @@ import { cn } from "@/lib/utils";
 import type { AiToolRow } from "@/lib/data";
 import { APP_TZ } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   PenLine,
@@ -137,7 +137,7 @@ function PromptPanel({
   t: (k: string, v?: Record<string, string | number>) => string;
   canEdit: boolean;
 }) {
-  const router = useRouter();
+  const refresh = useRefresh();
   const dl = useIntlLocale();
   const [saved, setSaved] = useState(tool.prompt_template ?? "");
   const [prompt, setPrompt] = useState(tool.prompt_template ?? "");
@@ -168,7 +168,7 @@ function PromptPanel({
     }
     setSaved(prompt);
     setState("saved");
-    router.refresh();
+    refresh();
     setTimeout(() => setState("idle"), 2000);
     return true;
   }

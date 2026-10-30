@@ -22,7 +22,6 @@ import { cn, formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { useUser } from "@/components/providers/user-provider";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { AutoRefresh } from "@/components/integrations/auto-refresh";
 import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { LOWER_IS_BETTER, shownDelta } from "@/lib/status";
@@ -30,6 +29,7 @@ import { useActiveClient } from "@/components/providers/active-client-provider";
 import type { Kpi, Project, SeriesPoint, Update } from "@/types";
 import type { IntegrationHealthRow, PortfolioSummary } from "@/lib/data";
 import { APP_TZ } from "@/lib/utils";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 function DeltaBadge({ value, goodWhenDown = false, unit = "%" }: { value: number; goodWhenDown?: boolean; unit?: string }) {
   const good = goodWhenDown ? value <= 0 : value >= 0;
@@ -170,7 +170,7 @@ export function ClientDashboardView({
   totalSources: number;
 }) {
   const user = useUser();
-  const router = useRouter();
+  const refresh = useRefresh();
   const t = useT();
   const dl = useIntlLocale();
   const firstName = user.name.split(" ")[0];
@@ -198,14 +198,14 @@ export function ClientDashboardView({
       ch.on(
         "postgres_changes",
         { event: "*", schema: "public", table, filter: `client_id=eq.${cid}` },
-        () => router.refresh(),
+        () => refresh(),
       );
     }
     ch.subscribe();
     return () => {
       sb.removeChannel(ch);
     };
-  }, [user.client_id, router]);
+  }, [user.client_id, refresh]);
 
   return (
     <div className="space-y-4 sm:space-y-5">

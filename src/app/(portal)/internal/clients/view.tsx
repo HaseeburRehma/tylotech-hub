@@ -10,7 +10,6 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useUser } from "@/components/providers/user-provider";
 import { Avatar } from "@/components/ui/avatar";
@@ -26,6 +25,7 @@ import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { ClientListRow, TeamMember } from "@/lib/data";
 import { APP_TZ } from "@/lib/utils";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 type PlanFilter = "all" | "Growth" | "Scale" | "new" | "archived" | "risk";
 type SortKey = "budget" | "mrr" | "leads" | "name" | "newest" | "health";
@@ -92,7 +92,7 @@ export function ClientsView({
   const [member, setMember] = useState<string>("all");
   const [activeOnly, setActiveOnly] = useState(false);
   const [showNewClient, setShowNewClient] = useState(false);
-  const router = useRouter();
+  const refresh = useRefresh();
   const user = useUser();
   const canArchive = user.role === "admin";
 
@@ -109,7 +109,7 @@ export function ClientsView({
       body: JSON.stringify({ archived: false }),
     }).catch(() => null);
     setRestoring(null);
-    if (res?.ok) router.refresh();
+    if (res?.ok) refresh();
     else setRestoreError(t("clients.restoreError"));
   }
   const extraFilters = (member !== "all" ? 1 : 0) + (activeOnly ? 1 : 0);

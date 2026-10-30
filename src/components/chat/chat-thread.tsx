@@ -48,6 +48,7 @@ import { ChatPeer, Message, Role } from "@/types";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { APP_TZ } from "@/lib/utils";
+import { postForm } from "@/lib/upload-progress";
 
 /** The conversation's client logo — shown instead of initials for client senders. */
 const ClientLogoContext = createContext<string | null>(null);
@@ -336,6 +337,7 @@ function ChatThreadInner({
   const [unread, setUnread] = useState<Record<string, number>>({});
   const [val, setVal] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editVal, setEditVal] = useState("");
@@ -877,8 +879,10 @@ function ChatThreadInner({
     if (clientId) fd.append("clientId", clientId);
     if (recipientId) fd.append("recipientId", recipientId);
     if (internal) fd.append("internal", "true");
-    const res = await fetch("/api/messages/attachment", { method: "POST", body: fd }).catch(() => null);
+    setProgress(0);
+    const res = await postForm("/api/messages/attachment", fd, setProgress);
     setUploading(false);
+    setProgress(null);
     if (res?.ok) {
       const { message } = await res.json();
       if (message?.id) {
@@ -1649,6 +1653,7 @@ function ChatThreadInner({
                     >
                       {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                     </button>
+                    {uploading && progress !== null && <span className="px-1 text-caption tabular-nums text-muted">{progress}%</span>}
                     <button
                       type="button"
                       onClick={() => setEmojiOpen((o) => !o)}

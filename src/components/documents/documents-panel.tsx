@@ -17,7 +17,6 @@ import {
   Upload,
   type LucideIcon,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +29,8 @@ import { cn } from "@/lib/utils";
 import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { useUser } from "@/components/providers/user-provider";
 import { APP_TZ } from "@/lib/utils";
+import { useRefresh } from "@/components/providers/refresh-provider";
+import { postForm } from "@/lib/upload-progress";
 
 // `label` values are i18n keys — translated at render via t().
 // Figma chips: report teal, contract gold, invoice/asset neutral.
@@ -64,7 +65,7 @@ export function DocumentsPanel({
   documents: DocItem[];
   clientId: string | null;
 }) {
-  const router = useRouter();
+  const refresh = useRefresh();
   const t = useT();
   const dl = useIntlLocale();
   const [filter, setFilter] = useState<DocType | "all">("all");
@@ -72,6 +73,7 @@ export function DocumentsPanel({
   const [sort, setSort] = useState<SortKey>("newest");
   const [uploadType, setUploadType] = useState<DocType>("report");
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<DocItem | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -108,14 +110,16 @@ export function DocumentsPanel({
     fd.append("file", file);
     fd.append("type", user.role === "client" ? "asset" : uploadType);
     if (clientId) fd.append("clientId", clientId);
-    const res = await fetch("/api/documents", { method: "POST", body: fd }).catch(() => null);
+    setProgress(0);
+    const res = await postForm("/api/documents", fd, setProgress);
     setUploading(false);
+    setProgress(null);
     if (!res?.ok) {
       const d = res ? await res.json().catch(() => ({})) : {};
       setError(d.error ?? t("documents.uploadFailed"));
       return;
     }
-    router.refresh();
+    refresh();
   }
 
   async function confirmRemove() {
@@ -130,7 +134,7 @@ export function DocumentsPanel({
       return;
     }
     setError(null);
-    router.refresh();
+    refresh();
   }
 
   return (
@@ -169,6 +173,7 @@ export function DocumentsPanel({
           >
             {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             {t("documents.upload")}
+            {uploading && progress !== null && <span className="tabular-nums">{progress}%</span>}
           </button>
           <input
             ref={fileRef}

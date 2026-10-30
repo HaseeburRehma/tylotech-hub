@@ -2,7 +2,6 @@
 
 import { ClipboardList, Plus, X } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ModalShell } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
@@ -15,6 +14,7 @@ import { PROJECT_STATUS } from "@/lib/status";
 import { cn } from "@/lib/utils";
 import type { ProjectStatus } from "@/types";
 import type { TeamMember } from "@/lib/data";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 const NEW_STATUSES: ProjectStatus[] = ["planning", "in_progress", "review", "done"];
 const label = "mb-1.5 block text-body-sm text-soft";
@@ -33,7 +33,7 @@ export function NewProjectModal({
   members: TeamMember[];
 }) {
   const t = useT();
-  const router = useRouter();
+  const refresh = useRefresh();
   const { active } = useActiveClient();
 
   const [name, setName] = useState("");
@@ -75,7 +75,7 @@ export function NewProjectModal({
     setSaving(false);
     if (!res?.ok) return setError(data?.error ?? t("newProj.error"));
     onClose();
-    router.refresh();
+    refresh();
   }
 
   return (

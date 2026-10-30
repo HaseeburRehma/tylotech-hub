@@ -1,7 +1,6 @@
 "use client";
 
 import { Pencil, X } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -9,6 +8,7 @@ import { ModalShell } from "@/components/ui/modal";
 import { useT } from "@/lib/i18n/provider";
 import type { Client, Plan } from "@/types";
 import { TYLOTECH_GOLD } from "@/lib/theme/themes";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 const PLANS: Plan[] = ["Starter", "Growth", "Scale", "Enterprise"];
 const HEX_RE = /^#[0-9a-f]{6}$/i;
@@ -33,7 +33,7 @@ function ColorField({ id, label, value, onChange }: { id: string; label: string;
 
 export function EditClientModal({ open, onClose, client }: { open: boolean; onClose: () => void; client: Client }) {
   const t = useT();
-  const router = useRouter();
+  const refresh = useRefresh();
   const [company, setCompany] = useState(client.company);
   const [contact, setContact] = useState(client.name ?? "");
   const [plan, setPlan] = useState<Plan>(client.plan);
@@ -79,7 +79,7 @@ export function EditClientModal({ open, onClose, client }: { open: boolean; onCl
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return setError(data.error ?? t("editClient.failed"));
       onClose();
-      router.refresh();
+      refresh();
     } catch {
       setError(t("editClient.failed"));
     } finally {

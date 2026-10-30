@@ -12,6 +12,7 @@ import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { activeStep, isOverdue, runProgress, type Run, type RunStatus, type StaffOption } from "@/lib/workflows-shared";
 import { APP_TZ } from "@/lib/utils";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 export function RunStatusBadge({ status }: { status: RunStatus }) {
   const t = useT();
@@ -39,6 +40,7 @@ export function RunHeader({ run, partner, partnerHref }: { run: Run; partner: st
   const dl = useIntlLocale();
   const user = useUser();
   const router = useRouter();
+  const refresh = useRefresh();
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +110,7 @@ export function RunHeader({ run, partner, partnerHref }: { run: Run; partner: st
                 const v = e.target.value;
                 const prev = repeatEvery;
                 setRepeatEvery(v);
-                if (await call("PATCH", { repeatEvery: v || null })) router.refresh();
+                if (await call("PATCH", { repeatEvery: v || null })) refresh();
                 else setRepeatEvery(prev);
               }}
               className="input-base h-8 w-auto appearance-none py-0 pr-7 text-xs"
@@ -135,12 +137,12 @@ export function RunHeader({ run, partner, partnerHref }: { run: Run; partner: st
             </Button>
           )}
           {run.status === "active" && (
-            <Button size="sm" variant="secondary" loading={busy} onClick={async () => (await call("PATCH", { status: "paused" })) && router.refresh()}>
+            <Button size="sm" variant="secondary" loading={busy} onClick={async () => (await call("PATCH", { status: "paused" })) && refresh()}>
               <Pause className="h-4 w-4" /> {t("wf.pause")}
             </Button>
           )}
           {run.status === "paused" && (
-            <Button size="sm" variant="secondary" loading={busy} onClick={async () => (await call("PATCH", { status: "active" })) && router.refresh()}>
+            <Button size="sm" variant="secondary" loading={busy} onClick={async () => (await call("PATCH", { status: "active" })) && refresh()}>
               <Play className="h-4 w-4" /> {t("wf.resume")}
             </Button>
           )}

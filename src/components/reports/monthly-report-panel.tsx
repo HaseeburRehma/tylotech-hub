@@ -1,12 +1,12 @@
 "use client";
 
 import { Eye, FileText, Mail } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 export interface ReportRun {
   period: string;
@@ -44,7 +44,7 @@ export function MonthlyReportPanel({
   locale: string;
 }) {
   const t = useT();
-  const router = useRouter();
+  const refresh = useRefresh();
   const periods = recentPeriods(6);
   const [period, setPeriod] = useState(periods[0]);
   const [on, setOn] = useState(enabled);
@@ -63,7 +63,7 @@ export function MonthlyReportPanel({
     setBusy(null);
     if (res?.ok) {
       setOn(!on);
-      router.refresh();
+      refresh();
     } else setNotice({ ok: false, text: t("ait.actionFailed") });
   }
 
@@ -82,7 +82,7 @@ export function MonthlyReportPanel({
     if (d.status === "sent") setNotice({ ok: true, text: t("report.sentOk", { n: d.recipients ?? 0 }) });
     else if (d.status === "skipped") setNotice({ ok: false, text: t("report.skippedNoData") });
     else setNotice({ ok: false, text: d.reason ?? d.error ?? t("ait.actionFailed") });
-    router.refresh();
+    refresh();
   }
 
   return (

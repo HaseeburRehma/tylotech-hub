@@ -2,7 +2,6 @@
 
 import { Archive, ArchiveRestore, Check, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import { TemplateEditor } from "@/components/workflows/template-editor";
 import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { activeStep, berlinToday, isOverdue, type Run, type StaffOption, type Template } from "@/lib/workflows-shared";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 type Tab = "board" | "mine" | "templates";
 
@@ -120,7 +120,7 @@ function MyTasks({ runs, company }: { runs: Run[]; company: Record<string, strin
   const t = useT();
   const dl = useIntlLocale();
   const user = useUser();
-  const router = useRouter();
+  const refresh = useRefresh();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const today = berlinToday();
@@ -142,7 +142,7 @@ function MyTasks({ runs, company }: { runs: Run[]; company: Record<string, strin
       const d = res ? await res.json().catch(() => ({})) : {};
       setError((d as { error?: string }).error ?? t("ait.actionFailed"));
     }
-    router.refresh();
+    refresh();
   }
 
   if (!tasks.length) return <Card className="py-12 text-center text-sm text-muted">{t("wf.noTasks")}</Card>;
@@ -182,7 +182,7 @@ function MyTasks({ runs, company }: { runs: Run[]; company: Record<string, strin
 
 function Templates({ templates, staff }: { templates: Template[]; staff: StaffOption[] }) {
   const t = useT();
-  const router = useRouter();
+  const refresh = useRefresh();
   const [editing, setEditing] = useState<Template | "new" | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -194,7 +194,7 @@ function Templates({ templates, staff }: { templates: Template[]; staff: StaffOp
       body: JSON.stringify({ archived }),
     }).catch(() => null);
     setBusy(null);
-    router.refresh();
+    refresh();
   }
 
   if (editing) return <TemplateEditor template={editing === "new" ? null : editing} staff={staff} onDone={() => setEditing(null)} />;

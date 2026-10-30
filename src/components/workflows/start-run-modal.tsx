@@ -10,6 +10,7 @@ import { ModalShell } from "@/components/ui/modal";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { resolveDefaultAssignee, type StaffOption, type Template } from "@/lib/workflows-shared";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 /**
  * Pick a template + one, several or all partners, review who's responsible for
@@ -33,6 +34,7 @@ export function StartRunModal({
 }) {
   const t = useT();
   const router = useRouter();
+  const refresh = useRefresh();
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
   const [selected, setSelected] = useState<string[]>(fixedClientId ? [fixedClientId] : []);
   const [query, setQuery] = useState("");
@@ -83,12 +85,12 @@ export function StartRunModal({
     const data = (res ? await res.json().catch(() => ({})) : {}) as { id?: string; ids?: string[]; error?: string };
     setBusy(false);
     if (!res?.ok) {
-      if (data.ids?.length) router.refresh();
+      if (data.ids?.length) refresh();
       return setError(data.error ?? t("ait.actionFailed"));
     }
     onClose();
     if (selected.length === 1 && data.id) router.push(`/internal/processes/${data.id}`);
-    else router.refresh();
+    else refresh();
   }
 
   const partnerName = clients.find((c) => c.id === fixedClientId)?.company;

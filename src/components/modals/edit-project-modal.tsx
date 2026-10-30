@@ -2,16 +2,16 @@
 
 import { ModalShell } from "@/components/ui/modal";
 import { Pencil, X } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/lib/i18n/provider";
 import type { Project } from "@/types";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 /** Edit a project's name, description and due date (status/progress live in the row menu). */
 export function EditProjectModal({ project, onClose }: { project: Project | null; onClose: () => void }) {
   const t = useT();
-  const router = useRouter();
+  const refresh = useRefresh();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [due, setDue] = useState("");
@@ -40,7 +40,7 @@ export function EditProjectModal({ project, onClose }: { project: Project | null
     setSaving(false);
     if (!res?.ok) return setError(data?.error ?? t("editProj.error"));
     onClose();
-    router.refresh();
+    refresh();
   }
 
   const field =

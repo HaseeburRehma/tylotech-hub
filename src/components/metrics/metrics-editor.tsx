@@ -1,7 +1,6 @@
 "use client";
 
 import { Check, Plus, RefreshCw, Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,6 +9,7 @@ import { useT } from "@/lib/i18n/provider";
 import { formatCurrency } from "@/lib/utils";
 import { getProvider } from "@/lib/integrations/providers";
 import type { Kpi } from "@/types";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 type Row = { metric_name: string; label: string; value: string; unit: Kpi["unit"]; delta: string; period: string };
 
@@ -20,7 +20,7 @@ const fmt = (k: Kpi) =>
   k.unit === "currency" ? formatCurrency(k.value) : k.unit === "percent" ? `${k.value} %` : k.unit === "ratio" ? `${k.value}x` : String(k.value);
 
 export function MetricsEditor({ clientId, initialKpis }: { clientId: string; initialKpis: Kpi[] }) {
-  const router = useRouter();
+  const refresh = useRefresh();
   const t = useT();
   const synced = initialKpis.filter((k) => k.source !== MANUAL);
   const [rows, setRows] = useState<Row[]>(
@@ -56,7 +56,7 @@ export function MetricsEditor({ clientId, initialKpis }: { clientId: string; ini
       return;
     }
     setState("saved");
-    router.refresh();
+    refresh();
     setTimeout(() => setState("idle"), 2000);
   }
 

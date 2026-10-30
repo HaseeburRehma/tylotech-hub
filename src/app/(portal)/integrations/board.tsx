@@ -19,6 +19,7 @@ import { useT, useIntlLocale } from "@/lib/i18n/provider";
 import type { IntegrationProvider } from "@/lib/integrations/providers";
 import { APP_TZ } from "@/lib/utils";
 import { ProviderLogo } from "@/components/integrations/provider-logo";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 const ICONS: Record<string, LucideIcon> = {
   meta_ads: Megaphone,
@@ -62,6 +63,7 @@ export function IntegrationsBoard({
   liveProviders: string[];
 }) {
   const router = useRouter();
+  const refresh = useRefresh();
   const pathname = usePathname();
   const params = useSearchParams();
   const t = useT();
@@ -120,7 +122,7 @@ export function IntegrationsBoard({
         ? { ok: true, text: t(action === "connect" ? "integ.connectedOk" : "integ.disconnectedOk", { name: providerName(providerId) }) }
         : { ok: false, text: data.error ?? t("integ.err.generic") },
     );
-    router.refresh();
+    refresh();
   }
 
   async function sync(providerId?: string) {
@@ -145,7 +147,7 @@ export function IntegrationsBoard({
         ].join(" · "),
       });
     }
-    router.refresh();
+    refresh();
   }
 
   async function syncAllClients() {
@@ -153,13 +155,13 @@ export function IntegrationsBoard({
     const { ok, data } = await post("/api/integrations/sync-all");
     setBusy(null);
     setNotice(ok ? { ok: true, text: t("integ.syncAllDone") } : { ok: false, text: data.error ?? t("integ.err.generic") });
-    router.refresh();
+    refresh();
   }
 
   async function configure(providerId: string, field: "accountId" | "loginCustomerId" | "siteUrl" | "propertyId" | "accessToken", value: string) {
     const { ok, data } = await post(`/api/integrations/${providerId}`, { action: "configure", clientId, [field]: value });
     setNotice(ok ? { ok: true, text: t("integ.savedSetting") } : { ok: false, text: data.error ?? t("integ.err.generic") });
-    router.refresh();
+    refresh();
   }
 
   const anyConnected = rows.some((r) => r.status === "connected");

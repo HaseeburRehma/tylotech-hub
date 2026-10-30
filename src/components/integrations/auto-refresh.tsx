@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 /**
  * Pulls fresh live data on a fixed cadence. Fires once on mount (respecting the
@@ -15,7 +15,7 @@ export function AutoRefresh({
   clientId?: string | null;
   intervalMs?: number;
 }) {
-  const router = useRouter();
+  const refresh = useRefresh();
   const running = useRef(false);
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export function AutoRefresh({
         });
         if (!cancelled && res.ok) {
           const data = await res.json().catch(() => null);
-          if (data?.synced > 0) router.refresh();
+          if (data?.synced > 0) refresh();
         }
       } catch {
         /* offline / transient — the next tick retries */
@@ -47,7 +47,7 @@ export function AutoRefresh({
       cancelled = true;
       clearInterval(id);
     };
-  }, [clientId, intervalMs, router]);
+  }, [clientId, intervalMs, refresh]);
 
   return null;
 }

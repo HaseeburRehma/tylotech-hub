@@ -1,13 +1,13 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { useT } from "@/lib/i18n/provider";
 import type { StaffOption, Template } from "@/lib/workflows-shared";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 interface DraftStep {
   key: string;
@@ -36,7 +36,7 @@ const toDraft = (tpl: Template | null): DraftStep[] =>
  */
 export function TemplateEditor({ template, staff, onDone }: { template: Template | null; staff: StaffOption[]; onDone: () => void }) {
   const t = useT();
-  const router = useRouter();
+  const refresh = useRefresh();
   const [name, setName] = useState(template?.name ?? "");
   const [description, setDescription] = useState(template?.description ?? "");
   const [steps, setSteps] = useState<DraftStep[]>(() => toDraft(template));
@@ -76,7 +76,7 @@ export function TemplateEditor({ template, staff, onDone }: { template: Template
     const data = res ? await res.json().catch(() => ({})) : {};
     setBusy(false);
     if (!res?.ok) return setError((data as { error?: string }).error ?? t("ait.actionFailed"));
-    router.refresh();
+    refresh();
     onDone();
   }
 

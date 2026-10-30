@@ -2,7 +2,6 @@
 
 import { ArrowRight, Check, ExternalLink, FileText, Image as ImageIcon, Link2, MessageSquareWarning, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AttachmentViewer, type ViewerItem } from "@/components/chat/attachment-viewer";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ import { useUser } from "@/components/providers/user-provider";
 import { ApprovalBadge } from "@/components/workflows/step-approvals";
 import { useT } from "@/lib/i18n/provider";
 import type { Approval } from "@/lib/workflows-shared";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 const stamp = (iso: string) =>
   new Date(iso).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" });
@@ -63,7 +63,7 @@ export function ApprovalsList({ approvals }: { approvals: Approval[] }) {
 
 function ApprovalCard({ a, canDecide }: { a: Approval; canDecide: boolean }) {
   const t = useT();
-  const router = useRouter();
+  const refresh = useRefresh();
   const [mode, setMode] = useState<"idle" | "changes">("idle");
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
@@ -84,7 +84,7 @@ function ApprovalCard({ a, canDecide }: { a: Approval; canDecide: boolean }) {
     }).catch(() => null);
     setBusy(false);
     if (!res?.ok) return setError(((await res?.json().catch(() => ({}))) as { error?: string })?.error ?? t("ait.actionFailed"));
-    router.refresh();
+    refresh();
   }
 
   return (

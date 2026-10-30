@@ -1,7 +1,6 @@
 "use client";
 
 import { Check, ChevronDown, Lock, Paperclip, RotateCcw, Share2, SkipForward, StickyNote } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label, Textarea } from "@/components/ui/input";
@@ -12,6 +11,7 @@ import { ApprovalBadge, StepApprovals } from "@/components/workflows/step-approv
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { isOverdue, type Run, type RunStep, type StaffOption } from "@/lib/workflows-shared";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 const fmtDate = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
 const fmtStamp = (iso: string) =>
@@ -36,7 +36,7 @@ async function patchStep(id: string, body: Record<string, unknown>) {
 export function RunSteps({ run, staff, partner = "-" }: { run: Run; staff: StaffOption[]; partner?: string }) {
   const t = useT();
   const user = useUser();
-  const router = useRouter();
+  const refresh = useRefresh();
   const [open, setOpen] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +51,7 @@ export function RunSteps({ run, staff, partner = "-" }: { run: Run; staff: Staff
     const r = await patchStep(step.id, body);
     setBusy(null);
     if (!r.ok) setError(r.error ?? t("ait.actionFailed"));
-    router.refresh();
+    refresh();
   }
 
   return (

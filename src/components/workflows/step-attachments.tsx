@@ -1,7 +1,6 @@
 "use client";
 
 import { FileSpreadsheet, FileText, FolderInput, Image as ImageIcon, Link2, Paperclip, Plus, Trash2, Upload, X } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { AttachmentViewer, type ViewerItem } from "@/components/chat/attachment-viewer";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,7 @@ import { useT } from "@/lib/i18n/provider";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { RunStep, StaffOption, StepAttachment } from "@/lib/workflows-shared";
+import { useRefresh } from "@/components/providers/refresh-provider";
 
 const MAX_BYTES = 50 * 1024 * 1024;
 const ACCEPT = ".pdf,.png,.jpg,.jpeg,.webp,.gif,.heic,.csv,.txt,.xls,.xlsx,.doc,.docx,.ppt,.pptx,.ods,.odt,.zip";
@@ -67,7 +67,7 @@ async function json(res: Response | null) {
 export function StepAttachments({ step, staff, hasPartner }: { step: RunStep; staff: StaffOption[]; hasPartner: boolean }) {
   const t = useT();
   const user = useUser();
-  const router = useRouter();
+  const refresh = useRefresh();
   const fileRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<StepAttachment[]>(step.attachments ?? []);
   const [busy, setBusy] = useState<string | null>(null);
@@ -139,7 +139,7 @@ export function StepAttachments({ step, staff, hasPartner }: { step: RunStep; st
       setItems((prev) => [...prev, done.data.attachment as StepAttachment]);
       if (done.data.shareError) setError(String(done.data.shareError));
     }
-    router.refresh();
+    refresh();
   }
 
   async function addLink() {
@@ -158,7 +158,7 @@ export function StepAttachments({ step, staff, hasPartner }: { step: RunStep; st
     setLinkUrl("");
     setLinkName("");
     setLinkOpen(false);
-    router.refresh();
+    refresh();
   }
 
   async function remove(a: StepAttachment) {
@@ -168,7 +168,7 @@ export function StepAttachments({ step, staff, hasPartner }: { step: RunStep; st
     setBusy(null);
     if (!res.ok) return setError(res.error ?? t("ait.actionFailed"));
     setItems((prev) => prev.filter((x) => x.id !== a.id));
-    router.refresh();
+    refresh();
   }
 
   async function shareClient(a: StepAttachment) {
