@@ -80,7 +80,8 @@ function videoThumb(id: string): Promise<Blob> {
 
 async function pdfThumb(blob: Blob): Promise<Blob> {
   const pdfjs = await import("pdfjs-dist");
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+  // Workers must come from our own site (a CDN worker is refused and pdf.js then waits forever).
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.js", import.meta.url).toString();
   // isEvalSupported: false closes CVE-2024-4367 (crafted fonts running script).
   const doc = await pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()), isEvalSupported: false, disableFontFace: true }).promise;
   try {
@@ -118,8 +119,20 @@ async function store(id: string, what: "thumb" | "preview", jpeg: Blob) {
   await call("PUT");
 }
 
-/** Make and store what one creative is missing. */
-export async function makeThumbs(c: ThumbCreative): Promise<void> {
+/** Gives up after `ms`, so one stuck file never holds up the rest. */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("timeout")), ms);
+    p.then((v) => (clearTimeout(t), resolve(v)), (e) => (clearTimeout(t), reject(e)));
+  });
+}
+
+/** Make and store what one creative is missing (at most 60 seconds). */
+export function makeThumbs(c: ThumbCreative): Promise<void> {
+  return withTimeout(makeThumbsNow(c), 60_000);
+}
+
+async function makeThumbsNow(c: ThumbCreative): Promise<void> {
   const need = missing(c);
   if (!need.thumb && !need.preview) return;
   if (c.kind === "video") return store(c.id, "thumb", await videoThumb(c.id));
