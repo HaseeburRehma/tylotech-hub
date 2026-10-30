@@ -31,23 +31,26 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401, headers: NO_STORE });
   }
 
-  const rl = await getRateLimiter().limit(`feed:${ipKey(req)}`, config.rateLimit.feed);
-  if (!rl.success) {
-    return NextResponse.json({ error: "Too many requests." }, { status: 429, headers: { ...NO_STORE, ...rateLimitHeaders(rl) } });
-  }
-
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ error: "Backend not configured." }, { status: 503, headers: NO_STORE });
 
-  const { data, error } = await admin
-    .from("activity_events")
-    .select("id, kind, title, detail, occurred_at, clients!inner(public_feed_opt_in, archived_at)")
-    .eq("hidden", false)
-    .eq("clients.public_feed_opt_in", true)
-    .is("clients.archived_at", null)
-    .gt("occurred_at", new Date(Date.now() - FEED_WINDOW_MS).toISOString())
-    .order("occurred_at", { ascending: false })
-    .limit(FEED_LIMIT);
+  // The limit check runs alongside the read (only the token holder gets this
+  // far); a refused request discards the rows.
+  const [rl, { data, error }] = await Promise.all([
+    getRateLimiter().limit(`feed:${ipKey(req)}`, config.rateLimit.feed),
+    admin
+      .from("activity_events")
+      .select("id, kind, title, detail, occurred_at, clients!inner(public_feed_opt_in, archived_at)")
+      .eq("hidden", false)
+      .eq("clients.public_feed_opt_in", true)
+      .is("clients.archived_at", null)
+      .gt("occurred_at", new Date(Date.now() - FEED_WINDOW_MS).toISOString())
+      .order("occurred_at", { ascending: false })
+      .limit(FEED_LIMIT),
+  ]);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many requests." }, { status: 429, headers: { ...NO_STORE, ...rateLimitHeaders(rl) } });
+  }
 
   if (error) {
     console.error("live-feed:", error.message);

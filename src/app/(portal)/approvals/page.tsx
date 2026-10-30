@@ -1,7 +1,7 @@
 import { getAuthUser, isStaff } from "@/lib/auth";
 import { activeClientRef } from "@/lib/active-client-server";
 import { loadApprovals, missingApprovals } from "@/lib/approvals";
-import { getClientByRef, listClients } from "@/lib/data";
+import { pickStaffClient } from "@/lib/data";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ApprovalsView } from "./view";
 
@@ -10,10 +10,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: { 
   // Staff see the partner picked in the sidebar (read-only); clients their own company.
   let clientId = user?.client_id ?? null;
   if (isStaff(user)) {
-    const ref = activeClientRef(searchParams.client);
-    const picked = ref ? await getClientByRef(ref) : null;
-    const [first] = (await listClients()).sort((a, b) => a.company.localeCompare(b.company));
-    clientId = picked?.id ?? first?.id ?? null;
+    clientId = (await pickStaffClient(activeClientRef(searchParams.client)))?.id ?? null;
   }
   const admin = createAdminClient();
   const res = admin && clientId ? await loadApprovals(admin, { clientId }) : { data: [], error: null };

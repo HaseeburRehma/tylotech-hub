@@ -26,19 +26,22 @@ export async function GET(req: Request) {
   if ((from && !DAY.test(from)) || (to && !DAY.test(to)) || (!!from !== !!to) || (from && to && from > to)) {
     return NextResponse.json({ error: "Invalid date range." }, { status: 400 });
   }
-  const rl = await getRateLimiter().limit(`lead-campaigns:${ctx.user.id}`, { limit: 30, windowSec: 60 });
+  // The limit check runs alongside the connection read; the ad platforms are
+  // only called once it has passed.
+  const [rl, { data: rows }] = await Promise.all([
+    getRateLimiter().limit(`lead-campaigns:${ctx.user.id}`, { limit: 30, windowSec: 60 }),
+    ctx.admin
+      .from("integrations")
+      .select("provider,access_token,refresh_token,meta")
+      .eq("client_id", ctx.clientId)
+      .in("provider", ["meta_ads", "google_ads"])
+      .eq("status", "connected"),
+  ]);
   if (!rl.success) return NextResponse.json({ error: "Too many requests. Try again in a minute." }, { status: 429 });
 
   const key = `${ctx.clientId}|${from}|${to}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return NextResponse.json(hit.body);
-
-  const { data: rows } = await ctx.admin
-    .from("integrations")
-    .select("provider,access_token,refresh_token,meta")
-    .eq("client_id", ctx.clientId)
-    .in("provider", ["meta_ads", "google_ads"])
-    .eq("status", "connected");
 
   const jobs: Promise<{ provider: string; result: StatsResult }>[] = [];
   for (const r of (rows ?? []) as any[]) {

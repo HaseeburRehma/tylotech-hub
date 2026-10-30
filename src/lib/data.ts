@@ -3,6 +3,7 @@
  * Reads through the RLS-scoped Supabase server client. Real data only — no mock
  * fallbacks. Callers render clean empty states when a list is empty.
  */
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeHealth, type ClientHealth } from "@/lib/health";
@@ -51,12 +52,29 @@ function mapClient(c: any): Client {
   };
 }
 
-export async function listClients(opts: { includeArchived?: boolean } = {}): Promise<Client[]> {
+/** Every client the caller may see (RLS), read once per request and shared by layout, page and helpers. */
+const clientRows = cache(async (): Promise<Client[]> => {
   const sb = createClient();
   if (!sb) return [];
   const { data } = await sb.from("clients").select("*").order("created_at", { ascending: true });
+  return (data ?? []).map(mapClient);
+});
+
+export async function listClients(opts: { includeArchived?: boolean } = {}): Promise<Client[]> {
   // archived_at arrives with migration 0030; filtering in code keeps this tolerant.
-  return (data ?? []).map(mapClient).filter((c) => opts.includeArchived || !c.archived_at);
+  return (await clientRows()).filter((c) => opts.includeArchived || !c.archived_at);
+}
+
+/**
+ * The partner a staff page works on: the sidebar's pick (slug or UUID; archived
+ * ones too, so old links keep opening), else the first active partner by name.
+ * One read of the client list instead of a lookup followed by the list.
+ */
+export async function pickStaffClient(ref: string | null): Promise<Client | null> {
+  const all = await clientRows();
+  const picked = ref ? all.find((c) => c.id === ref || c.slug === ref) : undefined;
+  if (picked) return picked;
+  return all.filter((c) => !c.archived_at).sort((a, b) => a.company.localeCompare(b.company))[0] ?? null;
 }
 
 export async function getClient(id: string): Promise<Client | null> {
@@ -109,12 +127,22 @@ export async function getClientBySlugPublic(
  */
 async function selectAll<T>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>, cap = 50_000): Promise<T[]> {
   const PAGE = 1000;
-  const out: T[] = [];
-  for (let from = 0; from < cap; from += PAGE) {
+  const BATCH = 4;
+  const page = async (from: number) => {
     const { data, error } = await build(from, from + PAGE - 1);
-    if (error || !data) break;
-    out.push(...data);
-    if (data.length < PAGE) break;
+    return error || !data ? null : data;
+  };
+  const first = await page(0);
+  const out: T[] = first ? [...first] : [];
+  if (!first || first.length < PAGE) return out;
+  // Longer results: fetch the next pages a few at a time instead of one after another.
+  for (let from = PAGE; from < cap; from += PAGE * BATCH) {
+    const starts = Array.from({ length: BATCH }, (_, i) => from + i * PAGE).filter((f) => f < cap);
+    for (const rows of await Promise.all(starts.map(page))) {
+      if (!rows) return out;
+      out.push(...rows);
+      if (rows.length < PAGE) return out;
+    }
   }
   return out;
 }
@@ -250,9 +278,8 @@ export interface PortfolioSummary {
 export const DEMO_SLUG_PREFIX = "demo-";
 export const isDemoClient = (c: { slug?: string | null }) => !!c.slug?.startsWith(DEMO_SLUG_PREFIX);
 
-async function demoClientIds(sb: NonNullable<ReturnType<typeof createClient>>): Promise<Set<string>> {
-  const { data } = await sb.from("clients").select("id").like("slug", `${DEMO_SLUG_PREFIX}%`);
-  return new Set((data ?? []).map((c: { id: string }) => c.id));
+async function demoClientIds(): Promise<Set<string>> {
+  return new Set((await clientRows()).filter(isDemoClient).map((c) => c.id));
 }
 
 export async function getPortfolioSummary(): Promise<PortfolioSummary> {
@@ -290,7 +317,7 @@ export async function getPortfolioSummary(): Promise<PortfolioSummary> {
       .order("client_id", { ascending: true })
       .order("provider", { ascending: true })
       .range(from, to),
-  ), demoClientIds(sb)]);
+  ), demoClientIds()]);
   // Sample data of the App Store review client must not count as real spend.
   const rows = allRows.filter((r) => !demoIds.has(r.client_id));
   if (!rows.length) return empty;
@@ -370,14 +397,13 @@ export interface IntegrationHealthRow {
 export async function listIntegrationHealth(): Promise<IntegrationHealthRow[]> {
   const admin = createAdminClient();
   if (!admin) return [];
-  const { data: rows } = await admin
-    .from("integrations")
-    .select("client_id,provider,status,last_synced_at")
-    .neq("status", "connected");
+  const [{ data: rows }, clients] = await Promise.all([
+    admin.from("integrations").select("client_id,provider,status,last_synced_at").neq("status", "connected"),
+    listClients(),
+  ]);
   const actionable = (rows ?? []).filter((r: any) => r.status === "error" || r.last_synced_at);
   if (!actionable.length) return [];
 
-  const clients = await listClients();
   const byId = new Map(clients.map((c) => [c.id, c]));
   return actionable
     .map((r: any) => {
@@ -398,17 +424,14 @@ export async function listIntegrationHealth(): Promise<IntegrationHealthRow[]> {
 export async function listUpdatesAll(limit = 8): Promise<(Update & { clientName: string })[]> {
   const sb = createClient();
   if (!sb) return [];
-  const { data } = await sb
-    .from("updates")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  const [{ data }, clients] = await Promise.all([
+    sb.from("updates").select("*").order("created_at", { ascending: false }).limit(limit),
+    listClients({ includeArchived: true }),
+  ]);
   const rows = data ?? [];
   if (!rows.length) return [];
 
-  const clientIds = Array.from(new Set(rows.map((u: any) => u.client_id)));
-  const { data: clients } = await sb.from("clients").select("id,company").in("id", clientIds);
-  const nameById = new Map((clients ?? []).map((c: any) => [c.id, c.company]));
+  const nameById = new Map(clients.map((c) => [c.id, c.company]));
   return (rows as Update[]).map((u) => ({ ...u, clientName: nameById.get(u.client_id) ?? "-" }));
 }
 
@@ -688,9 +711,8 @@ export async function listClientsEnriched(): Promise<ClientListRow[]> {
 export async function listTeamLoad(): Promise<TeamLoad[]> {
   const sb = createClient();
   if (!sb) return [];
-  const users = await fetchStaff(sb);
+  const [users, { data: projects }] = await Promise.all([fetchStaff(sb), sb.from("projects").select("*")]);
   if (!users.length) return [];
-  const { data: projects } = await sb.from("projects").select("*");
   return users.map((u: any) => {
     const open = (projects ?? []).filter((p: any) => p.status !== "done" && projectAssigneeIds(p).includes(u.id));
     return {

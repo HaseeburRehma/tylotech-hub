@@ -1,6 +1,6 @@
 import { getAuthUser, isStaff } from "@/lib/auth";
 import { activeClientRef } from "@/lib/active-client-server";
-import { getClientByRef, listClientUsers, listClients, listMessages, listTeamPeers, listUpdates } from "@/lib/data";
+import { listClientUsers, listMessages, listTeamPeers, listUpdates, pickStaffClient } from "@/lib/data";
 import { ChatView } from "./view";
 
 export default async function ChatPage({ searchParams }: { searchParams: { client?: string } }) {
@@ -13,9 +13,7 @@ export default async function ChatPage({ searchParams }: { searchParams: { clien
   let clientCompany = user?.company ?? "";
   let clientLogoUrl = user?.logoUrl ?? null;
   if (isStaff(user)) {
-    const ref = activeClientRef(searchParams.client);
-    const picked = ref ? await getClientByRef(ref) : null;
-    const fallback = picked ?? [...(await listClients())].sort((a, b) => a.company.localeCompare(b.company))[0] ?? null;
+    const fallback = await pickStaffClient(activeClientRef(searchParams.client));
     clientId = fallback?.id ?? null;
     clientCompany = fallback?.company ?? "";
     clientLogoUrl = fallback?.logo_url ?? null;

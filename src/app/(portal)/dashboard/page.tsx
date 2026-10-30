@@ -20,11 +20,15 @@ export default async function DashboardPage() {
   if (!user || user.role === "client") {
     const clientId = user?.client_id ?? null;
     const admin = createAdminClient();
-    const [kpis, projects, updates, series, integ] = await Promise.all([
+    // The GA4 and Search Console series load alongside the ad series, so a
+    // client without ads doesn't wait for two more reads one after another.
+    const [kpis, projects, updates, series, ga4, seo, integ] = await Promise.all([
       getKpis(clientId),
       listProjects(clientId),
       listUpdates(clientId),
       getSeries(clientId),
+      getSeries(clientId, "ga4"),
+      getSeries(clientId, "search_console"),
       admin && clientId
         ? admin.from("integrations").select("status").eq("client_id", clientId)
         : Promise.resolve({ data: [] as { status: string }[] }),
@@ -34,14 +38,8 @@ export default async function DashboardPage() {
     // No ad data? Chart what the client does have: GA4 sessions/users, else
     // Search Console clicks — instead of an empty "connect an ad source" box.
     let chart: { kind: "ads" | "ga4" | "seo"; series: typeof series } = { kind: "ads", series };
-    if (!series.length && clientId) {
-      const ga4 = await getSeries(clientId, "ga4");
-      if (ga4.length) chart = { kind: "ga4", series: ga4.slice(-30) };
-      else {
-        const seo = await getSeries(clientId, "search_console");
-        if (seo.length) chart = { kind: "seo", series: seo.slice(-30) };
-      }
-    }
+    if (!series.length && ga4.length) chart = { kind: "ga4", series: ga4.slice(-30) };
+    else if (!series.length && seo.length) chart = { kind: "seo", series: seo.slice(-30) };
 
     return (
       <ClientDashboardView

@@ -1,6 +1,6 @@
 import { getAuthUser, isStaff } from "@/lib/auth";
 import { activeClientRef } from "@/lib/active-client-server";
-import { getClientByRef, listClients } from "@/lib/data";
+import { pickStaffClient } from "@/lib/data";
 import { leadPeople, missingLeads, sourceView, type Lead, type LeadSourceView } from "@/lib/leads";
 import { metaApp, metaWebhookVerifyToken } from "@/lib/leads-meta";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -16,10 +16,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: { clie
   let clientId = user?.client_id ?? null;
   let company = user?.company ?? "";
   if (staff) {
-    const ref = activeClientRef(searchParams.client);
-    const picked = ref ? await getClientByRef(ref) : null;
-    const [first] = (await listClients()).sort((a, b) => a.company.localeCompare(b.company));
-    const c = picked ?? first ?? null;
+    const c = await pickStaffClient(activeClientRef(searchParams.client));
     clientId = c?.id ?? null;
     company = c?.company ?? "";
   }

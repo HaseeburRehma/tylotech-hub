@@ -17,13 +17,16 @@ const STAGES: { key: ProjectStatus; label: string }[] = [
 export default async function InternalPage() {
   const sb = createClient();
   const admin = createAdminClient();
-  const [clients, team, projects, health, runs, staff] = await Promise.all([
+  const [clients, team, projects, health, runs, staff, { data: historyRows }] = await Promise.all([
     listClients(),
     listTeamLoad(),
     listProjects(),
     listClientHealth(),
     sb ? loadRuns(sb) : Promise.resolve([]),
     listStaff(admin ?? undefined),
+    sb
+      ? sb.from("client_mrr_history").select("client_id,mrr,effective_from").order("effective_from")
+      : Promise.resolve({ data: null }),
   ]);
 
   const companyById = Object.fromEntries(clients.map((c) => [c.id, c.company]));
@@ -86,9 +89,6 @@ export default async function InternalPage() {
   // MRR per month from the recorded history (each client's latest MRR change on
   // or before that month's end). Clients without history rows (pre-0028) fall
   // back to their current MRR from their start date.
-  const { data: historyRows } = sb
-    ? await sb.from("client_mrr_history").select("client_id,mrr,effective_from").order("effective_from")
-    : { data: null };
   const history = new Map<string, { mrr: number; from: string }[]>();
   for (const h of (historyRows ?? []) as { client_id: string; mrr: number; effective_from: string }[]) {
     const list = history.get(h.client_id) ?? [];

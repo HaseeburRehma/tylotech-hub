@@ -3,7 +3,7 @@ import { getAuthUser } from "@/lib/auth";
 import { activeClientRef } from "@/lib/active-client-server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getClientByRef } from "@/lib/data";
+import { listClients, pickStaffClient } from "@/lib/data";
 import { PROVIDERS, isProviderLive } from "@/lib/integrations/providers";
 import { translate } from "@/lib/i18n/dictionary";
 import { serverLocale } from "@/lib/i18n/server";
@@ -20,42 +20,35 @@ export default async function IntegrationsPage({
   const isStaff = user?.role !== "client";
   const locale = serverLocale();
 
-  let clients: { id: string; company: string; slug: string | null }[] = [];
-  if (supabase && isStaff) {
-    const { data } = await supabase.from("clients").select("*").order("company");
-    clients = (data ?? []).filter((c: any) => !c.archived_at).map((c: any) => ({ id: c.id, company: c.company, slug: c.slug ?? null }));
-  }
-
   // searchParams.client may be a slug (clean links) or a legacy UUID — resolve
   // it the same way the rest of the app does, so both keep working.
-  const ref = isStaff ? activeClientRef(searchParams.client) : null;
-  const requestedClient = ref ? await getClientByRef(ref) : null;
-  const clientId =
-    user?.role === "client" ? user.client_id : requestedClient?.id ?? clients[0]?.id ?? null;
+  const [list, picked] =
+    supabase && isStaff
+      ? await Promise.all([
+          listClients().then((all) => [...all].sort((a, b) => a.company.localeCompare(b.company))),
+          pickStaffClient(activeClientRef(searchParams.client)),
+        ])
+      : [[], null];
+  const clients = list.map((c) => ({ id: c.id, company: c.company, slug: c.slug ?? null }));
+  const clientId = user?.role === "client" ? user.client_id : picked?.id ?? null;
 
-  let rows: any[] = [];
+  // Read via the service role (integrations SELECT is revoked from the browser
+  // role). clientId is the caller's own tenant (client) or the staff-selected
+  // one, so this is tenant-safe. Strip tokens — expose only a has_token boolean.
+  // The staff overview (which source feeds which client: status only, no tokens
+  // or account ids leave the server) loads at the same time.
   const admin = createAdminClient();
-  if (admin && clientId) {
-    // Read via the service role (integrations SELECT is revoked from the browser
-    // role). clientId is the caller's own tenant (client) or the staff-selected
-    // one, so this is tenant-safe. Strip tokens — expose only a has_token boolean.
-    const { data } = await admin.from("integrations").select("*").eq("client_id", clientId);
-    rows = (data ?? []).map(({ access_token, refresh_token, ...r }: any) => ({
-      ...r,
-      has_token: !!access_token,
-    }));
-  }
-
-  // Staff overview: which source feeds which client (status only — no tokens or
-  // account ids leave the server).
-  let matrix: { client_id: string; provider: string; status: string }[] = [];
-  if (admin && isStaff && clients.length) {
-    const { data } = await admin
-      .from("integrations")
-      .select("client_id,provider,status")
-      .in("client_id", clients.map((c) => c.id));
-    matrix = (data ?? []) as typeof matrix;
-  }
+  const [own, overview] = await Promise.all([
+    admin && clientId ? admin.from("integrations").select("*").eq("client_id", clientId) : null,
+    admin && isStaff && clients.length
+      ? admin.from("integrations").select("client_id,provider,status").in("client_id", clients.map((c) => c.id))
+      : null,
+  ]);
+  const rows: any[] = (own?.data ?? []).map(({ access_token, refresh_token, ...r }: any) => ({
+    ...r,
+    has_token: !!access_token,
+  }));
+  const matrix = (overview?.data ?? []) as { client_id: string; provider: string; status: string }[];
 
   return (
     <div className="space-y-6">
