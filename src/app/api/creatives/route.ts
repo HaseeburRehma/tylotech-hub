@@ -14,7 +14,9 @@ export const runtime = "nodejs";
  * own; the team picks one with ?clientId= and also gets the partner list.
  */
 export async function GET(req: Request) {
+  const t0 = Date.now();
   const user = await getAuthUser();
+  const tAuth = Date.now();
   if (!user) return bad("Unauthorized.", 401);
   const admin = createAdminClient();
   if (!admin) return bad("Backend not configured.", 503);
@@ -36,7 +38,8 @@ export async function GET(req: Request) {
   if (!clientId) return NextResponse.json({ staff, clients: clients ?? [], clientId: null, projects: [], folders: [], creatives: [] });
   const lib = early && (!staff || clientId === asked) ? early : await loadCreativesLibrary(admin, clientId, { campaigns: staff });
   if (lib.missing) return bad("Creatives are being set up.", 503);
-  const { campaigns, sources, ...rest } = lib;
+  const { campaigns, sources, timing, ...rest } = lib;
+  const serverTiming = `auth;dur=${tAuth - t0}, data;dur=${timing.data}, sign;dur=${timing.sign}, total;dur=${Date.now() - t0}`;
   return NextResponse.json({
     staff,
     clients,
@@ -45,7 +48,7 @@ export async function GET(req: Request) {
     ...rest,
     sources: sources.map(({ id, folder_id, provider, label, status, last_synced_at, files }) => ({ id, folder_id, provider, label, status, last_synced_at, files })),
     ...(staff ? { campaigns } : {}),
-  });
+  }, { headers: { "Server-Timing": serverTiming } });
 }
 
 const HASH_RE = /^sha256:[0-9a-f]{64}$/;

@@ -124,6 +124,8 @@ export interface CreativesLibrary {
   campaigns: string[];
   tagsReady: boolean;
   truncated: boolean;
+  /** How long the reads and the link signing took (for Server-Timing). */
+  timing: { data: number; sign: number };
 }
 
 /** How long pre-signed thumbnail links stay valid (pages and the app fall back to the file route after). */
@@ -156,6 +158,7 @@ async function signThumbs(admin: SupabaseClient, rows: (Creative & { storage_pat
 
 /** Everything about one partner's creatives (newest 5,000). Works before migrations 0049/0050. */
 export async function loadCreativesLibrary(admin: SupabaseClient, clientId: string, opts: { campaigns?: boolean } = {}): Promise<CreativesLibrary> {
+  const t0 = Date.now();
   const loadCreatives = async (cols: string) => {
     const out: Creative[] = [];
     for (let from = 0; from < MAX_ROWS; from += 1000) {
@@ -185,7 +188,9 @@ export async function loadCreativesLibrary(admin: SupabaseClient, clientId: stri
   const res = !full.error ? full : !tagged?.error ? tagged! : await loadCreatives(`${COLS},storage_path`);
   const err = foldersRes.error ?? res.error;
   const raw = (res.data ?? []) as (Creative & { storage_path?: string | null })[];
+  const t1 = Date.now();
   const thumbs = await signThumbs(admin, raw);
+  const t2 = Date.now();
   // Callers only need to know a file is stored with us, not where.
   const creatives: Creative[] = raw.map(({ storage_path, ...c }) => ({ ...c, stored: !!storage_path, thumb_url: thumbs.get(c.id) ?? null }));
   const perSource = new Map<string, number>();
@@ -200,5 +205,6 @@ export async function loadCreativesLibrary(admin: SupabaseClient, clientId: stri
     campaigns: campaignNames(creatives, (leadCampaigns.data ?? []) as { campaign: string }[]),
     tagsReady,
     truncated: creatives.length >= MAX_ROWS,
+    timing: { data: t1 - t0, sign: t2 - t1 },
   };
 }
